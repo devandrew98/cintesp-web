@@ -16,8 +16,8 @@
 | **Data** | 23/07/2026 |
 | **Front rodando?** | Sim — `npm run dev` → http://localhost:5180 |
 | **Repositório** | 🔒 privado — `github.com/devandrew98/cintesp-web` (branch `main`) |
-| **Banco (Supabase)** | ✅ Conectado — projeto `qjdvahlcxxkafotlnzrb`. Auth ligada; dados ainda em mock |
-| **Modo de dados** | `VITE_USE_MOCK=true` (telas ainda em mock; auth já é real) |
+| **Banco (Supabase)** | ✅ Conectado — projeto `qjdvahlcxxkafotlnzrb`. Auth + parte das telas já no banco real |
+| **Modo de dados** | `VITE_USE_MOCK=false` (banco real; migração de telas em andamento) |
 
 **Resumo em uma linha:** o app está **completo e pronto de uso em modo mock** — todas as
 telas (Dashboard, Quadro, Meu Horário, Pesquisadores, Agenda, Busca, Avisos, Relatórios,
@@ -91,10 +91,15 @@ Legenda: ✅ concluída · 🚧 em andamento · ⬜ pendente
 - [x] `docs/supabase-schema.sql` aplicado (tabelas criadas) + `docs/supabase-seed.sql` (dados de referência)
 - [x] **Autenticação** completa: login/cadastro (`/login`), sessão persistida, **proteção de rotas** (`RequireAuth`), logout na Topbar
 - [x] Cliente refatorado: auth sempre real quando há chaves; `USE_MOCK` controla só a fonte de dados
-- [ ] **Rodar `docs/supabase-policies.sql`** (grants + RLS + gatilho de perfil) — _sua parte_
-- [ ] Criar a 1ª conta (vira Administrador pelo gatilho) e validar o login
-- [ ] Trocar mock → queries reais (React Query + Supabase), tela por tela
+- [x] **`docs/supabase-policies.sql`** aplicado (grants + RLS + gatilho de perfil)
+- [x] 1ª conta criada (virou Administrador) e **login validado** ✅
+- [x] `docs/supabase-seed.sql` aplicado (+ `docs/supabase-fix-duplicados.sql` p/ limpar seed rodado 2×)
+- 🚧 **Trocar mock → queries reais (React Query + Supabase), tela por tela:**
+  - [x] Avisos (leitura + criar) · [x] Quadro · [x] Pesquisadores · [x] Busca Rápida
+  - [ ] Dashboard · [ ] Agenda do Dia · [ ] Meu Horário · [ ] Relatórios
+  - [ ] Admin: Usuários, Funções, Áreas, Instituições (leitura + escrita real)
 - [ ] Realtime no quadro de disponibilidade e avisos
+- [ ] Convidar/cadastrar pesquisadores (para o quadro deixar de ter só 1 pessoa)
 - [ ] Upload de foto de perfil (Supabase Storage)
 - [ ] Refinar RLS por função/permissão
 
@@ -128,8 +133,12 @@ Legenda: ✅ concluída · 🚧 em andamento · ⬜ pendente
   controlando apenas a fonte de dados das telas. Normaliza a URL (aceita com/sem `/rest/v1/`).
 - Novos SQLs: `docs/supabase-seed.sql` (dados de referência) e `docs/supabase-policies.sql`
   (grants + RLS por papel + gatilho que cria o perfil no cadastro; 1º usuário vira Administrador).
-- _Pendente (com você):_ rodar `supabase-policies.sql`, criar a 1ª conta e validar o login.
-  Depois: migrar as telas de mock → queries reais.
+- **Login validado** ✅ e **migração de dados iniciada** (`VITE_USE_MOCK=false`):
+  - `data/api.ts` = camada de acesso com mapeadores DB→domínio (funções, áreas, instituições,
+    usuários com joins, avisos) e `USE_MOCK` decidindo a fonte.
+  - Telas já no banco real: **Avisos, Quadro, Pesquisadores, Busca** (via React Query, com loading).
+  - `docs/supabase-fix-duplicados.sql`: limpa duplicatas do seed rodado 2× e cria restrições únicas.
+- _Pendente:_ migrar Dashboard, Agenda, Meu Horário, Relatórios e a Administração; realtime; convites.
 
 ### v0.6.0 — 23/07/2026
 - **Fase 6 (front) concluída — app pronto de uso em modo mock.**
