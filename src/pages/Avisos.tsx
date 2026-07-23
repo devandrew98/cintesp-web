@@ -19,10 +19,11 @@ import { SectionCard } from '@/components/ui/SectionCard'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Field'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AvisoFormModal } from '@/components/avisos/AvisoFormModal'
 import { tipoAvisoInfo, statusAvisoInfo } from '@/lib/avisos'
 import { cn, formatDateBR } from '@/lib/utils'
-import { avisos as avisosMock } from '@/data/mock'
+import { listarAvisos, criarAviso } from '@/data/api'
 import type { Aviso, TipoAviso } from '@/types'
 
 const tiposFiltro: Array<{ value: TipoAviso | 'todos'; label: string }> = [
@@ -34,7 +35,18 @@ const tiposFiltro: Array<{ value: TipoAviso | 'todos'; label: string }> = [
 ]
 
 export function AvisosPage() {
-  const [lista, setLista] = useState<Aviso[]>(avisosMock)
+  const queryClient = useQueryClient()
+  // Lê os avisos (Supabase quando conectado; senão, mock).
+  const { data: lista = [], isLoading } = useQuery({
+    queryKey: ['avisos'],
+    queryFn: listarAvisos,
+  })
+  // Cria um aviso e atualiza a lista no cache.
+  const criar = useMutation({
+    mutationFn: criarAviso,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['avisos'] }),
+  })
+
   const [query, setQuery] = useState('')
   const [tipoFiltro, setTipoFiltro] = useState<TipoAviso | 'todos'>('todos')
   const [mostrarFiltros, setMostrarFiltros] = useState(false)
@@ -141,7 +153,9 @@ export function AvisosPage() {
           action={<span className="text-sm font-medium text-brand-600">{recentes.length} avisos</span>}
           bodyClassName="p-2"
         >
-          {recentes.length === 0 ? (
+          {isLoading ? (
+            <p className="px-4 py-10 text-center text-sm text-slate-400">Carregando avisos…</p>
+          ) : recentes.length === 0 ? (
             <p className="px-4 py-10 text-center text-sm text-slate-400">
               Nenhum aviso encontrado para os filtros selecionados.
             </p>
@@ -187,7 +201,7 @@ export function AvisosPage() {
       <AvisoFormModal
         open={modalAberto}
         onClose={() => setModalAberto(false)}
-        onCreate={(novo) => setLista((prev) => [novo, ...prev])}
+        onCreate={(novo) => criar.mutate(novo)}
       />
     </div>
   )
