@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import {
   CheckCircle2,
   Users2,
@@ -18,7 +19,7 @@ import { SectionCard } from '@/components/ui/SectionCard'
 import { PersonRow } from '@/components/ui/PersonRow'
 import { DonutChart } from '@/components/ui/DonutChart'
 import { Badge } from '@/components/ui/Badge'
-import { usuarios, mudancas, avisos, resumo } from '@/data/mock'
+import { listarUsuarios, listarMudancas, listarAvisos } from '@/data/api'
 
 function saudacao() {
   const h = new Date().getHours()
@@ -28,17 +29,22 @@ function saudacao() {
 }
 
 export function DashboardPage() {
-  const disponiveis = usuarios.filter((u) => u.status === 'ativo' && u.disponibilidade === 'disponivel')
-  const emAtendimento = usuarios.filter((u) => u.status === 'ativo' && u.disponibilidade === 'em_atendimento')
-  const ausentes = usuarios.filter((u) => u.status === 'ativo' && u.disponibilidade === 'ausente')
+  const { data: usuarios = [] } = useQuery({ queryKey: ['usuarios'], queryFn: listarUsuarios })
+  const { data: mudancas = [] } = useQuery({ queryKey: ['mudancas'], queryFn: listarMudancas })
+  const { data: avisos = [] } = useQuery({ queryKey: ['avisos'], queryFn: listarAvisos })
 
-  const total = resumo.total
-  const pct = (n: number) => Math.round((n / total) * 100)
+  const ativos = usuarios.filter((u) => u.status === 'ativo')
+  const disponiveis = ativos.filter((u) => u.disponibilidade === 'disponivel')
+  const emAtendimento = ativos.filter((u) => u.disponibilidade === 'em_atendimento')
+  const ausentes = ativos.filter((u) => u.disponibilidade === 'ausente')
+
+  const total = ativos.length
+  const pct = (n: number) => (total ? Math.round((n / total) * 100) : 0)
 
   const segments = [
-    { label: 'Disponíveis', value: resumo.disponiveis, color: '#22c55e' },
-    { label: 'Em atendimento', value: resumo.emAtendimento, color: '#f59e0b' },
-    { label: 'Ausentes', value: resumo.ausentes, color: '#ef4444' },
+    { label: 'Disponíveis', value: disponiveis.length, color: '#22c55e' },
+    { label: 'Em atendimento', value: emAtendimento.length, color: '#f59e0b' },
+    { label: 'Ausentes', value: ausentes.length, color: '#ef4444' },
   ]
 
   return (
@@ -56,9 +62,9 @@ export function DashboardPage() {
 
       {/* KPIs */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard icon={CheckCircle2} value={resumo.disponiveis} label="Disponíveis agora" hint={`de ${total} pesquisadores`} accent="green" />
-        <StatCard icon={Users2} value={resumo.emAtendimento} label="Em atendimento" hint={`de ${total} pesquisadores`} accent="blue" />
-        <StatCard icon={Clock3} value={resumo.ausentes} label="Ausentes" hint={`de ${total} pesquisadores`} accent="amber" />
+        <StatCard icon={CheckCircle2} value={disponiveis.length} label="Disponíveis agora" hint={`de ${total} pesquisadores`} accent="green" />
+        <StatCard icon={Users2} value={emAtendimento.length} label="Em atendimento" hint={`de ${total} pesquisadores`} accent="blue" />
+        <StatCard icon={Clock3} value={ausentes.length} label="Ausentes" hint={`de ${total} pesquisadores`} accent="amber" />
         <StatCard icon={CalendarClock} value={mudancas.length} label="Mudanças hoje" hint="de turnos" accent="violet" />
       </div>
 

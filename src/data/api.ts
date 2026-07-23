@@ -2,7 +2,16 @@ import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { supabase, USE_MOCK } from '@/lib/supabase'
 import * as mock from '@/data/mock'
-import type { AreaAtuacao, Aviso, Funcao, Instituicao, Usuario } from '@/types'
+import type {
+  AreaAtuacao,
+  Aviso,
+  Funcao,
+  HorarioDia,
+  Instituicao,
+  MudancaTurno,
+  StatusDisponibilidade,
+  Usuario,
+} from '@/types'
 
 /**
  * Camada de acesso a dados (Fase 4).
@@ -143,4 +152,162 @@ export async function criarAviso(a: Aviso): Promise<Aviso> {
     .single()
   if (error) throw error
   return mapAviso(data)
+}
+
+// ============================================================
+// Mudanças de turno
+// ============================================================
+
+export async function listarMudancas(): Promise<MudancaTurno[]> {
+  if (USE_MOCK || !supabase) return mock.mudancas
+  const { data, error } = await supabase
+    .from('mudancas_turno')
+    .select('id, usuario_id, descricao, quando, tag, usuarios(nome)')
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data ?? []).map((r: any) => ({
+    id: r.id,
+    usuarioId: r.usuario_id,
+    usuarioNome: r.usuarios?.nome ?? '',
+    descricao: r.descricao,
+    quando: r.quando,
+    tag: r.tag ?? '',
+  }))
+}
+
+// ============================================================
+// Perfil do usuário logado, horários e disponibilidade
+// ============================================================
+
+/** Perfil (Usuario) do usuário atualmente logado. */
+export async function perfilAtual(): Promise<Usuario | null> {
+  if (USE_MOCK || !supabase) return mock.usuarioAtual
+  const { data: auth } = await supabase.auth.getUser()
+  const id = auth.user?.id
+  if (!id) return null
+  const { data, error } = await supabase.from('usuarios').select(USUARIO_SELECT).eq('id', id).single()
+  if (error) throw error
+  return mapUsuario(data)
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapHorario(r: any): HorarioDia {
+  return {
+    dia: r.dia,
+    manha: {
+      ativo: r.manha_ativo ?? false,
+      inicio: hhmm(r.manha_inicio) ?? '09:00',
+      fim: hhmm(r.manha_fim) ?? '12:00',
+    },
+    tarde: {
+      ativo: r.tarde_ativo ?? false,
+      inicio: hhmm(r.tarde_inicio) ?? '13:30',
+      fim: hhmm(r.tarde_fim) ?? '17:30',
+    },
+    observacao: r.observacao ?? '',
+  }
+}
+
+/** Horários semanais de um usuário. */
+export async function listarHorarios(usuarioId: string): Promise<HorarioDia[]> {
+  if (USE_MOCK || !supabase) return mock.horarioPadrao
+  const { data, error } = await supabase.from('horarios').select('*').eq('usuario_id', usuarioId)
+  if (error) throw error
+  return (data ?? []).map(mapHorario)
+}
+
+/** Salva (upsert) os horários semanais de um usuário. */
+export async function salvarHorarios(usuarioId: string, horarios: HorarioDia[]): Promise<void> {
+  if (USE_MOCK || !supabase) return
+  const rows = horarios.map((h) => ({
+    usuario_id: usuarioId,
+    dia: h.dia,
+    manha_ativo: h.manha.ativo,
+    manha_inicio: h.manha.inicio,
+    manha_fim: h.manha.fim,
+    tarde_ativo: h.tarde.ativo,
+    tarde_inicio: h.tarde.inicio,
+    tarde_fim: h.tarde.fim,
+    observacao: h.observacao || null,
+  }))
+  const { error } = await supabase.from('horarios').upsert(rows, { onConflict: 'usuario_id,dia' })
+  if (error) throw error
+}
+
+/** Atualiza a disponibilidade "ao vivo" de um usuário. */
+export async function atualizarDisponibilidade(
+  usuarioId: string,
+  status: StatusDisponibilidade,
+  livreAte?: string,
+): Promise<void> {
+  if (USE_MOCK || !supabase) return
+  const { error } = await supabase.from('disponibilidade').upsert(
+    {
+      usuario_id: usuarioId,
+      status,
+      livre_ate: livreAte || null,
+      atualizado_em: new Date().toISOString(),
+    },
+    { onConflict: 'usuario_id' },
+  )
+  if (error) throw error
+}
+
+// ============================================================
+// CRUD de Administração (Funções, Áreas, Instituições)
+// ============================================================
+
+export async function salvarFuncao(f: Funcao): Promise<Funcao> {
+  if (USE_MOCK || !supabase) return f
+  const payload = { nome: f.nome, permissoes: f.permissoes }
+  const novo = f.id.startsWith('f-') || !f.id // id local => insert
+  const q = novo
+    ? supabase.from('funcoes').insert(payload)
+    : supabase.from('funcoes').update(payload).eq('id', f.id)
+  const { data, error } = await q.select('*').single()
+  if (error) throw error
+  return mapFuncao(data)
+}
+
+export async function excluirFuncao(id: string): Promise<void> {
+  if (USE_MOCK || !supabase) return
+  const { error } = await supabase.from('funcoes').delete().eq('id', id)
+  if (error) throw error
+}
+
+export async function salvarArea(a: AreaAtuacao): Promise<AreaAtuacao> {
+  if (USE_MOCK || !supabase) return a
+  const payload = { nome: a.nome, cor: a.cor }
+  const novo = a.id.startsWith('a-') || !a.id
+  const q = novo
+    ? supabase.from('areas_atuacao').insert(payload)
+    : supabase.from('areas_atuacao').update(payload).eq('id', a.id)
+  const { data, error } = await q.select('*').single()
+  if (error) throw error
+  return mapArea(data)
+}
+
+export async function excluirArea(id: string): Promise<void> {
+  if (USE_MOCK || !supabase) return
+  const { error } = await supabase.from('areas_atuacao').delete().eq('id', id)
+  if (error) throw error
+}
+
+export async function salvarInstituicao(i: Instituicao): Promise<Instituicao> {
+  if (USE_MOCK || !supabase) return i
+  const payload = { nome: i.nome, sigla: i.sigla }
+  const novo = i.id.startsWith('i-') || !i.id
+  const q = novo
+    ? supabase.from('instituicoes').insert(payload)
+    : supabase.from('instituicoes').update(payload).eq('id', i.id)
+  const { data, error } = await q.select('*').single()
+  if (error) throw error
+  return mapInstituicao(data)
+}
+
+export async function excluirInstituicao(id: string): Promise<void> {
+  if (USE_MOCK || !supabase) return
+  const { error } = await supabase.from('instituicoes').delete().eq('id', id)
+  if (error) throw error
 }

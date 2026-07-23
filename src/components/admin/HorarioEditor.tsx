@@ -14,7 +14,14 @@ import type { BlocoHorario, HorarioDia } from '@/types'
  * trocar de usuário, o pai deve passar `key={usuario.id}` — assim o React
  * recria o componente com os horários do novo usuário.
  */
-export function HorarioEditor({ horariosIniciais }: { horariosIniciais: HorarioDia[] }) {
+export function HorarioEditor({
+  horariosIniciais,
+  onSalvar,
+}: {
+  horariosIniciais: HorarioDia[]
+  /** Persiste os horários (ex.: Supabase). Se ausente, só confirma visualmente. */
+  onSalvar?: (horarios: HorarioDia[]) => Promise<void>
+}) {
   // Estado editável dos horários (cópia dos dados iniciais).
   const [horarios, setHorarios] = useState<HorarioDia[]>(() =>
     // Garante que todos os dias da semana existam, na ordem certa.
@@ -32,6 +39,7 @@ export function HorarioEditor({ horariosIniciais }: { horariosIniciais: HorarioD
   const [editando, setEditando] = useState(false)
   // Feedback visual após salvar ("Alterações salvas").
   const [salvo, setSalvo] = useState(false)
+  const [salvando, setSalvando] = useState(false)
 
   /** Atualiza um campo de um bloco (manhã/tarde) de um dia específico. */
   function atualizarBloco(
@@ -55,8 +63,15 @@ export function HorarioEditor({ horariosIniciais }: { horariosIniciais: HorarioD
    * Salva as alterações. Em modo mock apenas confirma visualmente; na Fase 4
    * (Supabase) aqui entra o UPDATE na tabela `horarios`.
    */
-  function salvar() {
-    // TODO(Fase 4): persistir `horarios` no Supabase.
+  async function salvar() {
+    if (onSalvar) {
+      setSalvando(true)
+      try {
+        await onSalvar(horarios)
+      } finally {
+        setSalvando(false)
+      }
+    }
     setEditando(false)
     setSalvo(true)
     setTimeout(() => setSalvo(false), 2500)
@@ -96,8 +111,8 @@ export function HorarioEditor({ horariosIniciais }: { horariosIniciais: HorarioD
             </span>
           </button>
 
-          <Button icon={salvo ? Check : Save} disabled={!editando} onClick={salvar}>
-            {salvo ? 'Salvo!' : 'Salvar Alterações'}
+          <Button icon={salvo ? Check : Save} disabled={!editando || salvando} onClick={salvar}>
+            {salvando ? 'Salvando…' : salvo ? 'Salvo!' : 'Salvar Alterações'}
           </Button>
         </div>
       </div>

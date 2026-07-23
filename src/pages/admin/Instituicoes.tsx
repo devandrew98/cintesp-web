@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Building2, Users, Pencil, Trash2 } from 'lucide-react'
 import { AdminShell } from '@/components/admin/AdminShell'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { InstituicaoFormModal } from '@/components/admin/InstituicaoFormModal'
-import { instituicoes as instituicoesMock, usuarios } from '@/data/mock'
+import { listarInstituicoes, salvarInstituicao, excluirInstituicao, listarUsuarios } from '@/data/api'
 import type { Instituicao } from '@/types'
 
 /**
@@ -14,7 +15,13 @@ import type { Instituicao } from '@/types'
  * vínculos não podem ser excluídas.
  */
 export function AdminInstituicoesPage() {
-  const [lista, setLista] = useState<Instituicao[]>(instituicoesMock)
+  const queryClient = useQueryClient()
+  const { data: lista = [] } = useQuery({ queryKey: ['instituicoes'], queryFn: listarInstituicoes })
+  const { data: usuarios = [] } = useQuery({ queryKey: ['usuarios'], queryFn: listarUsuarios })
+  const invalidar = () => queryClient.invalidateQueries({ queryKey: ['instituicoes'] })
+  const salvarMut = useMutation({ mutationFn: salvarInstituicao, onSuccess: invalidar })
+  const excluirMut = useMutation({ mutationFn: excluirInstituicao, onSuccess: invalidar })
+
   const [formAberto, setFormAberto] = useState(false)
   const [emEdicao, setEmEdicao] = useState<Instituicao | null>(null)
   const [aExcluir, setAExcluir] = useState<Instituicao | null>(null)
@@ -24,7 +31,7 @@ export function AdminInstituicoesPage() {
     const m: Record<string, number> = {}
     for (const u of usuarios) if (u.instituicao) m[u.instituicao.id] = (m[u.instituicao.id] ?? 0) + 1
     return m
-  }, [])
+  }, [usuarios])
 
   function abrirNova() {
     setEmEdicao(null)
@@ -35,12 +42,10 @@ export function AdminInstituicoesPage() {
     setFormAberto(true)
   }
   function salvar(i: Instituicao) {
-    setLista((prev) =>
-      prev.some((x) => x.id === i.id) ? prev.map((x) => (x.id === i.id ? i : x)) : [...prev, i],
-    )
+    salvarMut.mutate(i)
   }
   function excluir(i: Instituicao) {
-    setLista((prev) => prev.filter((x) => x.id !== i.id))
+    excluirMut.mutate(i.id)
   }
 
   return (

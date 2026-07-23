@@ -1,11 +1,13 @@
 import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Download, Users2, CheckCircle2, Building2, Shield } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { StatCard } from '@/components/ui/StatCard'
 import { SectionCard } from '@/components/ui/SectionCard'
 import { DonutChart } from '@/components/ui/DonutChart'
 import { Button } from '@/components/ui/Button'
-import { usuarios, areas, funcoes, instituicoes } from '@/data/mock'
+import { listarUsuarios, listarAreas, listarFuncoes, listarInstituicoes } from '@/data/api'
+import type { Usuario } from '@/types'
 
 /**
  * Tela "Relatórios" (Fase 6).
@@ -13,7 +15,15 @@ import { usuarios, areas, funcoes, instituicoes } from '@/data/mock'
  * gráficos em SVG (sem libs) e exportação da lista de pesquisadores em CSV.
  */
 export function RelatoriosPage() {
-  const ativos = useMemo(() => usuarios.filter((u) => u.status === 'ativo'), [])
+  const { data: usuarios = [] } = useQuery({ queryKey: ['usuarios'], queryFn: listarUsuarios })
+  const { data: areas = [] } = useQuery({ queryKey: ['areas'], queryFn: listarAreas })
+  const { data: funcoes = [] } = useQuery({ queryKey: ['funcoes'], queryFn: listarFuncoes })
+  const { data: instituicoes = [] } = useQuery({
+    queryKey: ['instituicoes'],
+    queryFn: listarInstituicoes,
+  })
+
+  const ativos = useMemo(() => usuarios.filter((u) => u.status === 'ativo'), [usuarios])
 
   // Distribuição por status de disponibilidade (donut).
   const porStatus = useMemo(
@@ -47,7 +57,7 @@ export function RelatoriosPage() {
           color: a.cor,
         }))
         .sort((x, y) => y.value - x.value),
-    [],
+    [usuarios, areas],
   )
 
   // Pesquisadores por função (barras).
@@ -60,7 +70,7 @@ export function RelatoriosPage() {
           color: '#16a34a',
         }))
         .sort((x, y) => y.value - x.value),
-    [],
+    [usuarios, funcoes],
   )
 
   return (
@@ -69,7 +79,7 @@ export function RelatoriosPage() {
         title="Relatórios"
         subtitle="Indicadores da equipe e exportação de dados."
         actions={
-          <Button icon={Download} onClick={() => exportarCSV(usuarios)}>
+          <Button icon={Download} onClick={() => exportarCSV(usuarios)} disabled={usuarios.length === 0}>
             Exportar CSV
           </Button>
         }
@@ -152,7 +162,7 @@ function BarList({ data }: { data: Array<{ label: string; value: number; color: 
  * Gera um CSV da lista de pesquisadores e dispara o download no navegador.
  * (Funcionalidade do app — roda 100% no cliente, sem servidor.)
  */
-function exportarCSV(lista: typeof usuarios) {
+function exportarCSV(lista: Usuario[]) {
   const cabecalho = ['Nome', 'E-mail', 'Telefone', 'Função', 'Instituição', 'Áreas', 'Status', 'Disponibilidade']
   const linhas = lista.map((u) =>
     [

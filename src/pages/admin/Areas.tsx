@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Users, Pencil, Trash2 } from 'lucide-react'
 import { AdminShell } from '@/components/admin/AdminShell'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { AreaFormModal } from '@/components/admin/AreaFormModal'
-import { areas as areasMock, usuarios } from '@/data/mock'
+import { listarAreas, salvarArea, excluirArea, listarUsuarios } from '@/data/api'
 import type { AreaAtuacao } from '@/types'
 
 /**
@@ -14,7 +15,13 @@ import type { AreaAtuacao } from '@/types'
  * ser excluídas para não deixar usuários com referência quebrada.
  */
 export function AdminAreasPage() {
-  const [lista, setLista] = useState<AreaAtuacao[]>(areasMock)
+  const queryClient = useQueryClient()
+  const { data: lista = [] } = useQuery({ queryKey: ['areas'], queryFn: listarAreas })
+  const { data: usuarios = [] } = useQuery({ queryKey: ['usuarios'], queryFn: listarUsuarios })
+  const invalidar = () => queryClient.invalidateQueries({ queryKey: ['areas'] })
+  const salvarMut = useMutation({ mutationFn: salvarArea, onSuccess: invalidar })
+  const excluirMut = useMutation({ mutationFn: excluirArea, onSuccess: invalidar })
+
   const [formAberto, setFormAberto] = useState(false)
   const [emEdicao, setEmEdicao] = useState<AreaAtuacao | null>(null)
   const [aExcluir, setAExcluir] = useState<AreaAtuacao | null>(null)
@@ -25,7 +32,7 @@ export function AdminAreasPage() {
     // `if (a)` protege contra alguma referência de área pendente/nula no registro.
     for (const u of usuarios) for (const a of u.areas) if (a) m[a.id] = (m[a.id] ?? 0) + 1
     return m
-  }, [])
+  }, [usuarios])
 
   function abrirNova() {
     setEmEdicao(null)
@@ -36,12 +43,10 @@ export function AdminAreasPage() {
     setFormAberto(true)
   }
   function salvar(a: AreaAtuacao) {
-    setLista((prev) =>
-      prev.some((x) => x.id === a.id) ? prev.map((x) => (x.id === a.id ? a : x)) : [...prev, a],
-    )
+    salvarMut.mutate(a)
   }
   function excluir(a: AreaAtuacao) {
-    setLista((prev) => prev.filter((x) => x.id !== a.id))
+    excluirMut.mutate(a.id)
   }
 
   return (

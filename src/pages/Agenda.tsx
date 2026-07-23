@@ -1,11 +1,12 @@
 import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { CheckCircle2, Users2, CalendarClock, Clock3 } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { StatCard } from '@/components/ui/StatCard'
 import { SectionCard } from '@/components/ui/SectionCard'
 import { PersonRow } from '@/components/ui/PersonRow'
 import { Badge } from '@/components/ui/Badge'
-import { usuarios, mudancas } from '@/data/mock'
+import { listarUsuarios, listarMudancas } from '@/data/api'
 
 const dataHojeRaw = new Date().toLocaleDateString('pt-BR', {
   weekday: 'long',
@@ -22,7 +23,10 @@ const dataHoje = dataHojeRaw.charAt(0).toUpperCase() + dataHojeRaw.slice(1)
  * atual (quem está livre e até quando, e quem está em atendimento).
  */
 export function AgendaPage() {
-  const ativos = useMemo(() => usuarios.filter((u) => u.status === 'ativo'), [])
+  const { data: usuarios = [] } = useQuery({ queryKey: ['usuarios'], queryFn: listarUsuarios })
+  const { data: mudancas = [] } = useQuery({ queryKey: ['mudancas'], queryFn: listarMudancas })
+
+  const ativos = useMemo(() => usuarios.filter((u) => u.status === 'ativo'), [usuarios])
 
   // Disponíveis ordenados por quem sai mais cedo (livreAte); "dia todo" por último.
   const disponiveis = useMemo(

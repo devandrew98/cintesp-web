@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Shield, Users, Pencil, Trash2 } from 'lucide-react'
 import { AdminShell } from '@/components/admin/AdminShell'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { FuncaoFormModal } from '@/components/admin/FuncaoFormModal'
 import { rotuloPermissao } from '@/lib/permissoes'
-import { funcoes as funcoesMock, usuarios } from '@/data/mock'
+import { listarFuncoes, salvarFuncao, excluirFuncao, listarUsuarios } from '@/data/api'
 import type { Funcao } from '@/types'
 
 /**
@@ -15,7 +16,13 @@ import type { Funcao } from '@/types'
  * usuários a possuem — e não pode ser excluída enquanto houver algum.
  */
 export function AdminFuncoesPage() {
-  const [lista, setLista] = useState<Funcao[]>(funcoesMock)
+  const queryClient = useQueryClient()
+  const { data: lista = [] } = useQuery({ queryKey: ['funcoes'], queryFn: listarFuncoes })
+  const { data: usuarios = [] } = useQuery({ queryKey: ['usuarios'], queryFn: listarUsuarios })
+  const invalidar = () => queryClient.invalidateQueries({ queryKey: ['funcoes'] })
+  const salvarMut = useMutation({ mutationFn: salvarFuncao, onSuccess: invalidar })
+  const excluirMut = useMutation({ mutationFn: excluirFuncao, onSuccess: invalidar })
+
   const [formAberto, setFormAberto] = useState(false)
   const [emEdicao, setEmEdicao] = useState<Funcao | null>(null)
   const [aExcluir, setAExcluir] = useState<Funcao | null>(null)
@@ -25,7 +32,7 @@ export function AdminFuncoesPage() {
     const m: Record<string, number> = {}
     for (const u of usuarios) m[u.funcao.id] = (m[u.funcao.id] ?? 0) + 1
     return m
-  }, [])
+  }, [usuarios])
 
   function abrirNova() {
     setEmEdicao(null)
@@ -35,14 +42,12 @@ export function AdminFuncoesPage() {
     setEmEdicao(f)
     setFormAberto(true)
   }
-  // Insere (se for nova) ou atualiza (se já existir) na lista.
+  // Insere (se for nova) ou atualiza (se já existir), persistindo no banco.
   function salvar(f: Funcao) {
-    setLista((prev) =>
-      prev.some((x) => x.id === f.id) ? prev.map((x) => (x.id === f.id ? f : x)) : [...prev, f],
-    )
+    salvarMut.mutate(f)
   }
   function excluir(f: Funcao) {
-    setLista((prev) => prev.filter((x) => x.id !== f.id))
+    excluirMut.mutate(f.id)
   }
 
   return (
