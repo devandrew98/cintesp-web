@@ -15,6 +15,7 @@
 | **Fase atual** | ✅ **Fases 5 e 6 (front) concluídas** — falta só a **Fase 4 (Supabase)**, que depende das suas chaves |
 | **Data** | 23/07/2026 |
 | **Front rodando?** | Sim — `npm run dev` → http://localhost:5180 |
+| **Repositório** | 🔒 privado — `github.com/devandrew98/cintesp-web` (branch `main`) |
 | **Banco (Supabase)** | ⏳ Ainda não conectado (rodando com dados mock) |
 | **Modo de dados** | `VITE_USE_MOCK=true` (dados de exemplo) |
 
@@ -125,6 +126,9 @@ Legenda: ✅ concluída · 🚧 em andamento · ⬜ pendente
 - **Deploy pronto para 1 clique:** `vercel.json` e `public/_redirects` (fallback de SPA para as rotas).
 - `App.tsx`: rotas `/relatorios` e `/admin/configuracoes` agora usam as telas reais.
 - Novos arquivos: `pages/Relatorios.tsx`, `pages/admin/Configuracoes.tsx`, `components/pwa/InstallPrompt.tsx`.
+- 🔒 **Versionamento:** repositório git inicializado e publicado (privado) em
+  `github.com/devandrew98/cintesp-web`. `.env`/`node_modules`/`dist`/`settings.local.json` fora do repo.
+  _A partir daqui, cada versão vira um commit._
 
 ### v0.5.0 — 23/07/2026
 - **Fase 5 concluída — todas as telas do app prontas** (em modo mock):
