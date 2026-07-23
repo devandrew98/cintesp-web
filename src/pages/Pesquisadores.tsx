@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
-import { Search } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { Search, Loader2 } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { PesquisadorCard } from '@/components/ui/PesquisadorCard'
 import { PesquisadorDetailModal } from '@/components/pesquisadores/PesquisadorDetailModal'
 import { Input, Select } from '@/components/ui/Field'
 import { filtrarUsuarios } from '@/lib/pesquisadores'
-import { usuarios, areas } from '@/data/mock'
+import { listarUsuarios, listarAreas } from '@/data/api'
 import type { StatusDisponibilidade, Usuario } from '@/types'
 
 /**
@@ -19,7 +20,13 @@ export function PesquisadoresPage() {
   const [disponibilidade, setDisponibilidade] = useState<StatusDisponibilidade | 'todos'>('todos')
   const [selecionado, setSelecionado] = useState<Usuario | null>(null)
 
-  const ativos = useMemo(() => usuarios.filter((u) => u.status === 'ativo'), [])
+  const { data: usuarios = [], isLoading } = useQuery({
+    queryKey: ['usuarios'],
+    queryFn: listarUsuarios,
+  })
+  const { data: areas = [] } = useQuery({ queryKey: ['areas'], queryFn: listarAreas })
+
+  const ativos = useMemo(() => usuarios.filter((u) => u.status === 'ativo'), [usuarios])
   const filtrados = useMemo(
     () => filtrarUsuarios(ativos, { busca, areaId, disponibilidade }),
     [ativos, busca, areaId, disponibilidade],
@@ -66,7 +73,11 @@ export function PesquisadoresPage() {
         {filtrados.length} {filtrados.length === 1 ? 'pesquisador' : 'pesquisadores'}
       </p>
 
-      {filtrados.length === 0 ? (
+      {isLoading ? (
+        <div className="card flex items-center justify-center gap-2 px-6 py-16 text-sm text-slate-400">
+          <Loader2 className="h-4 w-4 animate-spin" /> Carregando pesquisadores…
+        </div>
+      ) : filtrados.length === 0 ? (
         <div className="card px-6 py-16 text-center text-sm text-slate-400">
           Nenhum pesquisador encontrado.
         </div>

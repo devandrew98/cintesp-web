@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Search, X } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { PersonRow } from '@/components/ui/PersonRow'
 import { filtrarUsuarios } from '@/lib/pesquisadores'
 import { cn } from '@/lib/utils'
-import { usuarios } from '@/data/mock'
+import { listarUsuarios } from '@/data/api'
 import type { StatusDisponibilidade } from '@/types'
 
 /**
@@ -23,9 +24,11 @@ export function BuscaPage() {
   const [busca, setBusca] = useState('')
   const [status, setStatus] = useState<StatusDisponibilidade | 'todos'>('todos')
 
+  const { data: usuarios = [] } = useQuery({ queryKey: ['usuarios'], queryFn: listarUsuarios })
+
   const resultados = useMemo(
     () => filtrarUsuarios(usuarios, { busca, disponibilidade: status, apenasAtivos: true }),
-    [busca, status],
+    [usuarios, busca, status],
   )
 
   const digitou = busca.trim().length > 0 || status !== 'todos'

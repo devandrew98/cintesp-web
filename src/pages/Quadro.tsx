@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
-import { CheckCircle2, Users2, Clock3, Search, SlidersHorizontal, X } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { CheckCircle2, Users2, Clock3, Search, SlidersHorizontal, X, Loader2 } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { StatCard } from '@/components/ui/StatCard'
 import { PesquisadorCard } from '@/components/ui/PesquisadorCard'
 import { Button } from '@/components/ui/Button'
 import { Input, Select } from '@/components/ui/Field'
 import { filtrarUsuarios } from '@/lib/pesquisadores'
-import { usuarios, areas, funcoes } from '@/data/mock'
+import { listarUsuarios, listarAreas, listarFuncoes } from '@/data/api'
 import type { StatusDisponibilidade } from '@/types'
 
 /**
@@ -21,8 +22,16 @@ export function QuadroPage() {
   const [funcaoId, setFuncaoId] = useState<string>('todas')
   const [mostrarFiltros, setMostrarFiltros] = useState(false)
 
+  // Dados (Supabase quando conectado; senão, mock).
+  const { data: usuarios = [], isLoading } = useQuery({
+    queryKey: ['usuarios'],
+    queryFn: listarUsuarios,
+  })
+  const { data: areas = [] } = useQuery({ queryKey: ['areas'], queryFn: listarAreas })
+  const { data: funcoes = [] } = useQuery({ queryKey: ['funcoes'], queryFn: listarFuncoes })
+
   // Só a equipe ativa aparece no quadro.
-  const ativos = useMemo(() => usuarios.filter((u) => u.status === 'ativo'), [])
+  const ativos = useMemo(() => usuarios.filter((u) => u.status === 'ativo'), [usuarios])
 
   const filtrados = useMemo(
     () => filtrarUsuarios(ativos, { busca, disponibilidade, areaId, funcaoId }),
@@ -131,7 +140,11 @@ export function QuadroPage() {
       </div>
 
       {/* Grade de cards */}
-      {filtrados.length === 0 ? (
+      {isLoading ? (
+        <div className="card flex items-center justify-center gap-2 px-6 py-16 text-sm text-slate-400">
+          <Loader2 className="h-4 w-4 animate-spin" /> Carregando equipe…
+        </div>
+      ) : filtrados.length === 0 ? (
         <div className="card px-6 py-16 text-center text-sm text-slate-400">
           Nenhum pesquisador encontrado para os filtros selecionados.
         </div>

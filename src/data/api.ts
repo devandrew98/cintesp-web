@@ -2,7 +2,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { supabase, USE_MOCK } from '@/lib/supabase'
 import * as mock from '@/data/mock'
-import type { Aviso } from '@/types'
+import type { AreaAtuacao, Aviso, Funcao, Instituicao, Usuario } from '@/types'
 
 /**
  * Camada de acesso a dados (Fase 4).
@@ -21,6 +21,74 @@ function publicadoHa(iso?: string): string | undefined {
 /** "12:00:00" (time do Postgres) → "12:00". */
 function hhmm(t?: string | null): string | undefined {
   return t ? t.slice(0, 5) : undefined
+}
+
+// ============================================================
+// Referências: Funções, Áreas, Instituições
+// ============================================================
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const mapFuncao = (r: any): Funcao => ({ id: r.id, nome: r.nome, permissoes: r.permissoes ?? [] })
+const mapArea = (r: any): AreaAtuacao => ({ id: r.id, nome: r.nome, cor: r.cor ?? '#6366f1' })
+const mapInstituicao = (r: any): Instituicao => ({ id: r.id, nome: r.nome, sigla: r.sigla })
+
+export async function listarFuncoes(): Promise<Funcao[]> {
+  if (USE_MOCK || !supabase) return mock.funcoes
+  const { data, error } = await supabase.from('funcoes').select('*').order('nome')
+  if (error) throw error
+  return (data ?? []).map(mapFuncao)
+}
+
+export async function listarAreas(): Promise<AreaAtuacao[]> {
+  if (USE_MOCK || !supabase) return mock.areas
+  const { data, error } = await supabase.from('areas_atuacao').select('*').order('nome')
+  if (error) throw error
+  return (data ?? []).map(mapArea)
+}
+
+export async function listarInstituicoes(): Promise<Instituicao[]> {
+  if (USE_MOCK || !supabase) return mock.instituicoes
+  const { data, error } = await supabase.from('instituicoes').select('*').order('nome')
+  if (error) throw error
+  return (data ?? []).map(mapInstituicao)
+}
+
+// ============================================================
+// Usuários (com função, instituição, áreas e disponibilidade)
+// ============================================================
+
+const USUARIO_SELECT = `
+  id, nome, email, telefone, foto_url, status,
+  funcao:funcoes(id, nome, permissoes),
+  instituicao:instituicoes(id, nome, sigla),
+  areas:usuario_areas(area:areas_atuacao(id, nome, cor)),
+  disp:disponibilidade(status, livre_ate)
+`
+
+function mapUsuario(r: any): Usuario {
+  // disponibilidade vem como array (0/1) por ser tabela filha via FK.
+  const disp = Array.isArray(r.disp) ? r.disp[0] : r.disp
+  return {
+    id: r.id,
+    nome: r.nome,
+    email: r.email,
+    telefone: r.telefone ?? undefined,
+    fotoUrl: r.foto_url ?? undefined,
+    funcao: r.funcao ? mapFuncao(r.funcao) : { id: '', nome: '—', permissoes: [] },
+    instituicao: r.instituicao ? mapInstituicao(r.instituicao) : undefined,
+    areas: (r.areas ?? []).map((ua: any) => ua.area).filter(Boolean).map(mapArea),
+    status: r.status,
+    disponibilidade: disp?.status ?? 'ausente',
+    livreAte: hhmm(disp?.livre_ate),
+  }
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
+export async function listarUsuarios(): Promise<Usuario[]> {
+  if (USE_MOCK || !supabase) return mock.usuarios
+  const { data, error } = await supabase.from('usuarios').select(USUARIO_SELECT).order('nome')
+  if (error) throw error
+  return (data ?? []).map(mapUsuario)
 }
 
 // ============================================================
