@@ -10,3 +10,5 @@ dist-ssr
 !.vscode/extensions.json
 *.log
 
+# Cache de build do TypeScript (artefato)
+tsconfig.tsbuildinfo

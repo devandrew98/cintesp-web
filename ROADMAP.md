@@ -12,12 +12,12 @@
 | Campo | Valor |
 |---|---|
 | **Versão** | `v0.6.0` |
-| **Fase atual** | ✅ **Fases 5 e 6 (front) concluídas** — falta só a **Fase 4 (Supabase)**, que depende das suas chaves |
+| **Fase atual** | 🚧 **Fase 4 em andamento** — **autenticação (login) pronta**; a seguir: migrar telas para dados reais |
 | **Data** | 23/07/2026 |
 | **Front rodando?** | Sim — `npm run dev` → http://localhost:5180 |
 | **Repositório** | 🔒 privado — `github.com/devandrew98/cintesp-web` (branch `main`) |
-| **Banco (Supabase)** | ⏳ Ainda não conectado (rodando com dados mock) |
-| **Modo de dados** | `VITE_USE_MOCK=true` (dados de exemplo) |
+| **Banco (Supabase)** | ✅ Conectado — projeto `qjdvahlcxxkafotlnzrb`. Auth ligada; dados ainda em mock |
+| **Modo de dados** | `VITE_USE_MOCK=true` (telas ainda em mock; auth já é real) |
 
 **Resumo em uma linha:** o app está **completo e pronto de uso em modo mock** — todas as
 telas (Dashboard, Quadro, Meu Horário, Pesquisadores, Agenda, Busca, Avisos, Relatórios,
@@ -86,13 +86,17 @@ Legenda: ✅ concluída · 🚧 em andamento · ⬜ pendente
 - [ ] _Pendente (menor):_ modelos de **Horários** (aba "Horários" segue como placeholder)
 - _Referência: print 2_
 
-### ⬜ Fase 4 — Integração Supabase (banco real)
-- [ ] Aplicar `docs/supabase-schema.sql` no projeto Supabase
-- [ ] Autenticação (login/logout, sessão, proteção de rotas)
-- [ ] Trocar mock → queries reais (React Query + Supabase)
+### 🚧 Fase 4 — Integração Supabase (banco real) — EM ANDAMENTO
+- [x] Projeto Supabase criado e **conectado** (`.env` com URL + anon key)
+- [x] `docs/supabase-schema.sql` aplicado (tabelas criadas) + `docs/supabase-seed.sql` (dados de referência)
+- [x] **Autenticação** completa: login/cadastro (`/login`), sessão persistida, **proteção de rotas** (`RequireAuth`), logout na Topbar
+- [x] Cliente refatorado: auth sempre real quando há chaves; `USE_MOCK` controla só a fonte de dados
+- [ ] **Rodar `docs/supabase-policies.sql`** (grants + RLS + gatilho de perfil) — _sua parte_
+- [ ] Criar a 1ª conta (vira Administrador pelo gatilho) e validar o login
+- [ ] Trocar mock → queries reais (React Query + Supabase), tela por tela
 - [ ] Realtime no quadro de disponibilidade e avisos
 - [ ] Upload de foto de perfil (Supabase Storage)
-- [ ] Políticas RLS por função/permissão
+- [ ] Refinar RLS por função/permissão
 
 ### ✅ Fase 5 — Demais telas (CONCLUÍDA)
 - [x] Quadro de Disponibilidade (KPIs + filtros por status/área/função + busca)
@@ -114,6 +118,18 @@ Legenda: ✅ concluída · 🚧 em andamento · ⬜ pendente
 ---
 
 ## 📝 Changelog
+
+### v0.7.0 (em andamento) — 23/07/2026
+- **Início da Fase 4 — Supabase conectado.** `.env` com URL + anon key do projeto real.
+- **Autenticação (Supabase Auth):** tela `/login` (entrar + criar conta), `store/auth` com
+  sessão persistida e `onAuthStateChange`, `RequireAuth` protegendo as rotas, e **logout** na Topbar
+  (mostra o e-mail logado). Em modo mock puro (sem chaves), tudo segue aberto como antes.
+- `lib/supabase.ts` refatorado: cliente criado sempre que há chaves (auth real), com `USE_MOCK`
+  controlando apenas a fonte de dados das telas. Normaliza a URL (aceita com/sem `/rest/v1/`).
+- Novos SQLs: `docs/supabase-seed.sql` (dados de referência) e `docs/supabase-policies.sql`
+  (grants + RLS por papel + gatilho que cria o perfil no cadastro; 1º usuário vira Administrador).
+- _Pendente (com você):_ rodar `supabase-policies.sql`, criar a 1ª conta e validar o login.
+  Depois: migrar as telas de mock → queries reais.
 
 ### v0.6.0 — 23/07/2026
 - **Fase 6 (front) concluída — app pronto de uso em modo mock.**

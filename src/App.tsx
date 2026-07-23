@@ -1,5 +1,7 @@
 import { Routes, Route } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { RequireAuth } from '@/components/auth/RequireAuth'
+import { LoginPage } from '@/pages/Login'
 import { DashboardPage } from '@/pages/Dashboard'
 import { QuadroPage } from '@/pages/Quadro'
 import { MeuHorarioPage } from '@/pages/MeuHorario'
@@ -19,7 +21,17 @@ import { Placeholder } from '@/pages/Placeholder'
 export default function App() {
   return (
     <Routes>
-      <Route element={<AppLayout />}>
+      {/* Rota pública de autenticação */}
+      <Route path="/login" element={<LoginPage />} />
+
+      {/* Tudo abaixo exige login (quando o Supabase está configurado) */}
+      <Route
+        element={
+          <RequireAuth>
+            <AppLayout />
+          </RequireAuth>
+        }
+      >
         <Route index element={<DashboardPage />} />
 
         <Route path="/quadro" element={<QuadroPage />} />
