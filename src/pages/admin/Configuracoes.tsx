@@ -5,7 +5,7 @@ import { useUI } from '@/store/ui'
 import { cn } from '@/lib/utils'
 
 /** Versão do app exibida em "Sobre" (mantida em sincronia com o ROADMAP). */
-const VERSAO = 'v0.6.0'
+const VERSAO = 'v0.7.0'
 
 /**
  * Tela "Administração > Configurações" (Fase 6).

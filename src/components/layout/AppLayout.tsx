@@ -2,8 +2,12 @@ import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 import { InstallPrompt } from '@/components/pwa/InstallPrompt'
+import { useRealtime } from '@/hooks/useRealtime'
 
 export function AppLayout() {
+  // Atualizações ao vivo (quadro/avisos) via Supabase Realtime.
+  useRealtime()
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <Sidebar />

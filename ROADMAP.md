@@ -11,22 +11,22 @@
 
 | Campo | Valor |
 |---|---|
-| **Versão** | `v0.6.0` |
-| **Fase atual** | 🚧 **Fase 4 em andamento** — **autenticação (login) pronta**; a seguir: migrar telas para dados reais |
+| **Versão** | `v0.7.0` |
+| **Fase atual** | ✅ **Fase 4 concluída** — banco real + login + realtime. **Pronto para testes reais** |
 | **Data** | 23/07/2026 |
 | **Front rodando?** | Sim — `npm run dev` → http://localhost:5180 |
 | **Repositório** | 🔒 privado — `github.com/devandrew98/cintesp-web` (branch `main`) |
-| **Banco (Supabase)** | ✅ Conectado — projeto `qjdvahlcxxkafotlnzrb`. Auth + parte das telas já no banco real |
-| **Modo de dados** | `VITE_USE_MOCK=false` (banco real; migração de telas em andamento) |
+| **Banco (Supabase)** | ✅ Conectado e em uso — projeto `qjdvahlcxxkafotlnzrb` (auth + todas as telas) |
+| **Modo de dados** | `VITE_USE_MOCK=false` (banco real Supabase) |
 
-**Resumo em uma linha:** o app está **completo e pronto de uso em modo mock** — todas as
-telas (Dashboard, Quadro, Meu Horário, Pesquisadores, Agenda, Busca, Avisos, Relatórios,
-Administração completa e Configurações), PWA instalável e exportação CSV. Só falta o
-**único passo que depende de você**: criar o Supabase e passar as chaves para ligar o banco real (Fase 4).
+**Resumo em uma linha:** o app está **pronto para testes reais** — login (Supabase Auth),
+todas as telas lendo/gravando no banco real, o pesquisador define a própria disponibilidade
+e horário, o admin gerencia funções/áreas/instituições e avisos, e o quadro/avisos atualizam
+ao vivo (realtime). Deploy é o próximo passo (Fase 6).
 
-> 🔑 **Para a Fase 4 (banco real + login):** crie o projeto em https://app.supabase.com, rode o
-> `docs/supabase-schema.sql` no SQL Editor e me envie `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY`.
-> Aí eu troco `VITE_USE_MOCK=false`, ligo auth/queries reais e validamos juntos.
+> ✅ **Como testar:** entre em `/login` (ou convide colegas em Supabase → Authentication → Invite user).
+> Defina sua disponibilidade em **Meu Horário** e veja aparecer no **Quadro**. O 1º usuário é Administrador.
+> _Rode `docs/supabase-fix-duplicados.sql` uma vez se ainda não rodou (o seed foi executado 2×)._
 
 > ⚠️ **Fase 4 depende de você:** para conectar o banco real é preciso criar o projeto no
 > Supabase e me passar `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` (ver README). Enquanto
@@ -86,22 +86,17 @@ Legenda: ✅ concluída · 🚧 em andamento · ⬜ pendente
 - [ ] _Pendente (menor):_ modelos de **Horários** (aba "Horários" segue como placeholder)
 - _Referência: print 2_
 
-### 🚧 Fase 4 — Integração Supabase (banco real) — EM ANDAMENTO
+### ✅ Fase 4 — Integração Supabase (banco real) — CONCLUÍDA
 - [x] Projeto Supabase criado e **conectado** (`.env` com URL + anon key)
-- [x] `docs/supabase-schema.sql` aplicado (tabelas criadas) + `docs/supabase-seed.sql` (dados de referência)
-- [x] **Autenticação** completa: login/cadastro (`/login`), sessão persistida, **proteção de rotas** (`RequireAuth`), logout na Topbar
-- [x] Cliente refatorado: auth sempre real quando há chaves; `USE_MOCK` controla só a fonte de dados
-- [x] **`docs/supabase-policies.sql`** aplicado (grants + RLS + gatilho de perfil)
-- [x] 1ª conta criada (virou Administrador) e **login validado** ✅
-- [x] `docs/supabase-seed.sql` aplicado (+ `docs/supabase-fix-duplicados.sql` p/ limpar seed rodado 2×)
-- 🚧 **Trocar mock → queries reais (React Query + Supabase), tela por tela:**
-  - [x] Avisos (leitura + criar) · [x] Quadro · [x] Pesquisadores · [x] Busca Rápida
-  - [ ] Dashboard · [ ] Agenda do Dia · [ ] Meu Horário · [ ] Relatórios
-  - [ ] Admin: Usuários, Funções, Áreas, Instituições (leitura + escrita real)
-- [ ] Realtime no quadro de disponibilidade e avisos
-- [ ] Convidar/cadastrar pesquisadores (para o quadro deixar de ter só 1 pessoa)
-- [ ] Upload de foto de perfil (Supabase Storage)
-- [ ] Refinar RLS por função/permissão
+- [x] `schema.sql` + `seed.sql` + `policies.sql` (grants + RLS por papel + gatilho de perfil) aplicados
+- [x] **Autenticação** completa: login/cadastro (`/login`), sessão, **proteção de rotas**, logout
+- [x] 1ª conta criada (Administrador) e **login validado** ✅
+- [x] **Todas as telas migradas** para o banco (React Query): Dashboard, Quadro, Pesquisadores, Busca,
+      Agenda, Meu Horário, Relatórios, Avisos e Administração (Funções/Áreas/Instituições/Usuários)
+- [x] Escrita real validada: definir disponibilidade reflete no Quadro; CRUD de admin persiste (RLS `is_admin`)
+- [x] **Realtime** ligado (quadro/avisos/mudanças) — `hooks/useRealtime`
+- [ ] _Refinamentos (próximos):_ admin editar função/áreas de outro usuário; editar o próprio perfil;
+      convite de usuários dentro do app; upload de foto (Supabase Storage)
 
 ### ✅ Fase 5 — Demais telas (CONCLUÍDA)
 - [x] Quadro de Disponibilidade (KPIs + filtros por status/área/função + busca)
@@ -124,7 +119,8 @@ Legenda: ✅ concluída · 🚧 em andamento · ⬜ pendente
 
 ## 📝 Changelog
 
-### v0.7.0 (em andamento) — 23/07/2026
+### v0.7.0 — 23/07/2026
+- **Fase 4 concluída — app rodando no banco real do Supabase, pronto para testes.**
 - **Início da Fase 4 — Supabase conectado.** `.env` com URL + anon key do projeto real.
 - **Autenticação (Supabase Auth):** tela `/login` (entrar + criar conta), `store/auth` com
   sessão persistida e `onAuthStateChange`, `RequireAuth` protegendo as rotas, e **logout** na Topbar
@@ -138,7 +134,12 @@ Legenda: ✅ concluída · 🚧 em andamento · ⬜ pendente
     usuários com joins, avisos) e `USE_MOCK` decidindo a fonte.
   - Telas já no banco real: **Avisos, Quadro, Pesquisadores, Busca** (via React Query, com loading).
   - `docs/supabase-fix-duplicados.sql`: limpa duplicatas do seed rodado 2× e cria restrições únicas.
-- _Pendente:_ migrar Dashboard, Agenda, Meu Horário, Relatórios e a Administração; realtime; convites.
+- **Conclusão da migração:** Dashboard, Agenda, Relatórios, **Meu Horário** (define a própria
+  disponibilidade e salva o horário) e toda a **Administração** (Funções/Áreas/Instituições com
+  escrita real via mutations; Usuários lendo do banco). `HorarioEditor` ganhou `onSalvar`.
+- **Realtime:** `hooks/useRealtime` assina disponibilidade/avisos/mudanças e atualiza o app ao vivo.
+- Verificado ponta a ponta: definir "Disponível" reflete no Quadro/Dashboard; criar/excluir área
+  persiste no banco (RLS `is_admin`). Build de produção OK. Versão exibida em Configurações: v0.7.0.
 
 ### v0.6.0 — 23/07/2026
 - **Fase 6 (front) concluída — app pronto de uso em modo mock.**
