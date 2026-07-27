@@ -209,6 +209,31 @@ function mapHorario(r: any): HorarioDia {
   }
 }
 
+/**
+ * Horários de TODOS os usuários de uma vez, agrupados por id de usuário.
+ *
+ * Usado na tela "Administração > Horários" para montar o quadro de cobertura
+ * da semana sem precisar de uma consulta por pessoa.
+ */
+export async function listarTodosHorarios(): Promise<Record<string, HorarioDia[]>> {
+  const porUsuario: Record<string, HorarioDia[]> = {}
+
+  if (USE_MOCK || !supabase) {
+    // Sem banco: todo mundo usa o mesmo horário de exemplo.
+    for (const u of mock.usuarios) porUsuario[u.id] = mock.horarioPadrao
+    return porUsuario
+  }
+
+  const { data, error } = await supabase.from('horarios').select('*')
+  if (error) throw error
+  for (const linha of data ?? []) {
+    const id = linha.usuario_id as string
+    if (!porUsuario[id]) porUsuario[id] = []
+    porUsuario[id].push(mapHorario(linha))
+  }
+  return porUsuario
+}
+
 /** Horários semanais de um usuário. */
 export async function listarHorarios(usuarioId: string): Promise<HorarioDia[]> {
   if (USE_MOCK || !supabase) return mock.horarioPadrao

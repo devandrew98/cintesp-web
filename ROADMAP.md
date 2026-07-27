@@ -11,7 +11,7 @@
 
 | Campo | Valor |
 |---|---|
-| **Versão** | `v0.8.1` |
+| **Versão** | `v0.9.0` |
 | **Fase atual** | ✅ **Fase 7 concluída** — Participantes + importação de planilha (.xlsx/.csv) |
 | **Data** | 27/07/2026 |
 | **Front rodando?** | Sim — `npm run dev` → http://localhost:5180 |
@@ -88,7 +88,8 @@ Legenda: ✅ concluída · 🚧 em andamento · ⬜ pendente
 - [x] **CRUD de Instituições**: criar/editar/excluir (nome + sigla)
 - [x] Exclusão protegida: itens em uso não podem ser removidos (integridade)
 - [x] Tela de **Configurações** (aparência, notificações, sobre) — feita na Fase 6
-- [ ] _Pendente (menor):_ modelos de **Horários** (aba "Horários" segue como placeholder)
+- [x] **Tela de Horários da equipe** (aba "Horários"): cobertura da semana + edição do
+      horário de qualquer pesquisador — fecha o último pendente da Fase 3
 - _Referência: print 2_
 
 ### ✅ Fase 4 — Integração Supabase (banco real) — CONCLUÍDA
@@ -142,6 +143,25 @@ Legenda: ✅ concluída · 🚧 em andamento · ⬜ pendente
 ---
 
 ## 📝 Changelog
+
+### v0.9.0 — 27/07/2026
+- **Administração > Horários deixou de ser placeholder** — última pendência da Fase 3.
+  A tela agora mostra:
+  - **Indicadores:** pesquisadores ativos, média de carga semanal e quantos estão
+    **sem horário definido**;
+  - **Cobertura da semana:** por dia e turno (manhã/tarde), quantas pessoas estão
+    disponíveis, com barras proporcionais e marcação de "sem cobertura" — serve para
+    achar buracos na agenda;
+  - **Lista por pesquisador** com dias ativos, carga semanal e uma mini-visão da semana;
+  - **Editor do horário de qualquer pessoa** (reaproveita o `HorarioEditor`), com
+    salvamento real e rolagem automática até o editor.
+- `data/api.ts`: nova `listarTodosHorarios()` — traz os horários de todos de uma vez
+  (uma consulta só, em vez de uma por pessoa).
+- `lib/horarios.ts`: novos cálculos `horasSemanais`, `diasAtivos`, `formatarHoras` e
+  `calcularCobertura` (blocos com fim antes do início contam 0, não hora negativa).
+- Correção (modo mock): ao atualizar um participante já existente, o objeto vindo da
+  planilha (com id vazio) sobrescrevia o id do registro, gerando chaves duplicadas no
+  React. O id original agora é preservado.
 
 ### v0.8.1 — 27/07/2026
 - **Ajustado ao formulário real do CINTESP** (planilha "Dados Gerais e Disponibilidade"):

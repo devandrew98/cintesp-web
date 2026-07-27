@@ -1,4 +1,4 @@
-import type { DiaSemana } from '@/types'
+import type { BlocoHorario, DiaSemana, HorarioDia } from '@/types'
 
 /**
  * Helpers relacionados a horários de disponibilidade.
@@ -46,3 +46,73 @@ export function gerarOpcoesHorario(inicio = 6, fim = 20, passo = 30): string[] {
 
 // Lista pronta para reutilizar (evita regerar a cada render).
 export const opcoesHorario = gerarOpcoesHorario()
+
+// ============================================================
+// Cálculos usados na tela "Administração > Horários"
+// ============================================================
+
+/** "09:30" → 570 (minutos desde a meia-noite). */
+function paraMinutos(hhmm: string): number {
+  const [h, m] = (hhmm || '0:0').split(':').map(Number)
+  return (h || 0) * 60 + (m || 0)
+}
+
+/**
+ * Duração de um bloco em minutos. Devolve 0 se estiver desligado ou se o
+ * fim vier antes do início (dado inconsistente não vira hora negativa).
+ */
+function duracaoBloco(bloco: BlocoHorario): number {
+  if (!bloco?.ativo) return 0
+  const minutos = paraMinutos(bloco.fim) - paraMinutos(bloco.inicio)
+  return minutos > 0 ? minutos : 0
+}
+
+/** Total de horas semanais de um horário (manhã + tarde de todos os dias). */
+export function horasSemanais(horarios: HorarioDia[]): number {
+  const minutos = (horarios ?? []).reduce(
+    (total, h) => total + duracaoBloco(h.manha) + duracaoBloco(h.tarde),
+    0,
+  )
+  return minutos / 60
+}
+
+/** Quantos dias da semana têm pelo menos um turno ligado. */
+export function diasAtivos(horarios: HorarioDia[]): number {
+  return (horarios ?? []).filter((h) => h.manha?.ativo || h.tarde?.ativo).length
+}
+
+/** Formata horas decimais para exibição: 7.5 → "7h30". */
+export function formatarHoras(horas: number): string {
+  const total = Math.round(horas * 60)
+  const h = Math.floor(total / 60)
+  const m = total % 60
+  return m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, '0')}`
+}
+
+/** Quantas pessoas cobrem cada turno de cada dia. */
+export interface CoberturaDia {
+  dia: DiaSemana
+  manha: number
+  tarde: number
+}
+
+/**
+ * Monta o quadro de cobertura da semana: para cada dia, quantas pessoas
+ * estão disponíveis de manhã e à tarde.
+ *
+ * @param horariosPorUsuario mapa id do usuário → horários da semana
+ */
+export function calcularCobertura(
+  horariosPorUsuario: Record<string, HorarioDia[]>,
+): CoberturaDia[] {
+  return ordemDias.map((dia) => {
+    let manha = 0
+    let tarde = 0
+    for (const horarios of Object.values(horariosPorUsuario)) {
+      const doDia = horarios?.find((h) => h.dia === dia)
+      if (doDia?.manha?.ativo) manha++
+      if (doDia?.tarde?.ativo) tarde++
+    }
+    return { dia, manha, tarde }
+  })
+}

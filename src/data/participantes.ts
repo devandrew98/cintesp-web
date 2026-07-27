@@ -174,8 +174,13 @@ export async function importarParticipantes(
   if (USE_MOCK || !supabase) {
     for (const p of participantes) {
       const i = mockParticipantes.findIndex((x) => x.cpf && x.cpf === p.cpf)
-      if (i >= 0) mockParticipantes[i] = { ...mockParticipantes[i], ...p }
-      else mockParticipantes.push({ ...p, id: p.id || `pt-${Date.now()}-${Math.random()}` })
+      if (i >= 0) {
+        // Mantém o id original: `p` vem da planilha com id vazio e, sem isso,
+        // apagaria o identificador do registro (gerando chaves duplicadas na tela).
+        mockParticipantes[i] = { ...mockParticipantes[i], ...p, id: mockParticipantes[i].id }
+      } else {
+        mockParticipantes.push({ ...p, id: p.id || `pt-${Date.now()}-${Math.random()}` })
+      }
     }
     onProgresso?.(1)
     const registro: Importacao = {
