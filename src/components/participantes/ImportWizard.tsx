@@ -10,6 +10,7 @@ import {
   Loader2,
   RefreshCw,
   PlusCircle,
+  Copy,
 } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
@@ -378,7 +379,7 @@ export function ImportWizard({
           <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <CartaoResumo icone={PlusCircle} cor="green" valor={resumo.novos} rotulo="Novos" />
             <CartaoResumo icone={RefreshCw} cor="blue" valor={resumo.atualizar} rotulo="Atualizar" />
-            <CartaoResumo icone={AlertTriangle} cor="amber" valor={resumo.avisos} rotulo="Avisos" />
+            <CartaoResumo icone={Copy} cor="amber" valor={resumo.duplicados} rotulo="Duplicados" />
             <CartaoResumo icone={XCircle} cor="red" valor={resumo.erros} rotulo="Com erro" />
           </div>
 
@@ -388,8 +389,18 @@ export function ImportWizard({
                 Vou gravar <strong>{totalImportar}</strong> registro(s):{' '}
                 <strong>{resumo.novos}</strong> novo(s) e <strong>{resumo.atualizar}</strong>{' '}
                 atualização(ões).
+                {resumo.duplicados > 0 && (
+                  <>
+                    {' '}
+                    <strong>{resumo.duplicados}</strong> linha(s) repetida(s) na planilha serão
+                    ignoradas (vale sempre a resposta mais recente).
+                  </>
+                )}
                 {resumo.erros > 0 && (
                   <> As <strong>{resumo.erros}</strong> linha(s) com erro serão ignoradas.</>
+                )}
+                {resumo.avisos > 0 && (
+                  <> <strong>{resumo.avisos}</strong> com aviso (entram mesmo assim).</>
                 )}
               </>
             ) : (
@@ -470,11 +481,11 @@ export function ImportWizard({
             <strong className="text-brand-600">{resultado.criados}</strong> participante(s)
             cadastrado(s) e{' '}
             <strong className="text-sky-600">{resultado.atualizados}</strong> atualizado(s).
-            {resumo.erros > 0 && (
+            {(resumo.erros > 0 || resumo.duplicados > 0) && (
               <>
                 {' '}
-                <strong className="text-red-500">{resumo.erros}</strong> linha(s) foram ignoradas
-                por erro.
+                <strong className="text-red-500">{resumo.erros + resumo.duplicados}</strong>{' '}
+                linha(s) foram ignoradas ({resumo.duplicados} duplicada(s), {resumo.erros} com erro).
               </>
             )}
           </p>
@@ -559,6 +570,13 @@ function CartaoResumo({
 
 /** Etiqueta colorida da situação de cada linha na prévia. */
 function EtiquetaSituacao({ linha }: { linha: LinhaAnalisada }) {
+  if (linha.situacao === 'duplicado') {
+    return (
+      <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
+        Duplicado
+      </span>
+    )
+  }
   if (!linha.importar) {
     return (
       <span className="rounded-md bg-red-100 px-1.5 py-0.5 text-[11px] font-medium text-red-700 dark:bg-red-500/20 dark:text-red-300">

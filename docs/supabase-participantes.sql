@@ -69,6 +69,8 @@ create table if not exists public.participantes (
   telefone text,
 
   -- ----- Endereço (opcional, comum em planilhas) -----
+  endereco text,
+  cep text,
   cidade text,
   estado text,
 
@@ -93,6 +95,11 @@ comment on column public.participantes.cpf is
   'Somente dígitos (11 caracteres). Usado como chave para evitar duplicatas.';
 comment on column public.participantes.dados_extras is
   'Colunas da planilha sem campo próprio, preservadas como JSON.';
+
+-- ---------- Colunas adicionadas depois (para quem já rodou o script antes) ----------
+-- Seguro rodar sempre: só cria se ainda não existir.
+alter table public.participantes add column if not exists endereco text;
+alter table public.participantes add column if not exists cep text;
 
 -- ---------- Índices e restrições ----------
 -- CPF único. Precisa ser uma CONSTRAINT (e não um índice parcial) para que o

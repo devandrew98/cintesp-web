@@ -11,7 +11,7 @@
 
 | Campo | Valor |
 |---|---|
-| **Versão** | `v0.8.0` |
+| **Versão** | `v0.8.1` |
 | **Fase atual** | ✅ **Fase 7 concluída** — Participantes + importação de planilha (.xlsx/.csv) |
 | **Data** | 27/07/2026 |
 | **Front rodando?** | Sim — `npm run dev` → http://localhost:5180 |
@@ -142,6 +142,22 @@ Legenda: ✅ concluída · 🚧 em andamento · ⬜ pendente
 ---
 
 ## 📝 Changelog
+
+### v0.8.1 — 27/07/2026
+- **Ajustado ao formulário real do CINTESP** (planilha "Dados Gerais e Disponibilidade"):
+  novos campos **`endereco`** e **`cep`** (tabela, tela e exportação CSV).
+- Auto-mapeamento reconhece os nomes reais das colunas: "Nome completo",
+  "CPF (somente digitos)", "WhatsApp para contato (com DDD)", "Endereço Completo", "CEP".
+  O "Carimbo de data/hora" corretamente **não** é confundido com data de nascimento.
+- **Resposta repetida agora vence a mais recente:** em respostas de formulário é comum a
+  pessoa responder 2×. Antes a 2ª linha virava erro; agora a linha ANTERIOR é marcada como
+  `duplicado` (com o nº da linha que valeu) e a mais recente é a importada.
+- Cartão "Avisos" virou **"Duplicados"** na conferência; avisos aparecem no texto do resumo.
+- Novo `docs/supabase-limpar-participantes.sql` para zerar participantes/importações.
+- Correção: o limite da 2ª passada do auto-mapeamento subia para 4 letras e deixava "cpf"
+  (3 letras) de fora — voltou para 3, mantendo a exigência de palavra inteira.
+- Verificado com uma planilha reproduzindo o formulário real (20 respostas, 1 repetida):
+  19 importados, 1 duplicado, 0 erros; endereço e CEP gravados.
 
 ### v0.8.0 — 27/07/2026
 - **Fase 7 — Participantes (alunos) e importação de planilha.**

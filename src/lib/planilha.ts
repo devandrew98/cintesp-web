@@ -161,6 +161,8 @@ export type CampoParticipante =
   | 'matricula'
   | 'email'
   | 'telefone'
+  | 'endereco'
+  | 'cep'
   | 'cidade'
   | 'estado'
   | 'observacoes'
@@ -174,7 +176,9 @@ export const rotuloCampo: Record<CampoParticipante, string> = {
   turma: 'Turma',
   matricula: 'Matrícula',
   email: 'E-mail',
-  telefone: 'Telefone',
+  telefone: 'Telefone / WhatsApp',
+  endereco: 'Endereço',
+  cep: 'CEP',
   cidade: 'Cidade',
   estado: 'Estado (UF)',
   observacoes: 'Observações',
@@ -200,8 +204,19 @@ const apelidos: Record<CampoParticipante, string[]> = {
   curso: ['curso', 'curso matriculado', 'nome do curso', 'graduacao', 'formacao'],
   turma: ['turma', 'classe', 'sala', 'grupo'],
   matricula: ['matricula', 'ra', 'registro academico', 'codigo', 'inscricao', 'n matricula'],
-  email: ['email', 'e mail', 'e-mail', 'correio eletronico'],
-  telefone: ['telefone', 'celular', 'fone', 'contato', 'whatsapp', 'tel'],
+  email: ['email', 'e mail', 'e-mail', 'correio eletronico', 'endereco de e-mail'],
+  telefone: [
+    'telefone',
+    'celular',
+    'fone',
+    'contato',
+    'whatsapp',
+    'tel',
+    // nome usado no formulário do CINTESP
+    'whatsapp para contato (com ddd)',
+  ],
+  endereco: ['endereco', 'endereco completo', 'logradouro', 'rua', 'endereço completo'],
+  cep: ['cep', 'codigo postal'],
   cidade: ['cidade', 'municipio', 'localidade'],
   estado: ['estado', 'uf', 'unidade federativa'],
   observacoes: ['observacao', 'observacoes', 'obs', 'anotacoes', 'comentarios'],
@@ -236,8 +251,9 @@ export function mapearColunasAuto(
   //
   // Cuidado importante: comparar por "contém" solto gera falsos positivos —
   // o apelido "ra" (de matrícula) casava dentro de "Situação Financei-RA".
-  // Por isso aqui só entram apelidos com 4+ letras e a comparação exige que
-  // o apelido apareça como palavra completa no nome da coluna.
+  // A exigência de PALAVRA COMPLETA resolve isso, e o mínimo de 3 letras é uma
+  // proteção extra (mantém "cpf"/"cep", que são essenciais, e barra "ra"/"uf",
+  // que já são cobertos pela comparação exata da 1ª passada).
   const contemPalavra = (texto: string, alvo: string) =>
     new RegExp(`(^| )${alvo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}( |$)`).test(texto)
 
@@ -246,7 +262,7 @@ export function mapearColunasAuto(
     const alvo = colunasNorm.find(
       (c) =>
         !jaUsadas.has(c.original) &&
-        apelidos[campo].some((a) => a.length >= 4 && contemPalavra(c.norm, a)),
+        apelidos[campo].some((a) => a.length >= 3 && contemPalavra(c.norm, a)),
     )
     if (alvo) {
       mapa[campo] = alvo.original

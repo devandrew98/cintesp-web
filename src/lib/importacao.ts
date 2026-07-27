@@ -19,7 +19,7 @@ import type { Participante } from '@/types'
  *   atualizar → CPF já existe no banco, será atualizado
  *   erro      → não será importada (motivo explica)
  */
-export type SituacaoLinha = 'novo' | 'atualizar' | 'erro'
+export type SituacaoLinha = 'novo' | 'atualizar' | 'duplicado' | 'erro'
 
 export interface LinhaAnalisada {
   /** Nº da linha na planilha (para o usuário achar o problema no arquivo). */
@@ -42,6 +42,8 @@ export interface ResumoAnalise {
   total: number
   novos: number
   atualizar: number
+  /** Linhas repetidas na planilha (venceu a mais recente). */
+  duplicados: number
   avisos: number
   erros: number
 }
@@ -66,8 +68,16 @@ export function analisarLinhas(
   const mapeadas = new Set(Object.values(mapa).filter(Boolean))
   const extras = colunas.filter((c) => !mapeadas.has(c))
 
-  // Detecta CPFs repetidos DENTRO do próprio arquivo.
-  const vistos = new Set<string>()
+  // ---------- CPFs repetidos DENTRO do próprio arquivo ----------
+  // Em respostas de formulário é comum a pessoa responder duas vezes. Nesse
+  // caso vale a resposta MAIS RECENTE (a última linha), e as anteriores são
+  // marcadas como "duplicado" — não são erro, só foram substituídas.
+  const ultimaLinhaDoCpf = new Map<string, number>()
+  linhas.forEach((linha, i) => {
+    const coluna = mapa.cpf
+    const cpf = coluna ? normalizarCPF(linha[coluna]) : ''
+    if (cpf) ultimaLinhaDoCpf.set(cpf, i)
+  })
 
   return linhas.map((linha, indice) => {
     /** Lê o valor de um campo conforme o mapeamento. */
@@ -99,6 +109,8 @@ export function analisarLinhas(
       matricula: valor('matricula') || undefined,
       email: valor('email') || undefined,
       telefone: valor('telefone') || undefined,
+      endereco: valor('endereco') || undefined,
+      cep: valor('cep') || undefined,
       cidade: valor('cidade') || undefined,
       estado: valor('estado').toUpperCase().slice(0, 2) || undefined,
       status: 'ativo',
@@ -123,17 +135,19 @@ export function analisarLinhas(
       situacao = 'erro'
       motivo = `CPF inválido ("${cpfBruto}").`
       importar = false
-    } else if (vistos.has(cpf)) {
-      situacao = 'erro'
-      motivo = 'CPF repetido dentro da própria planilha.'
+    } else if (ultimaLinhaDoCpf.get(cpf) !== indice) {
+      // Existe uma linha MAIS ABAIXO com o mesmo CPF: aquela é a que vale.
+      const linhaQueVale = numerosLinha[ultimaLinhaDoCpf.get(cpf) as number]
+      situacao = 'duplicado'
+      motivo = `CPF repetido na planilha — vale a resposta mais recente${
+        linhaQueVale ? ` (linha ${linhaQueVale})` : ''
+      }.`
       importar = false
     } else if (cpfsNoBanco.has(cpf)) {
       // Já existe no banco → será atualizado.
       situacao = 'atualizar'
       motivo = 'Já cadastrado — os dados serão atualizados.'
     }
-
-    if (importar && cpf) vistos.add(cpf)
 
     // Aviso: a linha ENTRA normalmente, mas com alguma informação perdida.
     // Fica separado de `situacao` para não apagar "novo"/"atualizar".
@@ -159,7 +173,9 @@ export function resumir(analisadas: LinhaAnalisada[]): ResumoAnalise {
     total: analisadas.length,
     novos: analisadas.filter((l) => l.importar && l.situacao === 'novo').length,
     atualizar: analisadas.filter((l) => l.importar && l.situacao === 'atualizar').length,
+    duplicados: analisadas.filter((l) => l.situacao === 'duplicado').length,
     avisos: analisadas.filter((l) => Boolean(l.aviso)).length,
-    erros: analisadas.filter((l) => !l.importar).length,
+    // "erro" = bloqueada por problema no dado (duplicado NÃO conta como erro).
+    erros: analisadas.filter((l) => l.situacao === 'erro').length,
   }
 }

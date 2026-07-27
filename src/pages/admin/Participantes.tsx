@@ -76,7 +76,10 @@ export function AdminParticipantesPage() {
 
   /** Exporta a lista filtrada para CSV (mesmo padrão da tela de Relatórios). */
   function exportarCSV() {
-    const cabecalho = ['Nome', 'CPF', 'Data de nascimento', 'Curso', 'Turma', 'Matrícula', 'E-mail', 'Telefone']
+    const cabecalho = [
+      'Nome', 'CPF', 'Data de nascimento', 'Curso', 'Turma', 'Matrícula',
+      'E-mail', 'Telefone', 'Endereço', 'CEP', 'Cidade', 'UF',
+    ]
     const linhas = filtrados.map((p) => [
       p.nome,
       p.cpf ?? '',
@@ -86,6 +89,10 @@ export function AdminParticipantesPage() {
       p.matricula ?? '',
       p.email ?? '',
       p.telefone ?? '',
+      p.endereco ?? '',
+      p.cep ?? '',
+      p.cidade ?? '',
+      p.estado ?? '',
     ])
     // Escapa aspas e envolve cada campo, evitando quebrar o CSV.
     const csv = [cabecalho, ...linhas]
@@ -183,6 +190,7 @@ export function AdminParticipantesPage() {
                     <th className="px-4 py-3">CPF</th>
                     <th className="px-4 py-3">Nascimento</th>
                     <th className="px-4 py-3">Curso</th>
+                    <th className="px-4 py-3">Endereço</th>
                     <th className="px-4 py-3">Contato</th>
                     <th className="px-4 py-3" />
                   </tr>
@@ -190,13 +198,13 @@ export function AdminParticipantesPage() {
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
+                      <td colSpan={7} className="px-4 py-10 text-center text-slate-400">
                         Carregando...
                       </td>
                     </tr>
                   ) : filtrados.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
+                      <td colSpan={7} className="px-4 py-10 text-center text-slate-400">
                         Nenhum participante encontrado para esta busca.
                       </td>
                     </tr>
@@ -219,6 +227,17 @@ export function AdminParticipantesPage() {
                         <td className="px-4 py-3 text-slate-500">
                           {p.curso ?? '—'}
                           {p.turma && <span className="ml-1 text-xs text-slate-400">({p.turma})</span>}
+                        </td>
+                        {/* Endereço + CEP (campos vindos do formulário) */}
+                        <td className="max-w-[220px] px-4 py-3 text-slate-500">
+                          {p.endereco ? (
+                            <div className="flex flex-col">
+                              <span className="truncate" title={p.endereco}>{p.endereco}</span>
+                              {p.cep && <span className="text-xs text-slate-400">CEP {p.cep}</span>}
+                            </div>
+                          ) : (
+                            '—'
+                          )}
                         </td>
                         <td className="px-4 py-3 text-slate-500">
                           <div className="flex flex-col">

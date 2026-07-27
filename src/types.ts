@@ -110,6 +110,8 @@ export interface Participante {
   instituicaoId?: string
   email?: string
   telefone?: string
+  endereco?: string
+  cep?: string
   cidade?: string
   estado?: string
   status: StatusParticipante
