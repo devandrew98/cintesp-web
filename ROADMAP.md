@@ -11,9 +11,9 @@
 
 | Campo | Valor |
 |---|---|
-| **Versão** | `v0.7.0` |
-| **Fase atual** | ✅ **Fase 4 concluída** — banco real + login + realtime. **Pronto para testes reais** |
-| **Data** | 23/07/2026 |
+| **Versão** | `v0.8.0` |
+| **Fase atual** | ✅ **Fase 7 concluída** — Participantes + importação de planilha (.xlsx/.csv) |
+| **Data** | 27/07/2026 |
 | **Front rodando?** | Sim — `npm run dev` → http://localhost:5180 |
 | **Repositório** | 🔒 privado — `github.com/devandrew98/cintesp-web` (branch `main`) |
 | **Banco (Supabase)** | ✅ Conectado e em uso — projeto `qjdvahlcxxkafotlnzrb` (auth + todas as telas) |
@@ -21,8 +21,13 @@
 
 **Resumo em uma linha:** o app está **pronto para testes reais** — login (Supabase Auth),
 todas as telas lendo/gravando no banco real, o pesquisador define a própria disponibilidade
-e horário, o admin gerencia funções/áreas/instituições e avisos, e o quadro/avisos atualizam
-ao vivo (realtime). Deploy é o próximo passo (Fase 6).
+e horário, o admin gerencia funções/áreas/instituições e avisos, o quadro/avisos atualizam
+ao vivo (realtime) e agora dá para **importar uma planilha de participantes** (alunos) com
+conferência antes de gravar. Deploy é o próximo passo (Fase 6).
+
+> ⚠️ **Ação necessária para a Fase 7:** rode `docs/supabase-participantes.sql` uma vez no
+> SQL Editor do Supabase para criar as tabelas `participantes` e `importacoes`.
+> Enquanto não rodar, a tela de Participantes não consegue gravar no banco.
 
 > ✅ **Como testar:** entre em `/login` (ou convide colegas em Supabase → Authentication → Invite user).
 > Defina sua disponibilidade em **Meu Horário** e veja aparecer no **Quadro**. O 1º usuário é Administrador.
@@ -115,9 +120,50 @@ Legenda: ✅ concluída · 🚧 em andamento · ⬜ pendente
 - [ ] _Opcional:_ ícones PWA em PNG 192/512 (hoje usa `favicon.svg` com `sizes: any`)
 - [ ] _Opcional:_ App nativo com Expo/React Native reaproveitando o Supabase
 
+### ✅ Fase 7 — Participantes (alunos) e importação de planilha — CONCLUÍDA
+- [x] Nova entidade **`participantes`** (nome, CPF, nascimento, curso, turma, matrícula,
+      e-mail, telefone, cidade/UF, status) — **sem exigir login**, diferente de `usuarios`
+- [x] Tabela **`importacoes`** (auditoria: arquivo, quem importou, quando, quantos)
+- [x] **Assistente de importação em 4 etapas**: arquivo → colunas → conferência → resultado
+- [x] Leitura de **.xlsx / .xls / .csv** direto no navegador (o arquivo não sai da máquina)
+- [x] **Detecção automática** da linha de cabeçalho (ignora títulos/logos no topo)
+- [x] **Mapeamento automático** de colunas por nome, com ajuste manual e troca de aba
+- [x] **Validação linha a linha**: CPF com dígito verificador, duplicados no arquivo,
+      datas em vários formatos (dd/mm/aaaa, ISO, serial do Excel), nome obrigatório
+- [x] **Deduplicação por CPF** (upsert): reimportar a planilha ATUALIZA quem já existe
+- [x] Colunas não mapeadas são preservadas em `dados_extras` (nada se perde)
+- [x] Tela de Participantes: KPIs, busca (nome/CPF/matrícula/e-mail), filtro por curso,
+      exclusão, **exportar CSV** e histórico de importações
+- [x] **LGPD:** CPF exibido mascarado na listagem
+- [x] SheetJS carregado sob demanda (não pesa no carregamento inicial do app)
+- [ ] _Próximos (opcional):_ vincular participante a instituição na importação;
+      desfazer uma importação; ficha individual do participante
+
 ---
 
 ## 📝 Changelog
+
+### v0.8.0 — 27/07/2026
+- **Fase 7 — Participantes (alunos) e importação de planilha.**
+- Novo SQL `docs/supabase-participantes.sql`: tabelas `participantes` e `importacoes`,
+  com RLS no mesmo padrão (todo logado lê, admin escreve) e gatilho de `updated_at`.
+  O CPF é uma **constraint `unique`** (e não índice parcial) para o upsert funcionar.
+- **Assistente de importação** (`components/participantes/ImportWizard`) em 4 etapas, com
+  arrastar-e-soltar, barra de progresso e confirmação explícita antes de gravar.
+- Novos helpers: `lib/planilha.ts` (leitura + detecção de cabeçalho + mapeamento automático
+  + parse de datas), `lib/cpf.ts` (validação de dígito verificador, máscara) e
+  `lib/importacao.ts` (análise linha a linha).
+- `data/participantes.ts`: leitura, upsert em lotes de 200 por CPF, registro da importação
+  e modo mock em memória (dá para testar tudo sem banco).
+- Tela `pages/admin/Participantes.tsx` + aba/menu "Participantes".
+- **Verificado ponta a ponta** com planilha de teste (título antes do cabeçalho, CPF
+  inválido, CPF repetido, data ilegível, coluna extra): 13 importados, 3 bloqueados com
+  motivo, 1 aviso; ao reimportar → 0 novos e 13 atualizados (sem duplicar).
+- 2 bugs corrigidos no próprio desenvolvimento: apelido curto "ra" casava dentro de
+  "Situação Financei**ra**" (agora exige palavra inteira) e a numeração das linhas ignorava
+  linhas em branco (agora bate com a planilha real).
+- SheetJS instalado da CDN oficial (0.20.3, sem os CVEs da versão do npm) e carregado via
+  `import()` dinâmico — vira um chunk separado, fora do bundle principal.
 
 ### v0.7.0 — 23/07/2026
 - **Fase 4 concluída — app rodando no banco real do Supabase, pronto para testes.**

@@ -11,6 +11,7 @@ import { BuscaPage } from '@/pages/Busca'
 import { RelatoriosPage } from '@/pages/Relatorios'
 import { AvisosPage } from '@/pages/Avisos'
 import { AdminUsuariosPage } from '@/pages/admin/Usuarios'
+import { AdminParticipantesPage } from '@/pages/admin/Participantes'
 import { AdminFuncoesPage } from '@/pages/admin/Funcoes'
 import { AdminAreasPage } from '@/pages/admin/Areas'
 import { AdminInstituicoesPage } from '@/pages/admin/Instituicoes'
@@ -43,6 +44,7 @@ export default function App() {
         <Route path="/relatorios" element={<RelatoriosPage />} />
 
         <Route path="/admin/usuarios" element={<AdminUsuariosPage />} />
+        <Route path="/admin/participantes" element={<AdminParticipantesPage />} />
         <Route path="/admin/funcoes" element={<AdminFuncoesPage />} />
         <Route path="/admin/horarios" element={<AdminEmConstrucao titulo="Horários (modelos)" fase="Fase 3 (continuação)" />} />
         <Route path="/admin/areas" element={<AdminAreasPage />} />

@@ -91,3 +91,47 @@ export interface EventoHistorico {
   autor: string
   descricao: string
 }
+
+// ============================================================
+// Participantes (alunos) — dados vindos de planilha.
+// Diferente de "Usuario": participante NÃO tem login no sistema.
+// ============================================================
+
+export type StatusParticipante = 'ativo' | 'inativo' | 'concluido' | 'trancado'
+
+export interface Participante {
+  id: string
+  nome: string
+  cpf?: string // somente dígitos
+  dataNascimento?: string // ISO (yyyy-mm-dd)
+  curso?: string
+  turma?: string
+  matricula?: string
+  instituicaoId?: string
+  email?: string
+  telefone?: string
+  cidade?: string
+  estado?: string
+  status: StatusParticipante
+  observacoes?: string
+  /** Colunas da planilha sem campo próprio, preservadas como JSON. */
+  dadosExtras?: Record<string, string>
+  criadoEm?: string
+}
+
+/** Status de uma importação de planilha. */
+export type StatusImportacao = 'concluida' | 'parcial' | 'falhou'
+
+/** Registro de auditoria de cada planilha importada. */
+export interface Importacao {
+  id: string
+  arquivo: string
+  totalLinhas: number
+  criados: number
+  atualizados: number
+  ignorados: number
+  erros: number
+  status: StatusImportacao
+  autorNome?: string
+  criadoEm: string
+}
