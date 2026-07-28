@@ -2,7 +2,7 @@ import { Bell, Menu, Moon, Sun, RefreshCw, ChevronDown, LogOut } from 'lucide-re
 import { useUI } from '@/store/ui'
 import { useAuth } from '@/store/auth'
 import { Avatar } from '@/components/ui/Avatar'
-import { usuarios } from '@/data/mock'
+import { usePermissoes } from '@/hooks/usePermissoes'
 
 const dataHoje = new Date().toLocaleDateString('pt-BR', {
   weekday: 'long',
@@ -13,11 +13,12 @@ const dataHoje = new Date().toLocaleDateString('pt-BR', {
 export function Topbar() {
   const { theme, toggleTheme, setSidebarOpen } = useUI()
   const { session, sair } = useAuth()
-  const usuarioMock = usuarios.find((u) => u.funcao.nome === 'Administrador') ?? usuarios[0]
+  // Mostra SEMPRE o perfil de quem está usando o app (não um usuário fixo).
+  const { perfil } = usePermissoes()
 
-  // Quando há login real, mostra o e-mail da sessão; senão, o usuário mock.
-  const nomeExibido = session?.user.email ?? usuarioMock.nome
-  const papelExibido = session ? 'Conectado' : usuarioMock.funcao.nome
+  const nomeExibido = perfil?.nome ?? session?.user.email ?? 'Usuário'
+  // A função real (Administrador, Pesquisador...) deixa claro o nível de acesso.
+  const papelExibido = perfil?.funcao?.nome ?? (session ? 'Conectado' : '—')
 
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-slate-200 bg-white/80 px-4 backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/80 lg:px-6">

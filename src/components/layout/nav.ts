@@ -26,6 +26,8 @@ export interface NavItem {
 export interface NavSection {
   title?: string
   items: NavItem[]
+  /** Seção visível apenas para administradores (permissão `gerenciar_tudo`). */
+  somenteAdmin?: boolean
 }
 
 export const navSections: NavSection[] = [
@@ -43,6 +45,8 @@ export const navSections: NavSection[] = [
   },
   {
     title: 'Administração',
+    // Todo este bloco some do menu para quem não é administrador.
+    somenteAdmin: true,
     items: [
       { label: 'Usuários', to: '/admin/usuarios', icon: UserCog },
       { label: 'Participantes', to: '/admin/participantes', icon: GraduationCap },

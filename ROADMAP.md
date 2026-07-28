@@ -11,31 +11,33 @@
 
 | Campo | Valor |
 |---|---|
-| **Versão** | `v0.9.0` |
-| **Fase atual** | ✅ **Fase 7 concluída** — Participantes + importação de planilha (.xlsx/.csv) |
-| **Data** | 27/07/2026 |
+| **Versão** | `v1.0.0` |
+| **Fase atual** | ✅ **Fase 8 concluída** — permissões por papel. **Pronto para deploy** |
+| **Data** | 28/07/2026 |
 | **Front rodando?** | Sim — `npm run dev` → http://localhost:5180 |
 | **Repositório** | 🔒 privado — `github.com/devandrew98/cintesp-web` (branch `main`) |
 | **Banco (Supabase)** | ✅ Conectado e em uso — projeto `qjdvahlcxxkafotlnzrb` (auth + todas as telas) |
 | **Modo de dados** | `VITE_USE_MOCK=false` (banco real Supabase) |
 
-**Resumo em uma linha:** o app está **pronto para testes reais** — login (Supabase Auth),
-todas as telas lendo/gravando no banco real, o pesquisador define a própria disponibilidade
-e horário, o admin gerencia funções/áreas/instituições e avisos, o quadro/avisos atualizam
-ao vivo (realtime) e agora dá para **importar uma planilha de participantes** (alunos) com
-conferência antes de gravar. Deploy é o próximo passo (Fase 6).
+**Resumo em uma linha:** app completo e **pronto para o servidor** — login, todas as telas
+no banco real, quadro/avisos ao vivo (realtime), importação de planilha de participantes e
+**controle de acesso por papel**: só o administrador vê e usa a área de Administração.
 
-> ⚠️ **Ação necessária para a Fase 7:** rode `docs/supabase-participantes.sql` uma vez no
-> SQL Editor do Supabase para criar as tabelas `participantes` e `importacoes`.
-> Enquanto não rodar, a tela de Participantes não consegue gravar no banco.
+### ✅ Antes de subir para o servidor — checklist
 
-> ✅ **Como testar:** entre em `/login` (ou convide colegas em Supabase → Authentication → Invite user).
-> Defina sua disponibilidade em **Meu Horário** e veja aparecer no **Quadro**. O 1º usuário é Administrador.
-> _Rode `docs/supabase-fix-duplicados.sql` uma vez se ainda não rodou (o seed foi executado 2×)._
+1. **Rodar os SQLs no Supabase** (SQL Editor), na ordem, se ainda não rodou:
+   `supabase-schema.sql` → `supabase-seed.sql` → `supabase-policies.sql` →
+   `supabase-participantes.sql`
+2. **Zerar os dados** para começar limpo: `docs/supabase-reset-total.sql`
+3. **Conferir quem é administrador** (consulta (C) no fim do arquivo de reset).
+   Quem não for administrador não enxerga o bloco ADMINISTRAÇÃO.
+4. **No serviço de deploy** (Vercel/Netlify), definir as variáveis:
+   `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` e `VITE_USE_MOCK=false`
 
-> ⚠️ **Fase 4 depende de você:** para conectar o banco real é preciso criar o projeto no
-> Supabase e me passar `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` (ver README). Enquanto
-> isso não vem, dá para avançar na **Fase 5** (telas restantes) ainda em modo mock.
+> 🔐 **Quem pode o quê:** o administrador (permissão `gerenciar_tudo`) faz tudo —
+> define horário de qualquer pesquisador, publica avisos, importa planilha e acessa
+> a Administração. Os demais só veem o quadro, editam o **próprio** horário e leem
+> os avisos. Isso vale na interface **e** no banco (RLS), não só visualmente.
 
 ---
 
@@ -142,7 +144,39 @@ Legenda: ✅ concluída · 🚧 em andamento · ⬜ pendente
 
 ---
 
+### ✅ Fase 8 — Permissões por papel (CONCLUÍDA)
+- [x] `hooks/usePermissoes` — lê a função do usuário logado e expõe `ehAdmin` / `pode()`
+- [x] `RequireAdmin` protege **todas** as 7 rotas `/admin/*` (mostra "Acesso restrito")
+- [x] Menu lateral **esconde o bloco ADMINISTRAÇÃO** de quem não é administrador
+- [x] Botão **"Novo Aviso"** só aparece para quem pode publicar
+- [x] Topbar passa a mostrar o **perfil real** (nome + função), não um usuário fixo
+- [x] Testado com os dois papéis: administrador vê tudo; pesquisador não vê o menu,
+      não vê o botão de aviso e é barrado ao digitar a URL de admin na mão
+- [x] Camada dupla: além da interface, o banco (RLS `is_admin()`) recusa a gravação
+- [x] `docs/supabase-reset-total.sql` — zera os dados operacionais para começar limpo
+
+---
+
 ## 📝 Changelog
+
+### v1.0.0 — 28/07/2026
+- **Controle de acesso por papel (Fase 8).** Antes, o menu e as telas de Administração
+  apareciam para qualquer usuário logado — só o banco barrava a gravação, o que gerava
+  erro na cara do usuário. Agora:
+  - `hooks/usePermissoes` deriva as permissões da **função** do usuário logado;
+  - `components/auth/RequireAdmin` protege as 7 rotas `/admin/*`, com tela de
+    "Acesso restrito" explicando o que fazer;
+  - a seção **ADMINISTRAÇÃO** some do menu lateral para não administradores;
+  - o botão **"Novo Aviso"** fica visível só para quem tem `publicar_avisos`;
+  - a **Topbar** mostra o perfil real (nome + função) — antes exibia um usuário fixo
+    "Administrador" vindo do mock.
+- **Testes executados:** varredura das 15 telas como administrador e das 8 como
+  pesquisador (0 erros de console); tentativa de acesso direto por URL às rotas de
+  admin (bloqueada); estresse de buscas e filtros com entradas agressivas (XSS/SQL/
+  strings longas/emoji) sem quebrar; ciclo de abrir/fechar modais sem vazamento
+  (nenhum diálogo órfão, scroll do body liberado); tema alternado 12× seguidas;
+  responsivo a 375px sem estouro horizontal em nenhuma tela.
+- Novo `docs/supabase-reset-total.sql` para zerar os dados mantendo estrutura, RLS e logins.
 
 ### v0.9.0 — 27/07/2026
 - **Administração > Horários deixou de ser placeholder** — última pendência da Fase 3.

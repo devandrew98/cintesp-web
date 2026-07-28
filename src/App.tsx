@@ -18,6 +18,7 @@ import { AdminAreasPage } from '@/pages/admin/Areas'
 import { AdminInstituicoesPage } from '@/pages/admin/Instituicoes'
 import { AdminConfiguracoesPage } from '@/pages/admin/Configuracoes'
 import { AdminEmConstrucao } from '@/pages/admin/AdminEmConstrucao'
+import { RequireAdmin } from '@/components/auth/RequireAdmin'
 import { Placeholder } from '@/pages/Placeholder'
 
 export default function App() {
@@ -44,13 +45,13 @@ export default function App() {
         <Route path="/busca" element={<BuscaPage />} />
         <Route path="/relatorios" element={<RelatoriosPage />} />
 
-        <Route path="/admin/usuarios" element={<AdminUsuariosPage />} />
-        <Route path="/admin/participantes" element={<AdminParticipantesPage />} />
-        <Route path="/admin/funcoes" element={<AdminFuncoesPage />} />
-        <Route path="/admin/horarios" element={<AdminHorariosPage />} />
-        <Route path="/admin/areas" element={<AdminAreasPage />} />
-        <Route path="/admin/instituicoes" element={<AdminInstituicoesPage />} />
-        <Route path="/admin/configuracoes" element={<AdminConfiguracoesPage />} />
+        <Route path="/admin/usuarios" element={<RequireAdmin><AdminUsuariosPage /></RequireAdmin>} />
+        <Route path="/admin/participantes" element={<RequireAdmin><AdminParticipantesPage /></RequireAdmin>} />
+        <Route path="/admin/funcoes" element={<RequireAdmin><AdminFuncoesPage /></RequireAdmin>} />
+        <Route path="/admin/horarios" element={<RequireAdmin><AdminHorariosPage /></RequireAdmin>} />
+        <Route path="/admin/areas" element={<RequireAdmin><AdminAreasPage /></RequireAdmin>} />
+        <Route path="/admin/instituicoes" element={<RequireAdmin><AdminInstituicoesPage /></RequireAdmin>} />
+        <Route path="/admin/configuracoes" element={<RequireAdmin><AdminConfiguracoesPage /></RequireAdmin>} />
 
         <Route path="*" element={<Placeholder title="Página não encontrada" fase="—" descricao="O endereço acessado não existe." />} />
       </Route>

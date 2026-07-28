@@ -24,6 +24,7 @@ import { AvisoFormModal } from '@/components/avisos/AvisoFormModal'
 import { tipoAvisoInfo, statusAvisoInfo } from '@/lib/avisos'
 import { cn, formatDateBR } from '@/lib/utils'
 import { listarAvisos, criarAviso } from '@/data/api'
+import { usePermissoes } from '@/hooks/usePermissoes'
 import type { Aviso, TipoAviso } from '@/types'
 
 const tiposFiltro: Array<{ value: TipoAviso | 'todos'; label: string }> = [
@@ -47,6 +48,8 @@ export function AvisosPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['avisos'] }),
   })
 
+  // Só administradores (ou quem tem 'publicar_avisos') podem criar avisos.
+  const { podePublicarAvisos } = usePermissoes()
   const [query, setQuery] = useState('')
   const [tipoFiltro, setTipoFiltro] = useState<TipoAviso | 'todos'>('todos')
   const [mostrarFiltros, setMostrarFiltros] = useState(false)
@@ -99,9 +102,11 @@ export function AvisosPage() {
             >
               Filtros
             </Button>
-            <Button icon={Plus} onClick={() => setModalAberto(true)}>
-              Novo Aviso
-            </Button>
+            {podePublicarAvisos && (
+              <Button icon={Plus} onClick={() => setModalAberto(true)}>
+                Novo Aviso
+              </Button>
+            )}
           </>
         }
       />

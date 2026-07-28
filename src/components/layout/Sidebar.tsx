@@ -3,10 +3,16 @@ import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUI } from '@/store/ui'
 import { navSections } from './nav'
+import { usePermissoes } from '@/hooks/usePermissoes'
 import { BrandLogo } from './BrandLogo'
 
 export function Sidebar() {
   const { sidebarOpen, setSidebarOpen } = useUI()
+  const { ehAdmin } = usePermissoes()
+
+  // Esconde do menu as seções restritas a administradores.
+  // (As rotas também são protegidas por <RequireAdmin>, e o banco por RLS.)
+  const secoesVisiveis = navSections.filter((s) => !s.somenteAdmin || ehAdmin)
 
   return (
     <>
@@ -37,7 +43,7 @@ export function Sidebar() {
         </div>
 
         <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-4">
-          {navSections.map((section, i) => (
+          {secoesVisiveis.map((section, i) => (
             <div key={i}>
               {section.title && (
                 <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
