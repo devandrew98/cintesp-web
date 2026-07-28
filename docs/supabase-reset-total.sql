@@ -15,40 +15,69 @@
 --   • as contas de login (auth.users) e os perfis em `usuarios`
 --   • funções, áreas de atuação e instituições (dados de referência)
 --
+-- ✅ SEGURO DE RODAR A QUALQUER MOMENTO: tabelas que ainda não existem
+--    (ex.: `participantes`, se você não rodou o supabase-participantes.sql)
+--    são simplesmente ignoradas, sem dar erro.
+--
 -- Como usar: Supabase → SQL Editor → cole tudo → Run.
 -- ============================================================
 
 -- ---------- 1) Situação ANTES ----------
-select 'ANTES' as momento,
-  (select count(*) from public.participantes)        as participantes,
-  (select count(*) from public.importacoes)          as importacoes,
-  (select count(*) from public.avisos)               as avisos,
-  (select count(*) from public.horarios)             as horarios,
-  (select count(*) from public.disponibilidade)      as disponibilidade,
-  (select count(*) from public.mudancas_turno)       as mudancas,
-  (select count(*) from public.usuarios)             as usuarios_mantidos;
+-- Conta as linhas apenas das tabelas que existem de fato.
+select 'ANTES' as momento, table_name as tabela,
+       (xpath(
+          '/row/c/text()',
+          query_to_xml(format('select count(*) as c from public.%I', table_name), false, true, '')
+       ))[1]::text::bigint as linhas
+  from information_schema.tables
+ where table_schema = 'public'
+   and table_name in ('participantes','importacoes','avisos','mudancas_turno',
+                      'horarios','disponibilidade','historico_alteracoes',
+                      'usuario_areas','usuarios')
+ order by table_name;
 
 -- ---------- 2) Limpeza ----------
--- A ordem respeita as chaves estrangeiras (filhos primeiro).
-delete from public.participantes;
-delete from public.importacoes;
-delete from public.avisos;
-delete from public.mudancas_turno;
-delete from public.horarios;
-delete from public.disponibilidade;
-delete from public.historico_alteracoes;
-delete from public.usuario_areas;
+-- Percorre a lista na ordem certa (filhos antes dos pais) e só apaga o que existe.
+do $$
+declare
+  t text;
+  -- A ORDEM IMPORTA: respeita as chaves estrangeiras.
+  tabelas text[] := array[
+    'participantes',          -- referencia importacoes
+    'importacoes',
+    'avisos',
+    'mudancas_turno',
+    'horarios',
+    'disponibilidade',
+    'historico_alteracoes',
+    'usuario_areas'
+  ];
+  apagadas int;
+begin
+  foreach t in array tabelas loop
+    if to_regclass('public.' || t) is not null then
+      execute format('delete from public.%I', t);
+      get diagnostics apagadas = row_count;
+      raise notice 'limpo: %-22s (% linha(s))', t, apagadas;
+    else
+      raise notice 'ignorado (tabela nao existe): %', t;
+    end if;
+  end loop;
+end $$;
 
 -- ---------- 3) Situação DEPOIS ----------
 -- Tudo deve estar zerado, menos `usuarios` (as contas continuam).
-select 'DEPOIS' as momento,
-  (select count(*) from public.participantes)        as participantes,
-  (select count(*) from public.importacoes)          as importacoes,
-  (select count(*) from public.avisos)               as avisos,
-  (select count(*) from public.horarios)             as horarios,
-  (select count(*) from public.disponibilidade)      as disponibilidade,
-  (select count(*) from public.mudancas_turno)       as mudancas,
-  (select count(*) from public.usuarios)             as usuarios_mantidos;
+select 'DEPOIS' as momento, table_name as tabela,
+       (xpath(
+          '/row/c/text()',
+          query_to_xml(format('select count(*) as c from public.%I', table_name), false, true, '')
+       ))[1]::text::bigint as linhas
+  from information_schema.tables
+ where table_schema = 'public'
+   and table_name in ('participantes','importacoes','avisos','mudancas_turno',
+                      'horarios','disponibilidade','historico_alteracoes',
+                      'usuario_areas','usuarios')
+ order by table_name;
 
 -- ============================================================
 -- OPCIONAIS — descomente só se for isso mesmo que você quer.
