@@ -168,6 +168,18 @@ export function LoginPage() {
 /** Traduz as mensagens de erro mais comuns do Supabase Auth. */
 function traduzErro(msg: string): string {
   const m = msg.toLowerCase()
+  // Erro de CONFIGURAÇÃO (não é culpa de quem está tentando entrar):
+  // a chave enviada ao Supabase está errada, incompleta ou é de outro projeto.
+  if (m.includes('invalid api key') || m.includes('no api key')) {
+    return (
+      'Erro de configuração: a chave de acesso ao banco (VITE_SUPABASE_ANON_KEY) ' +
+      'está inválida ou é de outro projeto. Confira as variáveis de ambiente — ' +
+      'detalhes no console do navegador (F12).'
+    )
+  }
+  if (m.includes('failed to fetch') || m.includes('networkerror')) {
+    return 'Não foi possível falar com o servidor. Verifique a URL do projeto (VITE_SUPABASE_URL) e sua conexão.'
+  }
   if (m.includes('invalid login credentials')) return 'E-mail ou senha incorretos.'
   if (m.includes('email not confirmed')) return 'Confirme seu e-mail antes de entrar.'
   if (m.includes('user already registered')) return 'Este e-mail já tem conta. Faça login.'

@@ -1,17 +1,30 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 /**
+ * Tira espaços, aspas e quebras de linha que costumam vir junto quando o
+ * valor é colado do painel do Supabase ou do campo do serviço de deploy.
+ * Um espaço ou uma quebra de linha sobrando no fim da chave já é suficiente
+ * para o Supabase responder "Invalid API key".
+ */
+function limpar(v?: string): string | undefined {
+  if (!v) return undefined
+  const limpo = v.trim().replace(/^["']|["']$/g, '').trim()
+  return limpo || undefined
+}
+
+/**
  * Normaliza a URL do projeto: aceita tanto a URL base
  * (https://xxxx.supabase.co) quanto a que o painel mostra com "/rest/v1/"
  * no fim, removendo esse sufixo e a barra final.
  */
 function normalizarUrl(u?: string): string | undefined {
-  if (!u) return undefined
-  return u.replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '')
+  const limpo = limpar(u)
+  if (!limpo) return undefined
+  return limpo.replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '')
 }
 
 const url = normalizarUrl(import.meta.env.VITE_SUPABASE_URL)
-const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+const anonKey = limpar(import.meta.env.VITE_SUPABASE_ANON_KEY)
 
 /** Há chaves do Supabase configuradas? (habilita login e queries reais.) */
 export const hasSupabase = Boolean(url && anonKey)
@@ -23,6 +36,38 @@ export const hasSupabase = Boolean(url && anonKey)
  * A autenticação, quando há chaves, é sempre real (independe disto).
  */
 export const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true' || !hasSupabase
+
+/**
+ * A chave TEM CARA de chave do Supabase?
+ * Serve para avisar cedo, no console, em vez de deixar o usuário só com um
+ * "Invalid API key" na tela de login, que não explica nada.
+ * Formatos aceitos: JWT clássico (eyJ...) e o novo (sb_publishable_...).
+ */
+export function chaveAnonPareceValida(k?: string): boolean {
+  if (!k) return false
+  return k.startsWith('eyJ') || k.startsWith('sb_publishable_')
+}
+
+/** true quando há chave configurada, mas ela está num formato improvável. */
+export const chaveSuspeita = hasSupabase && !chaveAnonPareceValida(anonKey)
+
+if (chaveSuspeita) {
+  console.error(
+    [
+      '[CINTESP] VITE_SUPABASE_ANON_KEY nao parece uma chave valida do Supabase.',
+      'Ela deve comecar com "eyJ" (chave anon/public classica) ou "sb_publishable_".',
+      'Confira em: Supabase > Project Settings > API Keys.',
+      'NUNCA use a chave service_role no front.',
+    ].join(' '),
+  )
+}
+
+if (hasSupabase && url && !/^https:\/\/[a-z0-9-]+\.supabase\.(co|in)$/i.test(url)) {
+  console.warn(
+    `[CINTESP] VITE_SUPABASE_URL com formato inesperado: "${url}". ` +
+      'O normal e https://SEU-PROJETO.supabase.co',
+  )
+}
 
 /**
  * Cliente Supabase. Existe sempre que há chaves (usado pela autenticação e,

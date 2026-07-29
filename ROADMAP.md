@@ -11,7 +11,7 @@
 
 | Campo | Valor |
 |---|---|
-| **Versão** | `v1.1.0` |
+| **Versão** | `v1.1.1` |
 | **Fase atual** | ✅ **Fase 8 concluída** — permissões por papel. **Pronto para deploy** |
 | **Data** | 28/07/2026 |
 | **Front rodando?** | Sim — `npm run dev` → http://localhost:5180 |
@@ -158,6 +158,16 @@ Legenda: ✅ concluída · 🚧 em andamento · ⬜ pendente
 ---
 
 ## 📝 Changelog
+
+### v1.1.1 — 28/07/2026
+- **Correção de configuração:** as variáveis `VITE_SUPABASE_URL` e
+  `VITE_SUPABASE_ANON_KEY` agora passam por uma limpeza (espaços, aspas e
+  quebras de linha). Um único espaço colado junto da chave já fazia o Supabase
+  responder **"Invalid API key"** na tela de login.
+- Aviso no console quando a chave não tem formato de chave do Supabase
+  (deve começar com `eyJ` ou `sb_publishable_`) e quando a URL foge do padrão.
+- A tela de login passa a explicar o erro: em vez de "Invalid API key", mostra
+  que é problema de configuração e indica onde olhar.
 
 ### v1.1.0 — 28/07/2026
 - **Menu do usuário na barra superior** (`components/layout/UserMenu`): clicar no
