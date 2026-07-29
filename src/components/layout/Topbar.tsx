@@ -1,8 +1,6 @@
-import { Bell, Menu, Moon, Sun, RefreshCw, ChevronDown, LogOut } from 'lucide-react'
+import { Bell, Menu, Moon, Sun, RefreshCw } from 'lucide-react'
 import { useUI } from '@/store/ui'
-import { useAuth } from '@/store/auth'
-import { Avatar } from '@/components/ui/Avatar'
-import { usePermissoes } from '@/hooks/usePermissoes'
+import { UserMenu } from './UserMenu'
 
 const dataHoje = new Date().toLocaleDateString('pt-BR', {
   weekday: 'long',
@@ -10,15 +8,12 @@ const dataHoje = new Date().toLocaleDateString('pt-BR', {
   month: 'long',
 })
 
+/**
+ * Barra superior: data de hoje, tema claro/escuro, notificações e o menu do
+ * usuário (que concentra os dados da conta e a saída da plataforma).
+ */
 export function Topbar() {
   const { theme, toggleTheme, setSidebarOpen } = useUI()
-  const { session, sair } = useAuth()
-  // Mostra SEMPRE o perfil de quem está usando o app (não um usuário fixo).
-  const { perfil } = usePermissoes()
-
-  const nomeExibido = perfil?.nome ?? session?.user.email ?? 'Usuário'
-  // A função real (Administrador, Pesquisador...) deixa claro o nível de acesso.
-  const papelExibido = perfil?.funcao?.nome ?? (session ? 'Conectado' : '—')
 
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-slate-200 bg-white/80 px-4 backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/80 lg:px-6">
@@ -55,27 +50,8 @@ export function Topbar() {
         </span>
       </button>
 
-      <div className="flex items-center gap-2 rounded-xl border border-slate-200 py-1.5 pl-1.5 pr-2 dark:border-slate-700">
-        <Avatar nome={nomeExibido} size="sm" />
-        <div className="hidden max-w-[160px] text-left leading-tight sm:block">
-          <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">
-            {nomeExibido}
-          </p>
-          <p className="text-[11px] text-slate-400">{papelExibido}</p>
-        </div>
-        {session ? (
-          <button
-            onClick={() => sair()}
-            title="Sair"
-            aria-label="Sair"
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-red-500 dark:hover:bg-slate-800"
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
-        ) : (
-          <ChevronDown className="h-4 w-4 text-slate-400" />
-        )}
-      </div>
+      {/* Menu do usuário: dados da conta, atalhos e sair da plataforma */}
+      <UserMenu />
     </header>
   )
 }

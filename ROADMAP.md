@@ -11,7 +11,7 @@
 
 | Campo | Valor |
 |---|---|
-| **Versão** | `v1.0.0` |
+| **Versão** | `v1.1.0` |
 | **Fase atual** | ✅ **Fase 8 concluída** — permissões por papel. **Pronto para deploy** |
 | **Data** | 28/07/2026 |
 | **Front rodando?** | Sim — `npm run dev` → http://localhost:5180 |
@@ -158,6 +158,17 @@ Legenda: ✅ concluída · 🚧 em andamento · ⬜ pendente
 ---
 
 ## 📝 Changelog
+
+### v1.1.0 — 28/07/2026
+- **Menu do usuário na barra superior** (`components/layout/UserMenu`): clicar no
+  nome/foto abre um menu com os dados da conta (nome, e-mail e função), atalhos
+  para *Meu Horário* e *Configurações* (só admin) e **"Sair da plataforma"**, que
+  encerra a sessão e volta para `/login`.
+- O menu fecha ao clicar fora, apertar Esc ou mudar de página; a saída usa
+  `replace` na navegação para o botão "voltar" do navegador não retornar ao app.
+- `Topbar` simplificada: a exibição do usuário saiu de lá e virou o `UserMenu`.
+- **Versionamento por tags:** cada versão passa a ter uma tag anotada no git
+  (`v0.6.0` … `v1.1.0`), permitindo voltar a qualquer versão anterior.
 
 ### v1.0.0 — 28/07/2026
 - **Controle de acesso por papel (Fase 8).** Antes, o menu e as telas de Administração
