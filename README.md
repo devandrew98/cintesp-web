@@ -6,6 +6,8 @@ administração de usuários. Feito para instalar também no celular (PWA) e, nu
 futura, virar app nativo reaproveitando o mesmo backend.
 
 > 📌 **Para saber em que fase o projeto está, veja [ROADMAP.md](./ROADMAP.md).**
+>
+> 🚀 **Para publicar ou reverter uma versão, veja [DEPLOY.md](./DEPLOY.md).**
 
 ---
 
