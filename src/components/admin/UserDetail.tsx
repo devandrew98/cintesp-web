@@ -1,11 +1,24 @@
-import { useState } from 'react'
-import { Mail, Phone, Building2, Pencil, Plus, Clock, History } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Mail, Phone, Building2, Pencil, Plus, Clock, History, Check, Save } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Field'
 import { HorarioEditor } from './HorarioEditor'
+import { EditarUsuarioModal } from './EditarUsuarioModal'
+import { SelecionarAreasModal } from './SelecionarAreasModal'
 import { cn } from '@/lib/utils'
-import { funcoes, historico, horarioPadrao } from '@/data/mock'
+import { rotuloPermissao } from '@/lib/permissoes'
+import {
+  atualizarAreasUsuario,
+  atualizarFuncaoUsuario,
+  atualizarUsuario,
+  listarFuncoes,
+  listarHistorico,
+  listarHorarios,
+  salvarHorarios,
+  type DadosUsuario,
+} from '@/data/api'
 import type { Usuario } from '@/types'
 
 // Abas internas do detalhe do usuário.
@@ -22,9 +35,29 @@ const subAbas: Array<{ id: SubAba; label: string }> = [
 /**
  * Painel direito da tela de Usuários: cabeçalho com os dados do pesquisador
  * selecionado e as sub-abas (Informações / Função / Horários / Áreas / Histórico).
+ *
+ * Todas as abas gravam no banco de verdade — cada alteração também vai para o
+ * histórico do usuário, para ficar registrado quem mudou o quê.
  */
 export function UserDetail({ usuario }: { usuario: Usuario }) {
   const [aba, setAba] = useState<SubAba>('informacoes')
+  const [editando, setEditando] = useState(false)
+  const queryClient = useQueryClient()
+
+  /** Recarrega a lista de usuários e o histórico após qualquer alteração. */
+  const recarregar = () => {
+    queryClient.invalidateQueries({ queryKey: ['usuarios'] })
+    queryClient.invalidateQueries({ queryKey: ['historico', usuario.id] })
+    queryClient.invalidateQueries({ queryKey: ['perfil-atual'] })
+  }
+
+  const salvarDadosMut = useMutation({
+    mutationFn: (dados: DadosUsuario) => atualizarUsuario(usuario.id, dados),
+    onSuccess: () => {
+      recarregar()
+      setEditando(false)
+    },
+  })
 
   return (
     <div className="space-y-6">
@@ -67,7 +100,7 @@ export function UserDetail({ usuario }: { usuario: Usuario }) {
               </div>
             </div>
           </div>
-          <Button variant="secondary" icon={Pencil}>
+          <Button variant="secondary" icon={Pencil} onClick={() => setEditando(true)}>
             Editar Dados
           </Button>
         </div>
@@ -93,11 +126,21 @@ export function UserDetail({ usuario }: { usuario: Usuario }) {
 
       {/* ---------- Conteúdo da aba selecionada ---------- */}
       {aba === 'informacoes' && <AbaInformacoes usuario={usuario} />}
-      {aba === 'funcao' && <AbaFuncao usuario={usuario} />}
-      {/* key={usuario.id} recria o editor com os horários do usuário atual */}
-      {aba === 'horarios' && <HorarioEditor key={usuario.id} horariosIniciais={horarioPadrao} />}
-      {aba === 'areas' && <AbaAreas usuario={usuario} />}
-      {aba === 'historico' && <AbaHistorico />}
+      {aba === 'funcao' && <AbaFuncao key={usuario.id} usuario={usuario} onSalvo={recarregar} />}
+      {aba === 'horarios' && <AbaHorarios key={usuario.id} usuario={usuario} />}
+      {aba === 'areas' && <AbaAreas key={usuario.id} usuario={usuario} onSalvo={recarregar} />}
+      {aba === 'historico' && <AbaHistorico usuarioId={usuario.id} />}
+
+      {/* Modal de edição dos dados cadastrais */}
+      {editando && (
+        <EditarUsuarioModal
+          usuario={usuario}
+          open={editando}
+          onClose={() => setEditando(false)}
+          onSalvar={(dados) => salvarDadosMut.mutate(dados)}
+          salvando={salvarDadosMut.isPending}
+        />
+      )}
     </div>
   )
 }
@@ -112,7 +155,7 @@ function AbaInformacoes({ usuario }: { usuario: Usuario }) {
     { label: 'Instituição', valor: usuario.instituicao?.nome ?? '—' },
     { label: 'Função', valor: usuario.funcao.nome },
     { label: 'Status', valor: usuario.status === 'ativo' ? 'Ativo' : 'Inativo' },
-    { label: 'Áreas', valor: usuario.areas.map((a) => a.nome).join(', ') || '—' },
+    { label: 'Áreas', valor: usuario.areas.map((a) => a?.nome).filter(Boolean).join(', ') || '—' },
   ]
   return (
     <div className="card p-5">
@@ -130,17 +173,43 @@ function AbaInformacoes({ usuario }: { usuario: Usuario }) {
 }
 
 /* ============================================================
- * Aba: Função e Permissões — troca de função + chips de permissões.
+ * Aba: Função e Permissões — troca de função COM botão de salvar.
  * ============================================================ */
-function AbaFuncao({ usuario }: { usuario: Usuario }) {
+function AbaFuncao({ usuario, onSalvo }: { usuario: Usuario; onSalvo: () => void }) {
+  const { data: funcoes = [] } = useQuery({ queryKey: ['funcoes'], queryFn: listarFuncoes })
+
   const [funcaoId, setFuncaoId] = useState(usuario.funcao.id)
+  const [salvo, setSalvo] = useState(false)
+
+  const salvarMut = useMutation({
+    mutationFn: () => atualizarFuncaoUsuario(usuario.id, funcaoId),
+    onSuccess: () => {
+      onSalvo()
+      setSalvo(true)
+      setTimeout(() => setSalvo(false), 2500)
+    },
+  })
+
   const funcaoAtual = funcoes.find((f) => f.id === funcaoId) ?? usuario.funcao
+  // Só habilita o botão quando houve mudança de verdade.
+  const mudou = funcaoId !== usuario.funcao.id
 
   return (
     <div className="card space-y-5 p-5">
-      <div>
-        <h3 className="font-semibold text-slate-900 dark:text-white">Função e Permissões</h3>
-        <p className="text-sm text-slate-500">Defina o papel do usuário e veja o que ele pode acessar.</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="font-semibold text-slate-900 dark:text-white">Função e Permissões</h3>
+          <p className="text-sm text-slate-500">
+            Defina o papel do usuário e veja o que ele pode acessar.
+          </p>
+        </div>
+        <Button
+          icon={salvo ? Check : Save}
+          disabled={!mudou || salvarMut.isPending}
+          onClick={() => salvarMut.mutate()}
+        >
+          {salvo ? 'Salvo!' : salvarMut.isPending ? 'Salvando...' : 'Salvar função'}
+        </Button>
       </div>
 
       <label className="block max-w-sm">
@@ -156,18 +225,29 @@ function AbaFuncao({ usuario }: { usuario: Usuario }) {
         </Select>
       </label>
 
+      {mudou && (
+        <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
+          Alteração ainda não salva. Clique em <strong>Salvar função</strong> para aplicar.
+        </p>
+      )}
+
       <div>
-        <p className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">Permissões</p>
+        <p className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+          Permissões desta função
+        </p>
         <div className="flex flex-wrap gap-2">
-          {funcaoAtual.permissoes.map((p) => (
-            <span
-              key={p}
-              className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300"
-            >
-              {/* transforma "editar_horarios" em "editar horarios" para exibir */}
-              {p.replace(/_/g, ' ')}
-            </span>
-          ))}
+          {funcaoAtual.permissoes.length === 0 ? (
+            <span className="text-sm text-slate-400">Nenhuma permissão atribuída.</span>
+          ) : (
+            funcaoAtual.permissoes.map((p) => (
+              <span
+                key={p}
+                className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+              >
+                {rotuloPermissao(p)}
+              </span>
+            ))
+          )}
         </div>
       </div>
     </div>
@@ -175,17 +255,58 @@ function AbaFuncao({ usuario }: { usuario: Usuario }) {
 }
 
 /* ============================================================
- * Aba: Áreas de Atuação — chips coloridas + adicionar.
+ * Aba: Horários — carrega do banco e SALVA de verdade.
  * ============================================================ */
-function AbaAreas({ usuario }: { usuario: Usuario }) {
+function AbaHorarios({ usuario }: { usuario: Usuario }) {
+  const queryClient = useQueryClient()
+  const { data: horarios, isLoading } = useQuery({
+    queryKey: ['horarios', usuario.id],
+    queryFn: () => listarHorarios(usuario.id),
+  })
+
+  if (isLoading) {
+    return (
+      <div className="card p-8 text-center text-sm text-slate-400">Carregando horários...</div>
+    )
+  }
+
+  return (
+    <HorarioEditor
+      horariosIniciais={horarios ?? []}
+      onSalvar={async (novos) => {
+        await salvarHorarios(usuario.id, novos)
+        queryClient.invalidateQueries({ queryKey: ['horarios', usuario.id] })
+        queryClient.invalidateQueries({ queryKey: ['horarios-todos'] })
+      }}
+    />
+  )
+}
+
+/* ============================================================
+ * Aba: Áreas de Atuação — chips + modal de seleção que grava.
+ * ============================================================ */
+function AbaAreas({ usuario, onSalvo }: { usuario: Usuario; onSalvo: () => void }) {
+  const [modalAberto, setModalAberto] = useState(false)
+  // `filter(Boolean)` protege contra vínculo órfão (área excluída).
+  const areasDoUsuario = usuario.areas.filter(Boolean)
+
+  const salvarMut = useMutation({
+    mutationFn: (areaIds: string[]) => atualizarAreasUsuario(usuario.id, areaIds),
+    onSuccess: () => {
+      onSalvo()
+      setModalAberto(false)
+    },
+  })
+
   return (
     <div className="card space-y-4 p-5">
       <div>
         <h3 className="font-semibold text-slate-900 dark:text-white">Áreas de Atuação</h3>
         <p className="text-sm text-slate-500">Especialidades do pesquisador.</p>
       </div>
+
       <div className="flex flex-wrap items-center gap-2">
-        {usuario.areas.map((a) => (
+        {areasDoUsuario.map((a) => (
           <span
             key={a.id}
             className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200"
@@ -194,44 +315,91 @@ function AbaAreas({ usuario }: { usuario: Usuario }) {
             {a.nome}
           </span>
         ))}
-        <button className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-500 hover:border-brand-400 hover:text-brand-600 dark:border-slate-600">
+
+        {areasDoUsuario.length === 0 && (
+          <span className="text-sm text-slate-400">Nenhuma área definida.</span>
+        )}
+
+        <button
+          onClick={() => setModalAberto(true)}
+          className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-500 hover:border-brand-400 hover:text-brand-600 dark:border-slate-600"
+        >
           <Plus className="h-4 w-4" /> Adicionar área
         </button>
       </div>
+
+      {modalAberto && (
+        <SelecionarAreasModal
+          open={modalAberto}
+          onClose={() => setModalAberto(false)}
+          areasAtuais={areasDoUsuario.map((a) => a.id)}
+          onSalvar={(ids) => salvarMut.mutate(ids)}
+          salvando={salvarMut.isPending}
+        />
+      )}
     </div>
   )
 }
 
 /* ============================================================
- * Aba: Histórico — linha do tempo de alterações.
+ * Aba: Histórico — linha do tempo real, vinda do banco.
  * ============================================================ */
-function AbaHistorico() {
+function AbaHistorico({ usuarioId }: { usuarioId: string }) {
+  const { data: historico = [], isLoading } = useQuery({
+    queryKey: ['historico', usuarioId],
+    queryFn: () => listarHistorico(usuarioId),
+  })
+
+  // Começa mostrando os 5 mais recentes; "Ver histórico completo" abre o resto.
+  const [mostrarTudo, setMostrarTudo] = useState(false)
+  useEffect(() => setMostrarTudo(false), [usuarioId])
+
+  const visiveis = mostrarTudo ? historico : historico.slice(0, 5)
+  const temMais = historico.length > 5
+
   return (
     <div className="card p-5">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="flex items-center gap-2 font-semibold text-slate-900 dark:text-white">
           <History className="h-4 w-4 text-slate-400" /> Histórico de Alterações
         </h3>
-        <button className="text-sm font-medium text-brand-600 hover:underline">
-          Ver histórico completo
-        </button>
+        {temMais && (
+          <button
+            onClick={() => setMostrarTudo((v) => !v)}
+            className="text-sm font-medium text-brand-600 hover:underline"
+          >
+            {mostrarTudo ? 'Mostrar menos' : `Ver histórico completo (${historico.length})`}
+          </button>
+        )}
       </div>
-      <ol className="space-y-4">
-        {historico.map((h) => (
-          <li key={h.id} className="flex gap-3">
-            <div className="flex flex-col items-center">
-              <span className="mt-1 flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-slate-400 dark:bg-slate-800">
-                <Clock className="h-3.5 w-3.5" />
-              </span>
-              <span className="mt-1 w-px flex-1 bg-slate-100 dark:bg-slate-800" />
-            </div>
-            <div className="pb-1">
-              <p className="text-sm text-slate-700 dark:text-slate-200">{h.descricao}</p>
-              <p className="text-xs text-slate-400">{h.data}</p>
-            </div>
-          </li>
-        ))}
-      </ol>
+
+      {isLoading ? (
+        <p className="py-6 text-center text-sm text-slate-400">Carregando...</p>
+      ) : historico.length === 0 ? (
+        <p className="py-6 text-center text-sm text-slate-400">
+          Nenhuma alteração registrada ainda. As próximas mudanças aparecerão aqui.
+        </p>
+      ) : (
+        <ol className="space-y-4">
+          {visiveis.map((h) => (
+            <li key={h.id} className="flex gap-3">
+              <div className="flex flex-col items-center">
+                <span className="mt-1 flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-slate-400 dark:bg-slate-800">
+                  <Clock className="h-3.5 w-3.5" />
+                </span>
+                <span className="mt-1 w-px flex-1 bg-slate-100 dark:bg-slate-800" />
+              </div>
+              <div className="pb-1">
+                <p className="text-sm text-slate-700 dark:text-slate-200">{h.descricao}</p>
+                <p className="text-xs text-slate-400">
+                  {h.data}
+                  {h.autor && ` · por ${h.autor}`}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
     </div>
   )
 }

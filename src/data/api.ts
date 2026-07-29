@@ -1,10 +1,12 @@
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { supabase, USE_MOCK } from '@/lib/supabase'
+import { disponibilidadePorHorario } from '@/lib/horarios'
 import * as mock from '@/data/mock'
 import type {
   AreaAtuacao,
   Aviso,
+  EventoHistorico,
   Funcao,
   HorarioDia,
   Instituicao,
@@ -71,7 +73,8 @@ const USUARIO_SELECT = `
   funcao:funcoes(id, nome, permissoes),
   instituicao:instituicoes(id, nome, sigla),
   areas:usuario_areas(area:areas_atuacao(id, nome, cor)),
-  disp:disponibilidade(status, livre_ate)
+  disp:disponibilidade(status, livre_ate, automatico),
+  horarios(dia, manha_ativo, manha_inicio, manha_fim, tarde_ativo, tarde_inicio, tarde_fim, observacao)
 `
 
 function mapUsuario(r: any): Usuario {
@@ -87,9 +90,51 @@ function mapUsuario(r: any): Usuario {
     instituicao: r.instituicao ? mapInstituicao(r.instituicao) : undefined,
     areas: (r.areas ?? []).map((ua: any) => ua.area).filter(Boolean).map(mapArea),
     status: r.status,
-    disponibilidade: disp?.status ?? 'ausente',
-    livreAte: hhmm(disp?.livre_ate),
+    ...resolverDisponibilidade(disp, r.horarios),
   }
+}
+
+/**
+ * Decide a situação exibida para o pesquisador.
+ *
+ * Por padrão o sistema é AUTOMÁTICO: a situação sai do horário cadastrado, de
+ * modo que o quadro acompanha o dia sozinho. Quando alguém define um estado
+ * manual (Parcial, Home office, Ausente), aquele valor passa a mandar —
+ * é o que o campo `automatico = false` sinaliza.
+ */
+function resolverDisponibilidade(
+  disp: any,
+  horariosBrutos: any,
+): Pick<Usuario, 'disponibilidade' | 'livreAte' | 'disponibilidadeAutomatica'> {
+  // Sem registro, ou marcado como automático → calcula pelo horário.
+  const automatico = !disp || disp.automatico !== false
+
+  if (!automatico) {
+    return {
+      disponibilidade: normalizarStatus(disp.status),
+      livreAte: hhmm(disp.livre_ate),
+      disponibilidadeAutomatica: false,
+    }
+  }
+
+  const horarios: HorarioDia[] = (horariosBrutos ?? []).map(mapHorario)
+  const calculado = disponibilidadePorHorario(horarios)
+  return {
+    disponibilidade: calculado.status,
+    livreAte: calculado.livreAte,
+    disponibilidadeAutomatica: true,
+  }
+}
+
+/**
+ * Protege contra valores antigos no banco (ex.: 'em_atendimento', que virou
+ * 'parcial'). Sem isso, uma linha não migrada quebraria a tela.
+ */
+function normalizarStatus(v: unknown): StatusDisponibilidade {
+  const s = String(v ?? '')
+  if (s === 'disponivel' || s === 'parcial' || s === 'home_office' || s === 'ausente') return s
+  if (s === 'em_atendimento') return 'parcial' // valor legado
+  return 'ausente'
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
@@ -157,6 +202,34 @@ export async function criarAviso(a: Aviso): Promise<Aviso> {
 // ============================================================
 // Mudanças de turno
 // ============================================================
+
+/** Atualiza um aviso já publicado (só administradores, pela política do banco). */
+export async function atualizarAviso(a: Aviso): Promise<Aviso> {
+  if (USE_MOCK || !supabase) return a
+  const { data, error } = await supabase
+    .from('avisos')
+    .update({
+      titulo: a.titulo,
+      descricao: a.descricao,
+      tipo: a.tipo,
+      status: a.status,
+      destaque: a.destaque,
+      hora: a.hora || null,
+      publico_alvo: a.publicoAlvo,
+    })
+    .eq('id', a.id)
+    .select('*')
+    .single()
+  if (error) throw error
+  return mapAviso(data)
+}
+
+/** Remove um aviso. */
+export async function excluirAviso(id: string): Promise<void> {
+  if (USE_MOCK || !supabase) return
+  const { error } = await supabase.from('avisos').delete().eq('id', id)
+  if (error) throw error
+}
 
 export async function listarMudancas(): Promise<MudancaTurno[]> {
   if (USE_MOCK || !supabase) return mock.mudancas
@@ -261,6 +334,11 @@ export async function salvarHorarios(usuarioId: string, horarios: HorarioDia[]):
 }
 
 /** Atualiza a disponibilidade "ao vivo" de um usuário. */
+/**
+ * Define MANUALMENTE a situação de um pesquisador.
+ * Ao gravar, marca `automatico = false` — a partir daí este valor prevalece
+ * sobre o cálculo pelo horário, até alguém voltar para o modo automático.
+ */
 export async function atualizarDisponibilidade(
   usuarioId: string,
   status: StatusDisponibilidade,
@@ -272,6 +350,26 @@ export async function atualizarDisponibilidade(
       usuario_id: usuarioId,
       status,
       livre_ate: livreAte || null,
+      automatico: false,
+      atualizado_em: new Date().toISOString(),
+    },
+    { onConflict: 'usuario_id' },
+  )
+  if (error) throw error
+}
+
+/**
+ * Volta a situação para o modo AUTOMÁTICO (calculada pelo horário).
+ * Útil quando o estado manual (ex.: "Ausente") já não vale mais.
+ */
+export async function voltarDisponibilidadeAutomatica(usuarioId: string): Promise<void> {
+  if (USE_MOCK || !supabase) return
+  const { error } = await supabase.from('disponibilidade').upsert(
+    {
+      usuario_id: usuarioId,
+      status: 'disponivel',
+      livre_ate: null,
+      automatico: true,
       atualizado_em: new Date().toISOString(),
     },
     { onConflict: 'usuario_id' },
@@ -335,4 +433,137 @@ export async function excluirInstituicao(id: string): Promise<void> {
   if (USE_MOCK || !supabase) return
   const { error } = await supabase.from('instituicoes').delete().eq('id', id)
   if (error) throw error
+}
+
+// ============================================================
+// Edição de usuários (Administração)
+// ============================================================
+
+/** Campos editáveis do cadastro de um usuário. */
+export interface DadosUsuario {
+  nome: string
+  telefone?: string
+  instituicaoId?: string
+  status: 'ativo' | 'inativo'
+}
+
+/** Atualiza os dados cadastrais de um usuário. */
+export async function atualizarUsuario(id: string, dados: DadosUsuario): Promise<void> {
+  if (USE_MOCK || !supabase) return
+  const { error } = await supabase
+    .from('usuarios')
+    .update({
+      nome: dados.nome,
+      telefone: dados.telefone || null,
+      instituicao_id: dados.instituicaoId || null,
+      status: dados.status,
+    })
+    .eq('id', id)
+  if (error) throw error
+  await registrarHistorico(id, `Dados cadastrais atualizados`)
+}
+
+/** Troca a função (papel) de um usuário. */
+export async function atualizarFuncaoUsuario(id: string, funcaoId: string): Promise<void> {
+  if (USE_MOCK || !supabase) return
+  const { error } = await supabase.from('usuarios').update({ funcao_id: funcaoId }).eq('id', id)
+  if (error) throw error
+
+  const { data } = await supabase.from('funcoes').select('nome').eq('id', funcaoId).single()
+  await registrarHistorico(id, `Função alterada para ${data?.nome ?? 'outra função'}`)
+}
+
+/**
+ * Define as áreas de atuação de um usuário.
+ * Estratégia simples e segura: apaga os vínculos atuais e grava os novos.
+ */
+export async function atualizarAreasUsuario(id: string, areaIds: string[]): Promise<void> {
+  if (USE_MOCK || !supabase) return
+
+  const { error: erroApagar } = await supabase.from('usuario_areas').delete().eq('usuario_id', id)
+  if (erroApagar) throw erroApagar
+
+  if (areaIds.length > 0) {
+    const linhas = areaIds.map((areaId) => ({ usuario_id: id, area_id: areaId }))
+    const { error } = await supabase.from('usuario_areas').insert(linhas)
+    if (error) throw error
+  }
+  await registrarHistorico(id, `Áreas de atuação atualizadas (${areaIds.length})`)
+}
+
+// ============================================================
+// Histórico de alterações (auditoria por usuário)
+// ============================================================
+
+/**
+ * Registra uma linha no histórico do usuário.
+ * Falha silenciosamente: perder um registro de auditoria não pode derrubar
+ * a operação principal que o usuário acabou de fazer.
+ */
+export async function registrarHistorico(usuarioAlvoId: string, descricao: string): Promise<void> {
+  if (USE_MOCK || !supabase) return
+  try {
+    const { data: auth } = await supabase.auth.getUser()
+    let autor = auth.user?.email ?? 'Sistema'
+    if (auth.user?.id) {
+      const { data } = await supabase.from('usuarios').select('nome').eq('id', auth.user.id).single()
+      if (data?.nome) autor = data.nome
+    }
+    await supabase
+      .from('historico_alteracoes')
+      .insert({ usuario_alvo_id: usuarioAlvoId, autor, descricao })
+  } catch {
+    // silencioso de propósito (ver comentário acima)
+  }
+}
+
+/** Histórico de alterações de um usuário, do mais recente para o mais antigo. */
+export async function listarHistorico(usuarioId: string): Promise<EventoHistorico[]> {
+  if (USE_MOCK || !supabase) return mock.historico
+
+  const { data, error } = await supabase
+    .from('historico_alteracoes')
+    .select('*')
+    .eq('usuario_alvo_id', usuarioId)
+    .order('created_at', { ascending: false })
+    .limit(100)
+  if (error) throw error
+
+  return (data ?? []).map((r: any) => ({
+    id: r.id,
+    data: new Date(r.created_at).toLocaleString('pt-BR'),
+    autor: r.autor,
+    descricao: r.descricao,
+  }))
+}
+
+// ============================================================
+// Vínculo de pesquisadores com instituições
+// ============================================================
+
+/**
+ * Define quais usuários pertencem a uma instituição.
+ * Quem saiu da lista fica sem instituição; quem entrou passa a apontar para ela.
+ */
+export async function definirUsuariosDaInstituicao(
+  instituicaoId: string,
+  usuarioIds: string[],
+): Promise<void> {
+  if (USE_MOCK || !supabase) return
+
+  // 1) Desvincula quem estava nela e não está mais na lista.
+  const { error: erroLimpar } = await supabase
+    .from('usuarios')
+    .update({ instituicao_id: null })
+    .eq('instituicao_id', instituicaoId)
+  if (erroLimpar) throw erroLimpar
+
+  // 2) Vincula os selecionados.
+  if (usuarioIds.length > 0) {
+    const { error } = await supabase
+      .from('usuarios')
+      .update({ instituicao_id: instituicaoId })
+      .in('id', usuarioIds)
+    if (error) throw error
+  }
 }

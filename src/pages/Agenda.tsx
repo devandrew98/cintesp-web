@@ -1,9 +1,10 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CheckCircle2, Users2, CalendarClock, Clock3 } from "lucide-react";
+import { CheckCircle2, Users2, CalendarClock, Clock3, CalendarDays } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatCard } from "@/components/ui/StatCard";
 import { SectionCard } from "@/components/ui/SectionCard";
+import { envVar } from "@/lib/env";
 import { PersonRow } from "@/components/ui/PersonRow";
 import { Badge } from "@/components/ui/Badge";
 import { listarUsuarios, listarMudancas } from "@/data/api";
@@ -48,7 +49,7 @@ export function AgendaPage() {
     [ativos],
   );
   const emAtendimento = useMemo(
-    () => ativos.filter((u) => u.disponibilidade === "em_atendimento"),
+    () => ativos.filter((u) => u.disponibilidade === "parcial" || u.disponibilidade === "home_office"),
     [ativos],
   );
 
@@ -120,6 +121,12 @@ export function AgendaPage() {
               ))}
             </ol>
           )}
+
+          {/* ---------- Agenda do Google ---------- */}
+          {/* Mostra o calendário da equipe embutido, logo abaixo da linha do
+              tempo. O endereço fica em VITE_GOOGLE_CALENDAR_URL para cada
+              instalação apontar para a sua própria agenda. */}
+          <AgendaGoogle />
         </SectionCard>
 
         {/* Disponibilidade agora */}
@@ -177,4 +184,47 @@ export function AgendaPage() {
       </div>
     </div>
   );
+}
+
+/**
+ * Calendário do Google embutido.
+ *
+ * O endereço vem da variável `VITE_GOOGLE_CALENDAR_URL`. Se ela não estiver
+ * configurada, explicamos como preencher em vez de mostrar um quadro vazio.
+ */
+function AgendaGoogle() {
+  const url = envVar('VITE_GOOGLE_CALENDAR_URL')?.trim()
+
+  return (
+    <div className="mt-6 border-t border-slate-100 pt-5 dark:border-slate-800">
+      <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-100">
+        <CalendarDays className="h-4 w-4 text-slate-400" />
+        Agenda do Google
+      </h3>
+
+      {url ? (
+        <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
+          <iframe
+            src={url}
+            title="Agenda do Google da equipe"
+            className="h-[600px] w-full"
+            style={{ border: 0 }}
+            loading="lazy"
+          />
+        </div>
+      ) : (
+        <div className="rounded-xl border border-dashed border-slate-200 p-5 text-sm text-slate-500 dark:border-slate-700">
+          <p className="font-medium text-slate-700 dark:text-slate-200">
+            Calendário ainda não configurado
+          </p>
+          <p className="mt-1">
+            Defina a variável <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">VITE_GOOGLE_CALENDAR_URL</code>{' '}
+            com o endereço de incorporação da agenda. No Google Agenda:{' '}
+            <em>Configurações → sua agenda → Integrar agenda → Incorporar código</em>, e copie
+            apenas o valor do <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">src</code>.
+          </p>
+        </div>
+      )}
+    </div>
+  )
 }

@@ -9,6 +9,7 @@ import {
   History,
   Download,
   FileSpreadsheet,
+  AlertCircle,
 } from 'lucide-react'
 import { AdminShell } from '@/components/admin/AdminShell'
 import { Button } from '@/components/ui/Button'
@@ -31,7 +32,11 @@ import type { Participante } from '@/types'
 export function AdminParticipantesPage() {
   const queryClient = useQueryClient()
 
-  const { data: lista = [], isLoading } = useQuery({
+  const {
+    data: lista = [],
+    isLoading,
+    error: erroLista,
+  } = useQuery({
     queryKey: ['participantes'],
     queryFn: listarParticipantes,
   })
@@ -136,9 +141,31 @@ export function AdminParticipantesPage() {
         />
       </div>
 
-      {/* Estado vazio: convida a importar */}
-      {!isLoading && lista.length === 0 ? (
-        <div className="card flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
+      {/* Falha ao ler a tabela: mostra o motivo em vez de fingir lista vazia */}
+      {erroLista && (
+        <div className="card mb-4 flex items-start gap-3 border-red-200 p-4 dark:border-red-500/30">
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
+          <div className="text-sm">
+            <p className="font-semibold text-red-700 dark:text-red-400">
+              Não foi possível carregar os participantes
+            </p>
+            <p className="mt-1 text-slate-600 dark:text-slate-300">
+              {(erroLista as Error).message}
+            </p>
+            <p className="mt-2 text-xs text-slate-500">
+              Causa comum: a tabela ainda não existe no banco. Rode o
+              <code className="mx-1 rounded bg-slate-100 px-1 dark:bg-slate-800">
+                docs/supabase-participantes.sql
+              </code>
+              no SQL Editor do Supabase.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Estado vazio: só informa. A importação fica no botão do topo. */}
+      {!isLoading && !erroLista && lista.length === 0 ? (
+        <div className="card flex flex-col items-center justify-center gap-2 px-6 py-16 text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-500/15">
             <FileSpreadsheet className="h-7 w-7" />
           </div>
@@ -146,12 +173,9 @@ export function AdminParticipantesPage() {
             Nenhum participante cadastrado ainda
           </h3>
           <p className="max-w-md text-sm text-slate-500">
-            Importe sua planilha (.xlsx ou .csv) para trazer os dados de uma vez. Você confere o
-            mapeamento das colunas e o que será gravado antes de confirmar.
+            Use o botão <strong>Importar planilha</strong>, no canto superior direito, para trazer
+            os dados de uma vez.
           </p>
-          <Button icon={Upload} onClick={() => setWizardAberto(true)}>
-            Importar planilha
-          </Button>
         </div>
       ) : (
         <>

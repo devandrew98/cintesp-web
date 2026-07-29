@@ -2,41 +2,61 @@ import { useState, type FormEvent } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Field, Input, Textarea, Select } from '@/components/ui/Field'
+import { PUBLICOS_ALVO, PUBLICO_OUTRO } from '@/lib/avisos'
 import type { Aviso, StatusAviso, TipoAviso } from '@/types'
 
 interface AvisoFormModalProps {
   open: boolean
   onClose: () => void
-  onCreate: (aviso: Aviso) => void
+  /** Recebe o aviso pronto (novo ou editado). */
+  onSalvar: (aviso: Aviso) => void
+  /** Quando presente, o modal entra em modo EDIÇÃO deste aviso. */
+  avisoEmEdicao?: Aviso | null
+  salvando?: boolean
 }
 
 const hoje = new Date().toISOString().slice(0, 10)
 
-export function AvisoFormModal({ open, onClose, onCreate }: AvisoFormModalProps) {
-  const [titulo, setTitulo] = useState('')
-  const [descricao, setDescricao] = useState('')
-  const [tipo, setTipo] = useState<TipoAviso>('geral')
-  const [data, setData] = useState(hoje)
-  const [hora, setHora] = useState('')
-  const [publicoAlvo, setPublicoAlvo] = useState('Todos os pesquisadores')
-  const [status, setStatus] = useState<StatusAviso>('ativo')
-  const [destaque, setDestaque] = useState(false)
+/**
+ * Formulário de aviso — serve para criar e para editar.
+ *
+ * O público-alvo virou uma lista de opções (Todos, Pesquisadores,
+ * Administradores, Coordenação) com a alternativa "Outro" para digitar algo
+ * específico, evitando que cada aviso use uma escrita diferente.
+ */
+export function AvisoFormModal({
+  open,
+  onClose,
+  onSalvar,
+  avisoEmEdicao,
+  salvando,
+}: AvisoFormModalProps) {
+  const editando = Boolean(avisoEmEdicao)
 
-  function reset() {
-    setTitulo('')
-    setDescricao('')
-    setTipo('geral')
-    setData(hoje)
-    setHora('')
-    setPublicoAlvo('Todos os pesquisadores')
-    setStatus('ativo')
-    setDestaque(false)
-  }
+  // Valores iniciais: do aviso em edição ou em branco.
+  const [titulo, setTitulo] = useState(avisoEmEdicao?.titulo ?? '')
+  const [descricao, setDescricao] = useState(avisoEmEdicao?.descricao ?? '')
+  const [tipo, setTipo] = useState<TipoAviso>(avisoEmEdicao?.tipo ?? 'geral')
+  const [data, setData] = useState(avisoEmEdicao?.data?.slice(0, 10) ?? hoje)
+  const [hora, setHora] = useState(avisoEmEdicao?.hora ?? '')
+  const [status, setStatus] = useState<StatusAviso>(avisoEmEdicao?.status ?? 'ativo')
+  const [destaque, setDestaque] = useState(avisoEmEdicao?.destaque ?? false)
+
+  // Público-alvo: se o valor salvo não estiver na lista, cai em "Outro".
+  const publicoSalvo = avisoEmEdicao?.publicoAlvo
+  const publicoConhecido =
+    !publicoSalvo || (PUBLICOS_ALVO as readonly string[]).includes(publicoSalvo)
+  const [publicoOpcao, setPublicoOpcao] = useState<string>(
+    publicoConhecido ? (publicoSalvo ?? 'Todos') : PUBLICO_OUTRO,
+  )
+  const [publicoLivre, setPublicoLivre] = useState(publicoConhecido ? '' : (publicoSalvo ?? ''))
+
+  const publicoFinal = publicoOpcao === PUBLICO_OUTRO ? publicoLivre.trim() : publicoOpcao
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    const novo: Aviso = {
-      id: `av-${Date.now()}`,
+    const registro: Aviso = {
+      id: avisoEmEdicao?.id ?? `av-${Date.now()}`,
       titulo: titulo.trim(),
       descricao: descricao.trim(),
       tipo,
@@ -44,35 +64,43 @@ export function AvisoFormModal({ open, onClose, onCreate }: AvisoFormModalProps)
       destaque,
       data: new Date(`${data}T${hora || '00:00'}`).toISOString(),
       hora: hora || undefined,
-      publicoAlvo,
-      autor: 'Administrador',
-      publicadoHa: status === 'ativo' ? 'agora' : undefined,
-      visualizacoes: 0,
+      publicoAlvo: publicoFinal || 'Todos',
+      autor: avisoEmEdicao?.autor,
+      publicadoHa: avisoEmEdicao?.publicadoHa ?? (status === 'ativo' ? 'agora' : undefined),
+      visualizacoes: avisoEmEdicao?.visualizacoes ?? 0,
     }
-    onCreate(novo)
-    reset()
-    onClose()
+    onSalvar(registro)
   }
 
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title="Novo Aviso"
-      subtitle="Publique um comunicado para a equipe."
+      title={editando ? 'Editar aviso' : 'Novo Aviso'}
+      subtitle={
+        editando
+          ? 'As alterações aparecem para todos assim que salvas.'
+          : 'Publique um comunicado para a equipe.'
+      }
       size="lg"
       footer={
         <>
           <Button variant="secondary" type="button" onClick={onClose}>
             Cancelar
           </Button>
-          <Button type="submit" form="form-novo-aviso">
-            {status === 'programado' ? 'Programar aviso' : 'Publicar aviso'}
+          <Button type="submit" form="form-aviso" disabled={salvando}>
+            {salvando
+              ? 'Salvando...'
+              : editando
+                ? 'Salvar alterações'
+                : status === 'programado'
+                  ? 'Programar aviso'
+                  : 'Publicar aviso'}
           </Button>
         </>
       }
     >
-      <form id="form-novo-aviso" onSubmit={handleSubmit} className="space-y-4">
+      <form id="form-aviso" onSubmit={handleSubmit} className="space-y-4">
         <Field label="Título">
           <Input
             required
@@ -100,10 +128,30 @@ export function AvisoFormModal({ open, onClose, onCreate }: AvisoFormModalProps)
               <option value="treinamento">Treinamento</option>
             </Select>
           </Field>
+
           <Field label="Público-alvo">
-            <Input value={publicoAlvo} onChange={(e) => setPublicoAlvo(e.target.value)} />
+            <Select value={publicoOpcao} onChange={(e) => setPublicoOpcao(e.target.value)}>
+              {PUBLICOS_ALVO.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+              <option value={PUBLICO_OUTRO}>Outro (especificar)…</option>
+            </Select>
           </Field>
         </div>
+
+        {/* Campo livre só aparece quando escolhe "Outro" */}
+        {publicoOpcao === PUBLICO_OUTRO && (
+          <Field label="Qual público?">
+            <Input
+              required
+              value={publicoLivre}
+              onChange={(e) => setPublicoLivre(e.target.value)}
+              placeholder="Ex.: Área de IA e Dados"
+            />
+          </Field>
+        )}
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Data">
@@ -118,6 +166,7 @@ export function AvisoFormModal({ open, onClose, onCreate }: AvisoFormModalProps)
           <Select value={status} onChange={(e) => setStatus(e.target.value as StatusAviso)}>
             <option value="ativo">Publicar agora</option>
             <option value="programado">Programar para depois</option>
+            <option value="arquivado">Arquivar</option>
           </Select>
         </Field>
 

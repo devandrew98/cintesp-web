@@ -118,7 +118,7 @@ function LinhaConfig({
   children: ReactNode
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-3.5">
+    <div className="flex min-h-[3.5rem] items-center justify-between gap-4 py-3.5">
       <div className="flex items-start gap-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
           <Icone className="h-4 w-4" />
@@ -141,13 +141,16 @@ function Toggle({ ativo, onChange }: { ativo: boolean; onChange: () => void }) {
       role="switch"
       aria-checked={ativo}
       className={cn(
-        'relative h-6 w-11 shrink-0 rounded-full transition-colors',
+        // inline-flex + align-middle evita o deslocamento por linha de base que
+        // fazia os interruptores parecerem desalinhados entre si.
+        'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full align-middle transition-colors',
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2',
         ativo ? 'bg-brand-600' : 'bg-slate-300 dark:bg-slate-700',
       )}
     >
       <span
         className={cn(
-          'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform',
+          'h-5 w-5 rounded-full bg-white shadow transition-transform',
           ativo ? 'translate-x-[22px]' : 'translate-x-0.5',
         )}
       />

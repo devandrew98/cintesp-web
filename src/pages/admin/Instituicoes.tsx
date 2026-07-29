@@ -5,7 +5,13 @@ import { AdminShell } from '@/components/admin/AdminShell'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { InstituicaoFormModal } from '@/components/admin/InstituicaoFormModal'
-import { listarInstituicoes, salvarInstituicao, excluirInstituicao, listarUsuarios } from '@/data/api'
+import {
+  listarInstituicoes,
+  salvarInstituicao,
+  excluirInstituicao,
+  listarUsuarios,
+  definirUsuariosDaInstituicao,
+} from '@/data/api'
 import type { Instituicao } from '@/types'
 
 /**
@@ -18,7 +24,11 @@ export function AdminInstituicoesPage() {
   const queryClient = useQueryClient()
   const { data: lista = [] } = useQuery({ queryKey: ['instituicoes'], queryFn: listarInstituicoes })
   const { data: usuarios = [] } = useQuery({ queryKey: ['usuarios'], queryFn: listarUsuarios })
-  const invalidar = () => queryClient.invalidateQueries({ queryKey: ['instituicoes'] })
+  const invalidar = () => {
+    queryClient.invalidateQueries({ queryKey: ['instituicoes'] })
+    // O vínculo altera o cadastro dos usuários, então a lista deles também muda.
+    queryClient.invalidateQueries({ queryKey: ['usuarios'] })
+  }
   const salvarMut = useMutation({ mutationFn: salvarInstituicao, onSuccess: invalidar })
   const excluirMut = useMutation({ mutationFn: excluirInstituicao, onSuccess: invalidar })
 
@@ -41,8 +51,15 @@ export function AdminInstituicoesPage() {
     setEmEdicao(i)
     setFormAberto(true)
   }
-  function salvar(i: Instituicao) {
-    salvarMut.mutate(i)
+  /**
+   * Salva a instituição e, em seguida, aplica os vínculos escolhidos.
+   * Usa o id devolvido pelo banco — numa criação, o id temporário do
+   * formulário ("i-123456") não existe no servidor.
+   */
+  async function salvar(i: Instituicao, usuarioIds: string[]) {
+    const gravada = await salvarMut.mutateAsync(i)
+    await definirUsuariosDaInstituicao(gravada.id, usuarioIds)
+    invalidar()
   }
   function excluir(i: Instituicao) {
     excluirMut.mutate(i.id)

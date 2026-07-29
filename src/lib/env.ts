@@ -10,7 +10,12 @@
  * Valores vazios ou placeholders não substituídos ("${...}") são ignorados.
  */
 
-type ChaveEnv = 'VITE_SUPABASE_URL' | 'VITE_SUPABASE_ANON_KEY' | 'VITE_USE_MOCK'
+type ChaveEnv =
+  | 'VITE_SUPABASE_URL'
+  | 'VITE_SUPABASE_ANON_KEY'
+  | 'VITE_USE_MOCK'
+  /** Endereço de incorporação da agenda do Google (Agenda do Dia). */
+  | 'VITE_GOOGLE_CALENDAR_URL'
 
 declare global {
   interface Window {
@@ -27,6 +32,7 @@ const build: Record<ChaveEnv, string | undefined> = {
   VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
   VITE_SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY,
   VITE_USE_MOCK: import.meta.env.VITE_USE_MOCK,
+  VITE_GOOGLE_CALENDAR_URL: import.meta.env.VITE_GOOGLE_CALENDAR_URL,
 }
 
 export function envVar(nome: ChaveEnv): string | undefined {

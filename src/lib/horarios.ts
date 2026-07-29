@@ -89,6 +89,57 @@ export function formatarHoras(horas: number): string {
   return m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, '0')}`
 }
 
+// ============================================================
+// Disponibilidade calculada a partir do horário
+// ============================================================
+
+/** Converte o dia da semana do JavaScript (0=domingo) para o nosso enum. */
+const DIA_DA_SEMANA: DiaSemana[] = [
+  'domingo',
+  'segunda',
+  'terca',
+  'quarta',
+  'quinta',
+  'sexta',
+  'sabado',
+]
+
+/**
+ * Descobre a situação do pesquisador AGORA, olhando só o horário cadastrado.
+ *
+ * Dentro de um turno ligado (manhã ou tarde) → `disponivel`.
+ * Fora disso (inclusive fim de semana e intervalo de almoço) → `ausente`.
+ *
+ * É isso que faz o quadro se atualizar sozinho ao longo do dia, sem ninguém
+ * precisar clicar em nada.
+ *
+ * @param horarios horários da semana da pessoa
+ * @param agora    momento de referência (padrão: agora)
+ */
+export function disponibilidadePorHorario(
+  horarios: HorarioDia[] | undefined,
+  agora: Date = new Date(),
+): { status: 'disponivel' | 'ausente'; livreAte?: string } {
+  if (!horarios || horarios.length === 0) return { status: 'ausente' }
+
+  const doDia = horarios.find((h) => h.dia === DIA_DA_SEMANA[agora.getDay()])
+  if (!doDia) return { status: 'ausente' }
+
+  const minutosAgora = agora.getHours() * 60 + agora.getMinutes()
+
+  // Verifica manhã e tarde; o turno que estiver valendo define o "livre até".
+  for (const bloco of [doDia.manha, doDia.tarde]) {
+    if (!bloco?.ativo) continue
+    const inicio = paraMinutos(bloco.inicio)
+    const fim = paraMinutos(bloco.fim)
+    if (minutosAgora >= inicio && minutosAgora < fim) {
+      return { status: 'disponivel', livreAte: bloco.fim }
+    }
+  }
+
+  return { status: 'ausente' }
+}
+
 /** Quantas pessoas cobrem cada turno de cada dia. */
 export interface CoberturaDia {
   dia: DiaSemana

@@ -35,7 +35,7 @@ export function RelatoriosPage() {
       },
       {
         label: 'Em atendimento',
-        value: ativos.filter((u) => u.disponibilidade === 'em_atendimento').length,
+        value: ativos.filter((u) => u.disponibilidade === 'parcial' || u.disponibilidade === 'home_office').length,
         color: '#f59e0b',
       },
       {

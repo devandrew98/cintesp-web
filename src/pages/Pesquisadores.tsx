@@ -64,7 +64,8 @@ export function PesquisadoresPage() {
         >
           <option value="todos">Todos os status</option>
           <option value="disponivel">Disponíveis</option>
-          <option value="em_atendimento">Em atendimento</option>
+          <option value="parcial">Parcial</option>
+          <option value="home_office">Home office</option>
           <option value="ausente">Ausentes</option>
         </Select>
       </div>

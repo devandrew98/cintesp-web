@@ -12,7 +12,7 @@
 
 -- ---------- Tipos (enums) ----------
 create type status_usuario as enum ('ativo', 'inativo');
-create type status_disponibilidade as enum ('disponivel', 'em_atendimento', 'ausente');
+create type status_disponibilidade as enum ('disponivel', 'parcial', 'home_office', 'ausente');
 create type tipo_aviso as enum ('importante', 'reuniao', 'treinamento', 'geral');
 create type status_aviso as enum ('ativo', 'programado', 'arquivado');
 create type dia_semana as enum ('segunda','terca','quarta','quinta','sexta','sabado','domingo');
@@ -67,6 +67,8 @@ create table usuario_areas (
 create table disponibilidade (
   usuario_id uuid primary key references usuarios (id) on delete cascade,
   status status_disponibilidade not null default 'ausente',
+  -- true = situação calculada pelo horário; false = definida manualmente.
+  automatico boolean not null default true,
   livre_ate time,               -- null = dia todo
   atualizado_em timestamptz default now()
 );

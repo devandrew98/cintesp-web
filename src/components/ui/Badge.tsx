@@ -41,7 +41,8 @@ export const disponibilidadeInfo: Record<
   { label: string; tone: Tone; dotColor: string }
 > = {
   disponivel: { label: 'Disponível', tone: 'green', dotColor: 'bg-brand-500' },
-  em_atendimento: { label: 'Em atendimento', tone: 'amber', dotColor: 'bg-amber-500' },
+  parcial: { label: 'Parcial', tone: 'amber', dotColor: 'bg-amber-500' },
+  home_office: { label: 'Home office', tone: 'violet', dotColor: 'bg-violet-500' },
   ausente: { label: 'Ausente', tone: 'red', dotColor: 'bg-red-500' },
 }
 

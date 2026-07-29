@@ -42,7 +42,7 @@ export function QuadroPage() {
   const kpis = useMemo(
     () => ({
       disponiveis: ativos.filter((u) => u.disponibilidade === 'disponivel').length,
-      emAtendimento: ativos.filter((u) => u.disponibilidade === 'em_atendimento').length,
+      emAtendimento: ativos.filter((u) => u.disponibilidade === 'parcial' || u.disponibilidade === 'home_office').length,
       ausentes: ativos.filter((u) => u.disponibilidade === 'ausente').length,
     }),
     [ativos],
@@ -100,7 +100,8 @@ export function QuadroPage() {
             >
               <option value="todos">Todos os status</option>
               <option value="disponivel">Disponíveis</option>
-              <option value="em_atendimento">Em atendimento</option>
+              <option value="parcial">Parcial</option>
+              <option value="home_office">Home office</option>
               <option value="ausente">Ausentes</option>
             </Select>
             <Select value={areaId} onChange={(e) => setAreaId(e.target.value)}>

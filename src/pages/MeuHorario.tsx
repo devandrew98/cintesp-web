@@ -7,6 +7,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { DisponibilidadeBadge, disponibilidadeInfo } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { HorarioEditor } from '@/components/admin/HorarioEditor'
+import { usePermissoes } from '@/hooks/usePermissoes'
 import { opcoesHorario } from '@/lib/horarios'
 import { cn } from '@/lib/utils'
 import {
@@ -17,7 +18,7 @@ import {
 } from '@/data/api'
 import type { StatusDisponibilidade } from '@/types'
 
-const STATUS: StatusDisponibilidade[] = ['disponivel', 'em_atendimento', 'ausente']
+const STATUS: StatusDisponibilidade[] = ['disponivel', 'parcial', 'home_office', 'ausente']
 
 /**
  * Tela "Meu Horário" (Fase 4).
@@ -32,6 +33,9 @@ export function MeuHorarioPage() {
     queryFn: () => listarHorarios(eu!.id),
     enabled: !!eu,
   })
+
+  // Só a administração define horários e disponibilidade (regra do CINTESP).
+  const { ehAdmin } = usePermissoes()
 
   // Estado local da disponibilidade (sincroniza quando o perfil carrega).
   const [status, setStatus] = useState<StatusDisponibilidade>('ausente')
@@ -184,7 +188,12 @@ export function MeuHorarioPage() {
           <Loader2 className="h-4 w-4 animate-spin" /> Carregando horários…
         </div>
       ) : (
-        <HorarioEditor key={eu.id} horariosIniciais={horarios} onSalvar={salvarMeuHorario} />
+        <HorarioEditor
+          key={eu.id}
+          horariosIniciais={horarios}
+          onSalvar={ehAdmin ? salvarMeuHorario : undefined}
+          somenteLeitura={!ehAdmin}
+        />
       )}
     </div>
   )

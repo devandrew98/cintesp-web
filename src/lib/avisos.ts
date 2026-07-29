@@ -42,3 +42,43 @@ export const statusAvisoInfo: Record<StatusAviso, { label: string; tone: Tone }>
   programado: { label: 'Programado', tone: 'amber' },
   arquivado: { label: 'Arquivado', tone: 'slate' },
 }
+
+/**
+ * Opções prontas de público-alvo, para o admin não precisar digitar.
+ * "Outro" libera um campo livre (ex.: uma área específica ou um local).
+ */
+export const PUBLICOS_ALVO = [
+  'Todos',
+  'Pesquisadores',
+  'Administradores',
+  'Coordenação',
+] as const
+
+/** Valor especial que, no seletor, libera o campo de texto livre. */
+export const PUBLICO_OUTRO = '__outro__'
+
+/**
+ * Monta o texto do aviso para compartilhar no WhatsApp.
+ * Usa a API `wa.me`, que funciona tanto no celular quanto no WhatsApp Web.
+ */
+export function linkWhatsApp(aviso: {
+  titulo: string
+  descricao: string
+  data: string
+  hora?: string
+  publicoAlvo?: string
+}): string {
+  const quando = new Date(aviso.data).toLocaleDateString('pt-BR')
+  const linhas = [
+    `*${aviso.titulo}*`,
+    '',
+    aviso.descricao,
+    '',
+    `📅 ${quando}${aviso.hora ? ` às ${aviso.hora}` : ''}`,
+    aviso.publicoAlvo ? `👥 ${aviso.publicoAlvo}` : '',
+    '',
+    '_CINTESP — Quadro de Pesquisadores_',
+  ].filter(Boolean)
+
+  return `https://wa.me/?text=${encodeURIComponent(linhas.join('\n'))}`
+}

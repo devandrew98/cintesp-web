@@ -47,16 +47,16 @@ export const usuarios: Usuario[] = [
   { id: 'u5', nome: 'Rafael Costa', email: 'rafael.costa@cintesp.org.br', telefone: '(34) 99444-5566', funcao: funcoes[2], instituicao: ufu, areas: [A(5), A(1)], status: 'ativo', disponibilidade: 'disponivel', livreAte: '13:00' },
   { id: 'u6', nome: 'Ana Rodrigues', email: 'ana.rodrigues@cintesp.org.br', telefone: '(34) 99555-6677', funcao: funcoes[2], instituicao: ufu, areas: [A(7)], status: 'ativo', disponibilidade: 'disponivel', livreAte: '17:00' },
   { id: 'u7', nome: 'Lucas Almeida', email: 'lucas.almeida@cintesp.org.br', telefone: '(34) 99666-7788', funcao: funcoes[2], instituicao: ufu, areas: [A(4)], status: 'ativo', disponibilidade: 'disponivel', livreAte: '12:30' },
-  { id: 'u8', nome: 'Maria Souza', email: 'maria.souza@cintesp.org.br', telefone: '(34) 99777-8899', funcao: funcoes[1], instituicao: ufu, areas: [A(3)], status: 'ativo', disponibilidade: 'em_atendimento' },
-  { id: 'u9', nome: 'Carlos Lima', email: 'carlos.lima@cintesp.org.br', telefone: '(34) 99888-9900', funcao: funcoes[2], instituicao: ufu, areas: [A(4)], status: 'ativo', disponibilidade: 'em_atendimento' },
-  { id: 'u10', nome: 'Fernanda Alves', email: 'fernanda.alves@cintesp.org.br', telefone: '(34) 99000-1122', funcao: funcoes[2], instituicao: ufu, areas: [A(5)], status: 'ativo', disponibilidade: 'em_atendimento' },
-  { id: 'u11', nome: 'Bruno Santos', email: 'bruno.santos@cintesp.org.br', telefone: '(34) 98123-4567', funcao: funcoes[2], instituicao: ufu, areas: [A(5), A(6)], status: 'ativo', disponibilidade: 'em_atendimento' },
+  { id: 'u8', nome: 'Maria Souza', email: 'maria.souza@cintesp.org.br', telefone: '(34) 99777-8899', funcao: funcoes[1], instituicao: ufu, areas: [A(3)], status: 'ativo', disponibilidade: 'parcial' },
+  { id: 'u9', nome: 'Carlos Lima', email: 'carlos.lima@cintesp.org.br', telefone: '(34) 99888-9900', funcao: funcoes[2], instituicao: ufu, areas: [A(4)], status: 'ativo', disponibilidade: 'parcial' },
+  { id: 'u10', nome: 'Fernanda Alves', email: 'fernanda.alves@cintesp.org.br', telefone: '(34) 99000-1122', funcao: funcoes[2], instituicao: ufu, areas: [A(5)], status: 'ativo', disponibilidade: 'home_office' },
+  { id: 'u11', nome: 'Bruno Santos', email: 'bruno.santos@cintesp.org.br', telefone: '(34) 98123-4567', funcao: funcoes[2], instituicao: ufu, areas: [A(5), A(6)], status: 'ativo', disponibilidade: 'parcial' },
   { id: 'u12', nome: 'Juliana Pereira', email: 'juliana.pereira@cintesp.org.br', telefone: '(34) 98234-5678', funcao: funcoes[2], instituicao: ufu, areas: [A(1)], status: 'ativo', disponibilidade: 'ausente' },
   { id: 'u13', nome: 'Pedro Martins', email: 'pedro.martins@cintesp.org.br', telefone: '(34) 98345-6789', funcao: funcoes[2], instituicao: ufu, areas: [A(7)], status: 'ativo', disponibilidade: 'ausente' },
   { id: 'u14', nome: 'Isabela Torres', email: 'isabela.torres@cintesp.org.br', telefone: '(34) 98456-7890', funcao: funcoes[2], instituicao: ufu, areas: [A(7)], status: 'inativo', disponibilidade: 'ausente' },
   { id: 'u15', nome: 'Rafael Mendes', email: 'rafael.mendes@cintesp.org.br', telefone: '(34) 98567-8901', funcao: funcoes[2], instituicao: ufu, areas: [A(6)], status: 'ativo', disponibilidade: 'disponivel', livreAte: '16:00' },
   { id: 'u16', nome: 'Camila Ferreira', email: 'camila.ferreira@cintesp.org.br', telefone: '(34) 98678-9012', funcao: funcoes[2], instituicao: ufu, areas: [A(0), A(2)], status: 'ativo', disponibilidade: 'disponivel' },
-  { id: 'u17', nome: 'Gustavo Rocha', email: 'gustavo.rocha@cintesp.org.br', telefone: '(34) 98789-0123', funcao: funcoes[2], instituicao: ufu, areas: [A(1)], status: 'ativo', disponibilidade: 'em_atendimento' },
+  { id: 'u17', nome: 'Gustavo Rocha', email: 'gustavo.rocha@cintesp.org.br', telefone: '(34) 98789-0123', funcao: funcoes[2], instituicao: ufu, areas: [A(1)], status: 'ativo', disponibilidade: 'parcial' },
   { id: 'u18', nome: 'Beatriz Nunes', email: 'beatriz.nunes@cintesp.org.br', telefone: '(34) 98890-1234', funcao: funcoes[2], instituicao: ufu, areas: [A(4)], status: 'ativo', disponibilidade: 'disponivel', livreAte: '15:00' },
   { id: 'u19', nome: 'Administrador', email: 'admin@cintesp.org.br', telefone: '(34) 3200-0000', funcao: funcoes[0], instituicao: ufu, areas: [A(0)], status: 'ativo', disponibilidade: 'disponivel' },
 ]
@@ -118,7 +118,7 @@ export const resumo = {
     return usuarios.filter((u) => u.status === 'ativo' && u.disponibilidade === 'disponivel').length
   },
   get emAtendimento() {
-    return usuarios.filter((u) => u.status === 'ativo' && u.disponibilidade === 'em_atendimento').length
+    return usuarios.filter((u) => u.status === 'ativo' && u.disponibilidade === 'home_office').length
   },
   get ausentes() {
     return usuarios.filter((u) => u.status === 'ativo' && u.disponibilidade === 'ausente').length

@@ -6,7 +6,8 @@ import { PersonRow } from '@/components/ui/PersonRow'
 import { filtrarUsuarios } from '@/lib/pesquisadores'
 import { cn } from '@/lib/utils'
 import { listarUsuarios } from '@/data/api'
-import type { StatusDisponibilidade } from '@/types'
+import { PesquisadorDetailModal } from '@/components/pesquisadores/PesquisadorDetailModal'
+import type { StatusDisponibilidade, Usuario } from '@/types'
 
 /**
  * Tela "Busca Rápida" (Fase 5).
@@ -16,12 +17,15 @@ import type { StatusDisponibilidade } from '@/types'
 const chipsStatus: Array<{ value: StatusDisponibilidade | 'todos'; label: string }> = [
   { value: 'todos', label: 'Todos' },
   { value: 'disponivel', label: 'Disponíveis' },
-  { value: 'em_atendimento', label: 'Em atendimento' },
+  { value: 'parcial', label: 'Parcial' },
+  { value: 'home_office', label: 'Home office' },
   { value: 'ausente', label: 'Ausentes' },
 ]
 
 export function BuscaPage() {
   const [busca, setBusca] = useState('')
+  // Pesquisador aberto no modal de detalhe (mesmo da tela Pesquisadores).
+  const [selecionado, setSelecionado] = useState<Usuario | null>(null)
   const [status, setStatus] = useState<StatusDisponibilidade | 'todos'>('todos')
 
   const { data: usuarios = [] } = useQuery({ queryKey: ['usuarios'], queryFn: listarUsuarios })
@@ -102,12 +106,22 @@ export function BuscaPage() {
             </p>
             <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {resultados.map((u) => (
-                <PersonRow key={u.id} usuario={u} subtitle={u.areas[0]?.nome} compactStatus />
+                <button
+                  key={u.id}
+                  type="button"
+                  onClick={() => setSelecionado(u)}
+                  className="w-full text-left"
+                >
+                  <PersonRow usuario={u} subtitle={u.areas[0]?.nome} compactStatus />
+                </button>
               ))}
             </div>
           </div>
         )}
       </div>
+
+      {/* Detalhe do pesquisador — mesmo modal usado na tela Pesquisadores */}
+      <PesquisadorDetailModal usuario={selecionado} onClose={() => setSelecionado(null)} />
     </div>
   )
 }

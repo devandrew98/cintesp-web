@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2,
   Users2,
@@ -29,6 +30,26 @@ function saudacao() {
 }
 
 export function DashboardPage() {
+  const queryClient = useQueryClient();
+  // Estado só para dar retorno visual enquanto recarrega.
+  const [atualizando, setAtualizando] = useState(false);
+
+  /** Recarrega os dados das consultas que alimentam o painel. */
+  async function atualizar() {
+    setAtualizando(true);
+    try {
+      await queryClient.refetchQueries({
+        queryKey: ["usuarios"],
+      });
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ["mudancas"] }),
+        queryClient.refetchQueries({ queryKey: ["avisos"] }),
+      ]);
+    } finally {
+      setAtualizando(false);
+    }
+  }
+
   const { data: usuarios = [] } = useQuery({
     queryKey: ["usuarios"],
     queryFn: listarUsuarios,
@@ -45,7 +66,7 @@ export function DashboardPage() {
   const ativos = usuarios.filter((u) => u.status === "ativo");
   const disponiveis = ativos.filter((u) => u.disponibilidade === "disponivel");
   const emAtendimento = ativos.filter(
-    (u) => u.disponibilidade === "em_atendimento",
+    (u) => u.disponibilidade === "parcial" || u.disponibilidade === "home_office",
   );
   const ausentes = ativos.filter((u) => u.disponibilidade === "ausente");
 
@@ -64,9 +85,13 @@ export function DashboardPage() {
         title={`${saudacao()}, pesquisadores! 👋`}
         subtitle="Acompanhe a disponibilidade da equipe em tempo real."
         actions={
-          <button className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 shadow-card hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800">
-            <RefreshCw className="h-4 w-4" />
-            Atualizar
+          <button
+            onClick={atualizar}
+            disabled={atualizando}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 shadow-card transition-colors hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            <RefreshCw className={atualizando ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
+            {atualizando ? "Atualizando..." : "Atualizar"}
           </button>
         }
       />

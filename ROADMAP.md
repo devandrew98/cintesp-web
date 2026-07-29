@@ -11,7 +11,7 @@
 
 | Campo | Valor |
 |---|---|
-| **Versão** | `v1.2.0` |
+| **Versão** | `v1.3.0` |
 | **Fase atual** | ✅ **Containerizado (Docker)** — pronto para VPS + Supabase self-hosted. Ver `docs/deploy-vps.md` |
 | **Data** | 29/07/2026 |
 | **Front rodando?** | Sim — `npm run dev` → http://localhost:5180 |
@@ -157,7 +157,54 @@ Legenda: ✅ concluída · 🚧 em andamento · ⬜ pendente
 
 ---
 
+### ✅ Fase 9 — Correções e melhorias do PDF de revisão (CONCLUÍDA)
+- [x] **Administração > Usuários:** "Editar Dados" abre modal e grava; botão **Salvar função**;
+      salvar horários passa a persistir; "Adicionar área" abre seletor; histórico real do banco
+      com "Ver histórico completo"
+- [x] **Avisos:** clicar abre modal de leitura; **editar** aviso publicado; **excluir**;
+      **compartilhar no WhatsApp**; público-alvo virou lista de opções
+- [x] **Menu:** sino de notificações lista os avisos recentes de verdade (contador real)
+- [x] **Dashboard:** botão Atualizar recarrega os dados
+- [x] **Busca Rápida:** clicar no pesquisador abre o modal de detalhe
+- [x] **Agenda do Dia:** agenda do Google embutida (`VITE_GOOGLE_CALENDAR_URL`)
+- [x] **Participantes:** importação só pelo botão do topo; erro do banco aparece explicado
+- [x] **Instituições:** seleção de quais pesquisadores pertencem a cada uma
+- [x] **Configurações:** alinhamento dos interruptores corrigido
+- [x] **Meu Horário:** somente leitura para quem não é administrador
+- [x] **Disponibilidade:** "Em atendimento" virou **Parcial** e **Home office**, e a situação
+      passa a ser **calculada automaticamente pelo horário** (com override manual)
+
+---
+
 ## 📝 Changelog
+
+### v1.3.0 — 29/07/2026
+- **Rodada de correções a partir da revisão em PDF.** Vários botões eram decorativos
+  (sem ação) e telas ainda liam dados de exemplo; agora tudo grava no banco.
+- **Administração > Usuários** deixou de usar mock: "Editar Dados" abre um modal e salva,
+  a função ganhou botão **Salvar**, o editor de horários passa a persistir, "Adicionar área"
+  abre um seletor com busca e o histórico vem da tabela `historico_alteracoes`
+  (cada alteração é registrada com autor).
+- **Avisos:** clicar abre o aviso em modal; administrador pode **editar** e **excluir**;
+  botão **Compartilhar no WhatsApp** com o texto já formatado; o público-alvo virou uma
+  lista (Todos / Pesquisadores / Administradores / Coordenação / Outro).
+- **Notificações:** o sino mostrava um "3" fixo e não abria nada. Agora lista os avisos dos
+  últimos 7 dias, com contador real e marcação de lidos no próprio navegador.
+- **Dashboard:** o botão Atualizar recarrega as consultas de verdade.
+- **Busca Rápida:** clicar no resultado abre o mesmo modal da tela Pesquisadores.
+- **Agenda do Dia:** passa a exibir a agenda do Google embutida, configurada em
+  `VITE_GOOGLE_CALENDAR_URL` (com instruções na tela quando não estiver preenchida).
+- **Participantes:** a importação saiu do meio da tela e ficou só no botão do topo; se a
+  consulta falhar, a tela mostra o motivo em vez de fingir que a lista está vazia.
+- **Instituições:** o modal agora permite escolher quais pesquisadores pertencem a ela.
+- **Configurações:** interruptores alinhados na mesma coluna.
+- **Meu Horário:** vira somente leitura para quem não é administrador.
+- **Disponibilidade repensada:** "Em atendimento" deu lugar a **Parcial** e **Home office**,
+  e a situação passou a ser **calculada pelo horário cadastrado** — o quadro acompanha o dia
+  sozinho. Um ajuste manual continua possível e prevalece (`disponibilidade.automatico`).
+  Migração em `docs/supabase-status-disponibilidade.sql`.
+- Novos arquivos: `EditarUsuarioModal`, `SelecionarAreasModal`, `AvisoDetailModal`,
+  `NotificacoesMenu` e o SQL de migração dos status.
 
 ### v1.2.0 — 29/07/2026
 - **Containerização (Docker) para deploy em VPS com Supabase self-hosted.**

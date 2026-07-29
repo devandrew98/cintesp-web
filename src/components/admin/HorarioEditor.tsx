@@ -17,10 +17,17 @@ import type { BlocoHorario, HorarioDia } from '@/types'
 export function HorarioEditor({
   horariosIniciais,
   onSalvar,
+  somenteLeitura = false,
 }: {
   horariosIniciais: HorarioDia[]
   /** Persiste os horários (ex.: Supabase). Se ausente, só confirma visualmente. */
   onSalvar?: (horarios: HorarioDia[]) => Promise<void>
+  /**
+   * Modo consulta: esconde o interruptor de edição e o botão de salvar.
+   * Usado quando quem está vendo não tem permissão para alterar (só o
+   * administrador define horários).
+   */
+  somenteLeitura?: boolean
 }) {
   // Estado editável dos horários (cópia dos dados iniciais).
   const [horarios, setHorarios] = useState<HorarioDia[]>(() =>
@@ -86,10 +93,13 @@ export function HorarioEditor({
             Horários de Disponibilidade
           </h3>
           <p className="text-sm text-slate-500">
-            Ajuste os horários em que o pesquisador está disponível.
+            {somenteLeitura
+              ? 'Somente leitura — os horários são definidos pela administração.'
+              : 'Ajuste os horários em que o pesquisador está disponível.'}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        {/* Em modo consulta não há o que editar: some com os controles. */}
+        <div className={cn('flex items-center gap-3', somenteLeitura && 'hidden')}>
           {/* Toggle "Editar horários" */}
           <button
             onClick={() => setEditando((v) => !v)}

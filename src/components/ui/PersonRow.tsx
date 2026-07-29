@@ -51,11 +51,13 @@ export function PersonRow({
         <span
           className={cn(
             'rounded-lg px-2 py-1 text-xs font-medium',
-            usuario.disponibilidade === 'em_atendimento'
+            usuario.disponibilidade === 'parcial'
               ? 'bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300'
-              : usuario.disponibilidade === 'ausente'
-                ? 'bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300'
-                : 'bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300',
+              : usuario.disponibilidade === 'home_office'
+                ? 'bg-violet-50 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300'
+                : usuario.disponibilidade === 'ausente'
+                  ? 'bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300'
+                  : 'bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300',
           )}
         >
           {info.label}

@@ -2,7 +2,14 @@
 // Modelo de domínio do CINTESP — reflete o schema do Supabase.
 // ============================================================
 
-export type StatusDisponibilidade = 'disponivel' | 'em_atendimento' | 'ausente'
+/**
+ * Situação do pesquisador no momento.
+ *   disponivel  → dentro do horário, atendendo normalmente
+ *   parcial     → presente, mas com disponibilidade reduzida
+ *   home_office → trabalhando remotamente
+ *   ausente     → fora do horário ou indisponível
+ */
+export type StatusDisponibilidade = 'disponivel' | 'parcial' | 'home_office' | 'ausente'
 export type StatusUsuario = 'ativo' | 'inativo'
 export type TipoAviso = 'importante' | 'reuniao' | 'treinamento' | 'geral'
 export type StatusAviso = 'ativo' | 'programado' | 'arquivado'
@@ -46,6 +53,11 @@ export interface Usuario {
   // Estado de disponibilidade "ao vivo" (vem de uma tabela/realtime separada)
   disponibilidade: StatusDisponibilidade
   livreAte?: string // "12:00" ou undefined (dia todo)
+  /**
+   * true  → a situação vem do horário cadastrado (calculada automaticamente)
+   * false → alguém definiu manualmente (Parcial, Home office, Ausente…)
+   */
+  disponibilidadeAutomatica?: boolean
 }
 
 export interface BlocoHorario {

@@ -1,6 +1,7 @@
-import { Bell, Menu, Moon, Sun, RefreshCw } from 'lucide-react'
+import { Menu, Moon, Sun, RefreshCw } from 'lucide-react'
 import { useUI } from '@/store/ui'
 import { UserMenu } from './UserMenu'
+import { NotificacoesMenu } from './NotificacoesMenu'
 
 const dataHoje = new Date().toLocaleDateString('pt-BR', {
   weekday: 'long',
@@ -40,15 +41,8 @@ export function Topbar() {
         {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
       </button>
 
-      <button
-        className="relative rounded-xl p-2.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-        aria-label="Notificações"
-      >
-        <Bell className="h-5 w-5" />
-        <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-          3
-        </span>
-      </button>
+      {/* Sino de notificações: lista os avisos recentes de verdade */}
+      <NotificacoesMenu />
 
       {/* Menu do usuário: dados da conta, atalhos e sair da plataforma */}
       <UserMenu />
