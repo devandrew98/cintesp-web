@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { envVar } from './env'
 
 /**
  * Tira espaços, aspas e quebras de linha que costumam vir junto quando o
@@ -23,8 +24,8 @@ function normalizarUrl(u?: string): string | undefined {
   return limpo.replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '')
 }
 
-const url = normalizarUrl(import.meta.env.VITE_SUPABASE_URL)
-const anonKey = limpar(import.meta.env.VITE_SUPABASE_ANON_KEY)
+const url = normalizarUrl(envVar('VITE_SUPABASE_URL'))
+const anonKey = limpar(envVar('VITE_SUPABASE_ANON_KEY'))
 
 /** Há chaves do Supabase configuradas? (habilita login e queries reais.) */
 export const hasSupabase = Boolean(url && anonKey)
@@ -35,7 +36,7 @@ export const hasSupabase = Boolean(url && anonKey)
  *  - false → banco real (Supabase)
  * A autenticação, quando há chaves, é sempre real (independe disto).
  */
-export const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true' || !hasSupabase
+export const USE_MOCK = envVar('VITE_USE_MOCK') === 'true' || !hasSupabase
 
 /**
  * A chave TEM CARA de chave do Supabase?

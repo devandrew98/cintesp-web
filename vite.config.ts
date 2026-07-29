@@ -26,6 +26,10 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // config.js é gerado em runtime pelo container — não pode ser
+        // pré-cacheado, senão o SW serviria a versão vazia do build.
+        globIgnores: ['**/config.js'],
+        navigateFallbackDenylist: [/^\/config\.js$/],
       },
     }),
   ],

@@ -1,2 +1,10 @@
 # Normaliza fim de linha: guarda como LF no repositório, checkout no formato nativo.
 * text=auto
+
+# Arquivos que RODAM no Linux (container) precisam ser sempre LF,
+# senão o /bin/sh do container falha com "bad interpreter".
+*.sh            text eol=lf
+Dockerfile      text eol=lf
+docker/**       text eol=lf
+Caddyfile       text eol=lf
+nginx.conf      text eol=lf

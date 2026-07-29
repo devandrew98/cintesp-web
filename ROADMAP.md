@@ -11,9 +11,9 @@
 
 | Campo | Valor |
 |---|---|
-| **Versão** | `v1.1.1` |
-| **Fase atual** | ✅ **Fase 8 concluída** — permissões por papel. **Pronto para deploy** |
-| **Data** | 28/07/2026 |
+| **Versão** | `v1.2.0` |
+| **Fase atual** | ✅ **Containerizado (Docker)** — pronto para VPS + Supabase self-hosted. Ver `docs/deploy-vps.md` |
+| **Data** | 29/07/2026 |
 | **Front rodando?** | Sim — `npm run dev` → http://localhost:5180 |
 | **Repositório** | 🔒 privado — `github.com/devandrew98/cintesp-web` (branch `main`) |
 | **Banco (Supabase)** | ✅ Conectado e em uso — projeto `qjdvahlcxxkafotlnzrb` (auth + todas as telas) |
@@ -158,6 +158,20 @@ Legenda: ✅ concluída · 🚧 em andamento · ⬜ pendente
 ---
 
 ## 📝 Changelog
+
+### v1.2.0 — 29/07/2026
+- **Containerização (Docker) para deploy em VPS com Supabase self-hosted.**
+- `Dockerfile` (multi-stage: build Vite → nginx) + `docker/nginx.conf` (SPA + cache)
+  + `.dockerignore`. Imagem **genérica**: as variáveis do Supabase entram em **runtime**.
+- **Injeção de env em runtime:** `public/config.js` (sobrescrito no start do container por
+  `docker/40-cintesp-env.sh`) define `window.__ENV__`; novo `src/lib/env.ts` lê runtime
+  com _fallback_ para o `.env` do build. `supabase.ts` e `Configuracoes.tsx` passam a usar isso.
+  → **trocar URL/chave não exige rebuild**, só editar o `.env` e reiniciar o container.
+- `docker-compose.yml` (front + **Caddy** com HTTPS/Let's Encrypt automático) roteando
+  `APP_DOMAIN` → app e `API_DOMAIN` → Supabase (Kong). `Caddyfile` + `.env.docker.example`.
+- **Guia de deploy:** `docs/deploy-vps.md` (DNS, Supabase self-hosted, front, TLS, segurança,
+  troubleshooting) — para handoff a quem for subir na VPS via GitHub.
+- PWA: `config.js` excluído do precache do service worker (senão serviria a versão vazia).
 
 ### v1.1.1 — 28/07/2026
 - **Correção de configuração:** as variáveis `VITE_SUPABASE_URL` e

@@ -1,0 +1,21 @@
+# ============================================================
+# Caddy — proxy reverso com HTTPS automático (Let's Encrypt).
+# Os domínios e o upstream vêm do .env (via docker-compose).
+# Requisitos: DNS de APP_DOMAIN e API_DOMAIN apontando para a VPS
+# e as portas 80 e 443 abertas.
+# ============================================================
+{
+	email {$ACME_EMAIL}
+}
+
+# Plataforma (o app React)
+{$APP_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy web:80
+}
+
+# API do Supabase self-hosted (gateway Kong)
+{$API_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy {$SUPABASE_UPSTREAM}
+}

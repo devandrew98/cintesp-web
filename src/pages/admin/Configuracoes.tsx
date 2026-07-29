@@ -2,10 +2,11 @@ import { useState, type ReactNode } from 'react'
 import { Moon, Sun, Bell, Mail, CalendarClock, Info, Database } from 'lucide-react'
 import { AdminShell } from '@/components/admin/AdminShell'
 import { useUI } from '@/store/ui'
+import { USE_MOCK } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 
 /** Versão do app exibida em "Sobre" (mantida em sincronia com o ROADMAP). */
-const VERSAO = 'v0.7.0'
+const VERSAO = 'v1.2.0'
 
 /**
  * Tela "Administração > Configurações" (Fase 6).
@@ -20,7 +21,8 @@ export function AdminConfiguracoesPage() {
   const [notifPush, setNotifPush] = useState(false)
   const [notifTurno, setNotifTurno] = useState(true)
 
-  const usandoMock = import.meta.env.VITE_USE_MOCK !== 'false'
+  // Lê do supabase.ts (que considera as variáveis injetadas em runtime).
+  const usandoMock = USE_MOCK
 
   return (
     <AdminShell>

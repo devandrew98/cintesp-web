@@ -1,0 +1,59 @@
+# ============================================================
+# CINTESP WEB — orquestração do FRONT + proxy reverso (HTTPS automático).
+#
+#   web    → serve o app (nginx) na porta interna 80
+#   caddy  → proxy reverso com TLS/Let's Encrypt automático:
+#              APP_DOMAIN  → o app (web)
+#              API_DOMAIN  → o Supabase self-hosted (gateway Kong, porta 8000)
+#
+# O Supabase self-hosted roda SEPARADO (compose oficial do Supabase). Este
+# arquivo NÃO sobe o Supabase; o Caddy só faz o proxy para ele.
+#
+# Configure tudo em um arquivo ".env" ao lado deste (veja .env.docker.example).
+# ============================================================
+name: cintesp
+
+services:
+  web:
+    build: .
+    image: cintesp-web:latest
+    container_name: cintesp-web
+    restart: unless-stopped
+    environment:
+      # Injetadas em runtime no /config.js (não ficam na imagem):
+      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:?defina VITE_SUPABASE_URL no .env}
+      VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:?defina VITE_SUPABASE_ANON_KEY no .env}
+      VITE_USE_MOCK: ${VITE_USE_MOCK:-false}
+    expose:
+      - "80"
+    networks: [cintesp]
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: cintesp-caddy
+    restart: unless-stopped
+    depends_on: [web]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?defina APP_DOMAIN no .env}
+      API_DOMAIN: ${API_DOMAIN:?defina API_DOMAIN no .env}
+      # Onde está o gateway do Supabase self-hosted (Kong). Padrão: a própria VPS.
+      SUPABASE_UPSTREAM: ${SUPABASE_UPSTREAM:-host.docker.internal:8000}
+      ACME_EMAIL: ${ACME_EMAIL:?defina ACME_EMAIL no .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    extra_hosts:
+      # Permite o Caddy alcançar o Supabase rodando na VPS (host) no Linux.
+      - "host.docker.internal:host-gateway"
+    networks: [cintesp]
+
+networks:
+  cintesp:
+
+volumes:
+  caddy_data:
+  caddy_config:
