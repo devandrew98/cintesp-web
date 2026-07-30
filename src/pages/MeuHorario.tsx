@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Mail, Phone, Building2, CalendarClock, Sun, Moon, Check, Loader2 } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { StatCard } from '@/components/ui/StatCard'
-import { Avatar } from '@/components/ui/Avatar'
+import { FotoPerfilUploader } from '@/components/perfil/FotoPerfilUploader'
 import { DisponibilidadeBadge, disponibilidadeInfo } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { HorarioEditor } from '@/components/admin/HorarioEditor'
@@ -92,9 +92,9 @@ export function MeuHorarioPage() {
       />
 
       {/* Perfil */}
-      <div className="card mb-6 flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <Avatar nome={eu.nome} fotoUrl={eu.fotoUrl} size="lg" />
+      <div className="card mb-6 p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
+          <FotoPerfilUploader usuarioId={eu.id} nome={eu.nome} fotoUrl={eu.fotoUrl} podeEditar />
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-bold text-slate-900 dark:text-white">{eu.nome}</h2>

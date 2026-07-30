@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Field, Input, Select } from '@/components/ui/Field'
+import { FotoPerfilUploader } from '@/components/perfil/FotoPerfilUploader'
 import { listarInstituicoes, type DadosUsuario } from '@/data/api'
 import type { StatusUsuario, Usuario } from '@/types'
 
@@ -64,6 +65,17 @@ export function EditarUsuarioModal({
       }
     >
       <form id="form-editar-usuario" onSubmit={enviar} className="space-y-4">
+        {/* Foto de perfil — o envio é imediato (independe do "Salvar"). */}
+        <div className="rounded-xl border border-slate-100 p-3 dark:border-slate-800">
+          <p className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">Foto de perfil</p>
+          <FotoPerfilUploader
+            usuarioId={usuario.id}
+            nome={usuario.nome}
+            fotoUrl={usuario.fotoUrl}
+            podeEditar
+          />
+        </div>
+
         <Field label="Nome completo">
           <Input required value={nome} onChange={(e) => setNome(e.target.value)} />
         </Field>

@@ -412,6 +412,46 @@ export async function voltarDisponibilidadeAutomatica(usuarioId: string): Promis
 }
 
 // ============================================================
+// Foto de perfil (Supabase Storage → bucket "avatares")
+// ============================================================
+
+/**
+ * Envia a foto de perfil de um usuário para o Storage e salva a URL pública
+ * em `usuarios.foto_url`. Devolve a URL final.
+ *
+ * Caminho único por envio (`<id>/<timestamp>.<ext>`) para o navegador nunca
+ * mostrar uma versão antiga em cache. Requer o bucket público `avatares`
+ * (ver docs/supabase-storage-avatares.sql).
+ *
+ * Quem pode: o próprio usuário (RLS `edita_meu_perfil`) ou um admin.
+ */
+export async function enviarFotoPerfil(usuarioId: string, arquivo: File): Promise<string> {
+  if (USE_MOCK || !supabase) return URL.createObjectURL(arquivo)
+
+  const ext = (arquivo.name.split('.').pop() || 'jpg').toLowerCase()
+  const caminho = `${usuarioId}/${Date.now()}.${ext}`
+
+  const { error: erroUpload } = await supabase.storage
+    .from('avatares')
+    .upload(caminho, arquivo, { upsert: true, contentType: arquivo.type || 'image/jpeg' })
+  if (erroUpload) throw erroUpload
+
+  const { data: pub } = supabase.storage.from('avatares').getPublicUrl(caminho)
+  const url = pub.publicUrl
+
+  const { error } = await supabase.from('usuarios').update({ foto_url: url }).eq('id', usuarioId)
+  if (error) throw error
+  return url
+}
+
+/** Remove a foto de perfil (apenas limpa a URL; o arquivo antigo fica órfão). */
+export async function removerFotoPerfil(usuarioId: string): Promise<void> {
+  if (USE_MOCK || !supabase) return
+  const { error } = await supabase.from('usuarios').update({ foto_url: null }).eq('id', usuarioId)
+  if (error) throw error
+}
+
+// ============================================================
 // CRUD de Administração (Funções, Áreas, Instituições)
 // ============================================================
 
