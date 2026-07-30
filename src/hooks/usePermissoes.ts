@@ -16,8 +16,11 @@ export function usePermissoes() {
   const { data: perfil, isLoading: carregando } = useQuery({
     queryKey: ['perfil-atual'],
     queryFn: perfilAtual,
-    // O papel muda muito pouco; evita refazer a consulta a cada tela.
-    staleTime: 5 * 60 * 1000,
+    // O papel muda pouco, mas quando um admin troca a função de alguém direto
+    // no banco, queremos que a plataforma reflita sem exigir logout: por isso
+    // refazemos ao focar a aba e mantemos a janela de "fresco" curta.
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
   })
 
   const permissoes = perfil?.funcao?.permissoes ?? []

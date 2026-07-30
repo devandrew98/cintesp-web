@@ -17,12 +17,17 @@ export function useRealtime() {
     if (!supabase) return
     const client = supabase // captura já estreitada (não-nula) para o cleanup
 
-    const invalidar = (chave: string) => () => qc.invalidateQueries({ queryKey: [chave] })
+    const invalidar =
+      (...chaves: string[]) =>
+      () =>
+        chaves.forEach((chave) => qc.invalidateQueries({ queryKey: [chave] }))
 
     const canal = client
       .channel('cintesp-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'disponibilidade' }, invalidar('usuarios'))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'usuarios' }, invalidar('usuarios'))
+      // Mudou algo em usuarios (ex.: a função/papel de alguém) → atualiza a
+      // lista E o perfil do logado, para o acesso de admin refletir na hora.
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'usuarios' }, invalidar('usuarios', 'perfil-atual', 'perfil'))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'horarios' }, invalidar('usuarios'))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'avisos' }, invalidar('avisos'))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'mudancas_turno' }, invalidar('mudancas'))

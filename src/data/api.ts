@@ -77,6 +77,26 @@ const USUARIO_SELECT = `
   horarios(dia, manha_ativo, manha_inicio, manha_fim, tarde_ativo, tarde_inicio, tarde_fim, observacao)
 `
 
+// Mesmo select, mas SEM a coluna `automatico` — usado como plano B quando a
+// migração `docs/supabase-status-disponibilidade.sql` ainda não foi rodada.
+// Sem `automatico`, todo mundo cai no modo automático (padrão seguro).
+const USUARIO_SELECT_COMPAT = USUARIO_SELECT.replace(', automatico)', ')')
+
+let jaAvisouMigracao = false
+// Detecta "coluna não existe" (42703) — sinal de migração pendente no banco.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function ehColunaInexistente(error: any): boolean {
+  return !!error && (error.code === '42703' || /column .* does not exist/i.test(error.message ?? ''))
+}
+function avisarMigracaoPendente() {
+  if (jaAvisouMigracao) return
+  jaAvisouMigracao = true
+  console.warn(
+    '[CINTESP] A coluna disponibilidade.automatico nao existe. Rode ' +
+      'docs/supabase-status-disponibilidade.sql no Supabase. Rodando em modo compativel.',
+  )
+}
+
 function mapUsuario(r: any): Usuario {
   // disponibilidade vem como array (0/1) por ser tabela filha via FK.
   const disp = Array.isArray(r.disp) ? r.disp[0] : r.disp
@@ -140,9 +160,14 @@ function normalizarStatus(v: unknown): StatusDisponibilidade {
 
 export async function listarUsuarios(): Promise<Usuario[]> {
   if (USE_MOCK || !supabase) return mock.usuarios
-  const { data, error } = await supabase.from('usuarios').select(USUARIO_SELECT).order('nome')
-  if (error) throw error
-  return (data ?? []).map(mapUsuario)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let r: { data: any; error: any } = await supabase.from('usuarios').select(USUARIO_SELECT).order('nome')
+  if (r.error && ehColunaInexistente(r.error)) {
+    avisarMigracaoPendente()
+    r = await supabase.from('usuarios').select(USUARIO_SELECT_COMPAT).order('nome')
+  }
+  if (r.error) throw r.error
+  return ((r.data ?? []) as unknown[]).map(mapUsuario)
 }
 
 // ============================================================
@@ -259,9 +284,18 @@ export async function perfilAtual(): Promise<Usuario | null> {
   const { data: auth } = await supabase.auth.getUser()
   const id = auth.user?.id
   if (!id) return null
-  const { data, error } = await supabase.from('usuarios').select(USUARIO_SELECT).eq('id', id).single()
-  if (error) throw error
-  return mapUsuario(data)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let r: { data: any; error: any } = await supabase
+    .from('usuarios')
+    .select(USUARIO_SELECT)
+    .eq('id', id)
+    .single()
+  if (r.error && ehColunaInexistente(r.error)) {
+    avisarMigracaoPendente()
+    r = await supabase.from('usuarios').select(USUARIO_SELECT_COMPAT).eq('id', id).single()
+  }
+  if (r.error) throw r.error
+  return mapUsuario(r.data)
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
