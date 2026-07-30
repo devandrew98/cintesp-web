@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Megaphone,
@@ -26,7 +26,14 @@ import { AvisoDetailModal } from '@/components/avisos/AvisoDetailModal'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { tipoAvisoInfo, statusAvisoInfo } from '@/lib/avisos'
 import { cn, formatDateBR } from '@/lib/utils'
-import { listarAvisos, criarAviso, atualizarAviso, excluirAviso } from '@/data/api'
+import {
+  listarAvisos,
+  criarAviso,
+  atualizarAviso,
+  excluirAviso,
+  estatisticasAvisos,
+  registrarLeituraAviso,
+} from '@/data/api'
 import { usePermissoes } from '@/hooks/usePermissoes'
 import type { Aviso, TipoAviso } from '@/types'
 
@@ -44,6 +51,12 @@ export function AvisosPage() {
   const { data: lista = [], isLoading } = useQuery({
     queryKey: ['avisos'],
     queryFn: listarAvisos,
+  })
+  // KPIs REAIS (lidos hoje / visualizações), atualizados ao vivo.
+  const { data: stats } = useQuery({
+    queryKey: ['avisos-stats'],
+    queryFn: estatisticasAvisos,
+    refetchOnWindowFocus: true,
   })
   // Cria um aviso e atualiza a lista no cache.
   const criar = useMutation({
@@ -81,6 +94,14 @@ export function AvisosPage() {
   const [mostrarFiltros, setMostrarFiltros] = useState(false)
   const [modalAberto, setModalAberto] = useState(false)
 
+  // Ao abrir um aviso, registra a leitura e atualiza os KPIs.
+  useEffect(() => {
+    if (!aberto) return
+    registrarLeituraAviso(aberto.id).then(() =>
+      queryClient.invalidateQueries({ queryKey: ['avisos-stats'] }),
+    )
+  }, [aberto, queryClient])
+
   const recentes = useMemo(() => {
     return lista
       .filter((a) => a.status !== 'arquivado')
@@ -99,8 +120,6 @@ export function AvisosPage() {
     () => ({
       ativos: lista.filter((a) => a.status === 'ativo').length,
       programados: lista.filter((a) => a.status === 'programado').length,
-      lidosHoje: 18,
-      visualizacoes: lista.reduce((acc, a) => acc + (a.visualizacoes ?? 0), 0),
     }),
     [lista],
   )
@@ -172,8 +191,8 @@ export function AvisosPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard icon={Megaphone} value={kpis.ativos} label="Avisos ativos" hint="Publicados" accent="green" />
         <StatCard icon={Clock} value={kpis.programados} label="Programados" hint="Agendados para publicação" accent="amber" />
-        <StatCard icon={CheckCircle2} value={kpis.lidosHoje} label="Lidos hoje" hint="Por pesquisadores" accent="blue" />
-        <StatCard icon={Eye} value={kpis.visualizacoes} label="Visualizações" hint="Últimos 7 dias" accent="violet" />
+        <StatCard icon={CheckCircle2} value={stats?.lidosHoje ?? 0} label="Lidos hoje" hint="Aberturas de avisos hoje" accent="blue" />
+        <StatCard icon={Eye} value={stats?.visualizacoes7d ?? 0} label="Visualizações" hint="Últimos 7 dias" accent="violet" />
       </div>
 
       {/* Recentes + Destaque */}

@@ -30,6 +30,8 @@ export function useRealtime() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'usuarios' }, invalidar('usuarios', 'perfil-atual', 'perfil'))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'horarios' }, invalidar('usuarios'))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'avisos' }, invalidar('avisos'))
+      // Nova leitura de aviso → atualiza os KPIs (lidos hoje / visualizações).
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'aviso_leituras' }, invalidar('avisos-stats'))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'mudancas_turno' }, invalidar('mudancas'))
       .subscribe()
 

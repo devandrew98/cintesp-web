@@ -57,17 +57,16 @@ export const PUBLICOS_ALVO = [
 /** Valor especial que, no seletor, libera o campo de texto livre. */
 export const PUBLICO_OUTRO = '__outro__'
 
-/**
- * Monta o texto do aviso para compartilhar no WhatsApp.
- * Usa a API `wa.me`, que funciona tanto no celular quanto no WhatsApp Web.
- */
-export function linkWhatsApp(aviso: {
+interface AvisoCompartilhavel {
   titulo: string
   descricao: string
   data: string
   hora?: string
   publicoAlvo?: string
-}): string {
+}
+
+/** Monta o TEXTO do aviso (com emojis e link inline) para o WhatsApp. */
+export function textoWhatsApp(aviso: AvisoCompartilhavel): string {
   const quando = new Date(aviso.data).toLocaleDateString('pt-BR')
   const linhas = [
     `*${aviso.titulo}*`,
@@ -79,6 +78,36 @@ export function linkWhatsApp(aviso: {
     '',
     '_CINTESP — Quadro de Pesquisadores_',
   ].filter(Boolean)
+  return linhas.join('\n')
+}
 
-  return `https://wa.me/?text=${encodeURIComponent(linhas.join('\n'))}`
+/** Link `wa.me` (usado como fallback quando não há Web Share). */
+export function linkWhatsApp(aviso: AvisoCompartilhavel): string {
+  return `https://wa.me/?text=${encodeURIComponent(textoWhatsApp(aviso))}`
+}
+
+/**
+ * Compartilha o aviso no WhatsApp de forma robusta.
+ *
+ * Usa a **Web Share API** (`navigator.share`) quando disponível, passando o
+ * texto COMPLETO como string nativa (sem `url` separada). Isso resolve os dois
+ * problemas do deep link `wa.me`:
+ *   • no celular, quando o texto tinha um link, o WhatsApp mandava só o link;
+ *   • no desktop, o app do WhatsApp corrompia os emojis (viravam "�").
+ *
+ * Sem Web Share (alguns navegadores), cai para o link `wa.me` numa aba nova.
+ */
+export async function compartilharWhatsApp(aviso: AvisoCompartilhavel): Promise<void> {
+  const texto = textoWhatsApp(aviso)
+  const nav = typeof navigator !== 'undefined' ? navigator : undefined
+  if (nav && typeof nav.share === 'function') {
+    try {
+      await nav.share({ text: texto })
+      return
+    } catch (e) {
+      // Usuário cancelou → não faz nada. Outro erro → cai para o link.
+      if ((e as { name?: string })?.name === 'AbortError') return
+    }
+  }
+  window.open(linkWhatsApp(aviso), '_blank', 'noopener,noreferrer')
 }

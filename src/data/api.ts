@@ -256,6 +256,54 @@ export async function excluirAviso(id: string): Promise<void> {
   if (error) throw error
 }
 
+/**
+ * Registra que o usuário logado LEU um aviso (para os KPIs reais).
+ * Upsert por (aviso, pessoa): reler só atualiza a data. Silencioso —
+ * se a tabela ainda não existe, não atrapalha a leitura do aviso.
+ */
+export async function registrarLeituraAviso(avisoId: string): Promise<void> {
+  if (USE_MOCK || !supabase) return
+  try {
+    const { data: auth } = await supabase.auth.getUser()
+    const uid = auth.user?.id
+    if (!uid) return
+    await supabase
+      .from('aviso_leituras')
+      .upsert(
+        { aviso_id: avisoId, usuario_id: uid, lido_em: new Date().toISOString() },
+        { onConflict: 'aviso_id,usuario_id' },
+      )
+  } catch {
+    // silencioso de propósito
+  }
+}
+
+export interface EstatisticasAvisos {
+  lidosHoje: number
+  visualizacoes7d: number
+}
+
+/** KPIs REAIS de avisos: quantos foram lidos hoje e nos últimos 7 dias. */
+export async function estatisticasAvisos(): Promise<EstatisticasAvisos> {
+  if (USE_MOCK || !supabase) return { lidosHoje: 0, visualizacoes7d: 0 }
+
+  const inicioHoje = new Date()
+  inicioHoje.setHours(0, 0, 0, 0)
+  const seteDias = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+
+  const [hoje, semana] = await Promise.all([
+    supabase
+      .from('aviso_leituras')
+      .select('*', { count: 'exact', head: true })
+      .gte('lido_em', inicioHoje.toISOString()),
+    supabase
+      .from('aviso_leituras')
+      .select('*', { count: 'exact', head: true })
+      .gte('lido_em', seteDias.toISOString()),
+  ])
+  return { lidosHoje: hoje.count ?? 0, visualizacoes7d: semana.count ?? 0 }
+}
+
 export async function listarMudancas(): Promise<MudancaTurno[]> {
   if (USE_MOCK || !supabase) return mock.mudancas
   const { data, error } = await supabase

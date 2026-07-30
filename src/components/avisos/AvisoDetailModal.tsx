@@ -2,7 +2,7 @@ import { Calendar, Users, Pencil, Trash2, MessageCircle, Eye, Pin } from 'lucide
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
-import { tipoAvisoInfo, statusAvisoInfo, linkWhatsApp } from '@/lib/avisos'
+import { tipoAvisoInfo, statusAvisoInfo, compartilharWhatsApp } from '@/lib/avisos'
 import { cn, formatDateBR } from '@/lib/utils'
 import type { Aviso } from '@/types'
 
@@ -51,16 +51,16 @@ export function AvisoDetailModal({
               Excluir
             </Button>
           )}
-          {/* Compartilhar abre o WhatsApp numa aba nova, com o texto pronto */}
-          <a
-            href={linkWhatsApp(aviso)}
-            target="_blank"
-            rel="noopener noreferrer"
+          {/* Compartilha o texto completo (emojis + link) via Web Share, com
+              fallback pro wa.me. Corrige emojis (desktop) e texto sumido (mobile). */}
+          <button
+            type="button"
+            onClick={() => compartilharWhatsApp(aviso)}
             className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
           >
             <MessageCircle className="h-4 w-4 text-brand-600" />
             Compartilhar
-          </a>
+          </button>
           {podeGerenciar && onEditar && (
             <Button icon={Pencil} onClick={onEditar}>
               Editar
