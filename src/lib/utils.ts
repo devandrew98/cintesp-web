@@ -28,3 +28,26 @@ export function formatDateBR(iso: string): string {
   const d = new Date(iso)
   return d.toLocaleDateString('pt-BR')
 }
+
+/**
+ * Extrai uma mensagem legível de qualquer erro.
+ * Erros do Supabase/PostgREST são OBJETOS (não `Error`), com `message`,
+ * `details`, `hint` e `code` — se você fizer `String(e)` neles, sai
+ * "[object Object]". Este helper junta o que houver de útil.
+ */
+export function mensagemErro(e: unknown): string {
+  if (!e) return 'Erro desconhecido.'
+  if (e instanceof Error) return e.message
+  if (typeof e === 'string') return e
+  if (typeof e === 'object') {
+    const o = e as Record<string, unknown>
+    const partes = [o.message, o.details, o.hint].filter(Boolean).map(String)
+    if (partes.length) return partes.join(' — ')
+    try {
+      return JSON.stringify(e)
+    } catch {
+      return 'Erro desconhecido.'
+    }
+  }
+  return String(e)
+}

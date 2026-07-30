@@ -15,7 +15,7 @@ import {
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Field'
-import { cn } from '@/lib/utils'
+import { cn, mensagemErro } from '@/lib/utils'
 import { formatarCPF } from '@/lib/cpf'
 import {
   lerPlanilha,
@@ -100,7 +100,7 @@ export function ImportWizard({
     } catch (e) {
       setErro(
         `Não consegui ler o arquivo: ${
-          e instanceof Error ? e.message : String(e)
+          mensagemErro(e)
         }. Formatos aceitos: .xlsx, .xls e .csv.`,
       )
     } finally {
@@ -117,7 +117,7 @@ export function ImportWizard({
       setPlanilha(lida)
       setMapa(mapearColunasAuto(lida.colunas))
     } catch (e) {
-      setErro(e instanceof Error ? e.message : String(e))
+      setErro(mensagemErro(e))
     } finally {
       setCarregando(false)
     }
@@ -148,7 +148,7 @@ export function ImportWizard({
       setEtapa(3)
     } catch (e) {
       setErro(
-        `Não consegui conferir os CPFs no banco: ${e instanceof Error ? e.message : String(e)}`,
+        `Não consegui conferir os CPFs no banco: ${mensagemErro(e)}`,
       )
     } finally {
       setCarregando(false)
@@ -181,7 +181,7 @@ export function ImportWizard({
     } catch (e) {
       setErro(
         `A importação falhou: ${
-          e instanceof Error ? e.message : String(e)
+          mensagemErro(e)
         }. Nenhum dado parcial foi confirmado como válido — verifique e tente de novo.`,
       )
     } finally {
