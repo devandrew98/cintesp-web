@@ -245,7 +245,7 @@ export function DashboardPage() {
             <QuickAction
               to="/meu-horario"
               icon={Clock}
-              label="Meu Horário"
+              label="Meu Perfil"
               tone="green"
             />
             <QuickAction

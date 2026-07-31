@@ -41,7 +41,7 @@ export const navSections: NavSection[] = [
     items: [
       { label: 'Dashboard', to: '/', icon: LayoutDashboard },
       { label: 'Quadro de Disponibilidade', to: '/quadro', icon: CalendarClock },
-      { label: 'Meu Horário', to: '/meu-horario', icon: Clock },
+      { label: 'Meu Perfil', to: '/meu-horario', icon: Clock },
       { label: 'Pesquisadores', to: '/pesquisadores', icon: Users },
       { label: 'Agenda do Dia', to: '/agenda', icon: CalendarDays },
       { label: 'Avisos', to: '/avisos', icon: Megaphone },

@@ -116,7 +116,7 @@ export function UserMenu() {
               className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
             >
               <Clock className="h-4 w-4 text-slate-400" />
-              Meu Horário
+              Meu Perfil
             </Link>
             {/* Configurações fica na Administração: só admin enxerga */}
             {ehAdmin && (

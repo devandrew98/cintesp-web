@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Headphones, Loader2, PlayCircle, Search } from 'lucide-react'
+import { Headphones, Loader2, PlayCircle, Search, Clock, Paperclip } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { StatCard } from '@/components/ui/StatCard'
 import { Badge } from '@/components/ui/Badge'
@@ -81,6 +81,15 @@ export function ChamadosAdminPage() {
         subtitle="Acompanhe, aceite e resolva os chamados abertos pela equipe."
       />
 
+      {/* Prazo de atendimento */}
+      <div className="mb-6 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300">
+        <Clock className="h-5 w-5 shrink-0" />
+        <p>
+          <strong>Prazo de atendimento: 24 horas.</strong> Todo chamado deve ser respondido (aceito
+          ou atualizado) em até 24h após a abertura.
+        </p>
+      </div>
+
       {/* KPIs */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard icon={Headphones} value={kpis.abertos} label="Abertos" accent="green" />
@@ -148,11 +157,26 @@ export function ChamadosAdminPage() {
                     <p className="mt-0.5 line-clamp-1 text-sm text-slate-500">{c.descricao}</p>
                     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
                       <span className="inline-flex items-center gap-1.5">
-                        <Avatar nome={c.solicitanteNome ?? '—'} size="sm" className="h-5 w-5 text-[9px]" />
+                        <Avatar
+                          nome={c.solicitanteNome ?? '—'}
+                          fotoUrl={c.solicitanteFotoUrl}
+                          size="sm"
+                          className="h-5 w-5 text-[9px]"
+                        />
                         {c.solicitanteNome ?? '—'}
                       </span>
                       <span>· {formatDateBR(c.criadoEm)}</span>
                       {c.responsavelNome && <span>· Resp.: {c.responsavelNome}</span>}
+                      {c.anexoUrl && (
+                        <a
+                          href={c.anexoUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-brand-600 hover:underline"
+                        >
+                          <Paperclip className="h-3 w-3" /> Anexo
+                        </a>
+                      )}
                     </div>
                   </div>
 

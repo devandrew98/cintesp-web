@@ -36,6 +36,9 @@ create table if not exists public.chamados (
   finalizado_em  timestamptz
 );
 
+-- Anexo (coluna adicionada depois; seguro rodar sempre).
+alter table public.chamados add column if not exists anexo_url text;
+
 create index if not exists idx_chamados_status on public.chamados (status);
 create index if not exists idx_chamados_setor on public.chamados (setor);
 create index if not exists idx_chamados_solicitante on public.chamados (solicitante_id);
@@ -80,6 +83,20 @@ create policy "chamados: admin exclui" on public.chamados
   for delete to authenticated using (public.is_admin());
 
 grant select, insert, update, delete on public.chamados to authenticated;
+
+-- ---------- Anexos (Storage) ----------
+-- Bucket público para os anexos que a pessoa envia ao abrir o chamado.
+insert into storage.buckets (id, name, public)
+values ('chamado-anexos', 'chamado-anexos', true)
+on conflict (id) do update set public = true;
+
+drop policy if exists "chamado_anexos_leitura" on storage.objects;
+create policy "chamado_anexos_leitura" on storage.objects
+  for select using (bucket_id = 'chamado-anexos');
+
+drop policy if exists "chamado_anexos_envio" on storage.objects;
+create policy "chamado_anexos_envio" on storage.objects
+  for insert to authenticated with check (bucket_id = 'chamado-anexos');
 
 -- ---------- Realtime ----------
 -- Em Database → Replication, adicione a tabela chamados à publicação

@@ -1,26 +1,37 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Bell, Megaphone, ArrowRight } from 'lucide-react'
+import { Bell, Megaphone, ArrowRight, Headphones, type LucideIcon } from 'lucide-react'
 import { listarAvisos } from '@/data/api'
+import { listarChamados } from '@/data/chamados'
 import { tipoAvisoInfo } from '@/lib/avisos'
+import { usePermissoes } from '@/hooks/usePermissoes'
 import { cn, formatDateBR } from '@/lib/utils'
 
-/** Quantos dias um aviso conta como "novidade" no sino. */
+/** Quantos dias uma novidade conta no sino. */
 const DIAS_RECENTES = 7
+const CHAVE_VISTOS = 'cintesp:notificacoes-vistas'
+
+interface Notif {
+  id: string
+  titulo: string
+  sub: string
+  to: string
+  quando: number
+  icon: LucideIcon
+  box: string
+}
 
 /**
  * Sino de notificações da barra superior.
  *
- * Antes era um número fixo que não abria nada. Agora mostra os avisos
- * publicados nos últimos dias e leva para a tela de Avisos.
+ * Mostra:
+ *   • avisos publicados nos últimos dias (todos);
+ *   • ADMIN: novos chamados abertos;
+ *   • USUÁRIO: quando o seu chamado é aceito ("em andamento").
  *
- * Os avisos já vistos ficam guardados no próprio navegador (localStorage),
- * então o contador zera depois que a pessoa abre o sino — sem precisar de
- * uma tabela de "lidos" no banco.
+ * O que já foi visto fica no navegador (localStorage) — o contador zera ao abrir.
  */
-const CHAVE_VISTOS = 'cintesp:avisos-vistos'
-
 export function NotificacoesMenu() {
   const [aberto, setAberto] = useState(false)
   const [vistos, setVistos] = useState<string[]>(() => {
@@ -32,22 +43,58 @@ export function NotificacoesMenu() {
   })
   const caixaRef = useRef<HTMLDivElement>(null)
   const localizacao = useLocation()
+  const { ehAdmin } = usePermissoes()
 
   const { data: avisos = [] } = useQuery({ queryKey: ['avisos'], queryFn: listarAvisos })
+  const { data: chamados = [] } = useQuery({ queryKey: ['chamados'], queryFn: listarChamados })
 
-  // Avisos ativos e recentes, do mais novo para o mais antigo.
-  const recentes = useMemo(() => {
+  const notificacoes = useMemo<Notif[]>(() => {
     const limite = Date.now() - DIAS_RECENTES * 24 * 60 * 60 * 1000
-    return avisos
-      .filter((a) => a.status === 'ativo' && new Date(a.data).getTime() >= limite)
-      .sort((a, b) => +new Date(b.data) - +new Date(a.data))
-      .slice(0, 6)
-  }, [avisos])
+    const itens: Notif[] = []
 
-  // O contador mostra só o que ainda não foi visto.
-  const naoVistos = recentes.filter((a) => !vistos.includes(a.id))
+    // Avisos recentes
+    for (const a of avisos) {
+      const t = new Date(a.data).getTime()
+      if (a.status !== 'ativo' || t < limite) continue
+      const info = tipoAvisoInfo[a.tipo]
+      itens.push({ id: `av-${a.id}`, titulo: a.titulo, sub: a.publicoAlvo, to: '/avisos', quando: t, icon: info.icon, box: info.iconBox })
+    }
 
-  // Fecha ao clicar fora ou apertar Esc.
+    // Chamados
+    for (const c of chamados) {
+      if (ehAdmin && c.status === 'aberto') {
+        const t = new Date(c.criadoEm).getTime()
+        if (t < limite) continue
+        itens.push({
+          id: `ch-${c.id}-aberto`,
+          titulo: 'Novo chamado',
+          sub: `${c.titulo} — ${c.solicitanteNome ?? ''}`,
+          to: '/admin/chamados',
+          quando: t,
+          icon: Headphones,
+          box: 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400',
+        })
+      }
+      if (!ehAdmin && c.status === 'em_andamento') {
+        const t = new Date(c.atualizadoEm ?? c.criadoEm).getTime()
+        if (t < limite) continue
+        itens.push({
+          id: `ch-${c.id}-aceito`,
+          titulo: 'Chamado aceito',
+          sub: `${c.titulo}${c.responsavelNome ? ` — por ${c.responsavelNome}` : ''}`,
+          to: '/abrir-chamado',
+          quando: t,
+          icon: Headphones,
+          box: 'bg-sky-50 text-sky-600 dark:bg-sky-500/15 dark:text-sky-400',
+        })
+      }
+    }
+
+    return itens.sort((a, b) => b.quando - a.quando).slice(0, 10)
+  }, [avisos, chamados, ehAdmin])
+
+  const naoVistos = notificacoes.filter((n) => !vistos.includes(n.id))
+
   useEffect(() => {
     if (!aberto) return
     function aoClicarFora(e: MouseEvent) {
@@ -66,14 +113,13 @@ export function NotificacoesMenu() {
 
   useEffect(() => setAberto(false), [localizacao.pathname])
 
-  /** Ao abrir, marca os recentes como vistos (zera o contador). */
   function alternar() {
     const abrindo = !aberto
     setAberto(abrindo)
     if (abrindo && naoVistos.length > 0) {
-      const novos = [...new Set([...vistos, ...recentes.map((a) => a.id)])]
+      const novos = [...new Set([...vistos, ...notificacoes.map((n) => n.id)])]
       setVistos(novos)
-      localStorage.setItem(CHAVE_VISTOS, JSON.stringify(novos.slice(-100)))
+      localStorage.setItem(CHAVE_VISTOS, JSON.stringify(novos.slice(-150)))
     }
   }
 
@@ -106,40 +152,30 @@ export function NotificacoesMenu() {
         >
           <header className="border-b border-slate-100 px-4 py-3 dark:border-slate-800">
             <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Notificações</p>
-            <p className="text-xs text-slate-400">
-              Avisos publicados nos últimos {DIAS_RECENTES} dias
-            </p>
+            <p className="text-xs text-slate-400">Avisos e chamados recentes</p>
           </header>
 
-          {recentes.length === 0 ? (
-            <p className="px-4 py-8 text-center text-sm text-slate-400">
-              Nenhum aviso recente por aqui.
-            </p>
+          {notificacoes.length === 0 ? (
+            <p className="px-4 py-8 text-center text-sm text-slate-400">Nada novo por aqui.</p>
           ) : (
             <ul className="max-h-80 divide-y divide-slate-100 overflow-y-auto dark:divide-slate-800">
-              {recentes.map((a) => {
-                const info = tipoAvisoInfo[a.tipo]
-                const Icone = info.icon
+              {notificacoes.map((n) => {
+                const Icone = n.icon
                 return (
-                  <li key={a.id}>
+                  <li key={n.id}>
                     <Link
-                      to="/avisos"
+                      to={n.to}
                       className="flex gap-3 px-4 py-3 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/60"
                     >
-                      <span
-                        className={cn(
-                          'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                          info.iconBox,
-                        )}
-                      >
+                      <span className={cn('mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', n.box)}>
                         <Icone className="h-4 w-4" />
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium text-slate-700 dark:text-slate-200">
-                          {a.titulo}
+                          {n.titulo}
                         </span>
                         <span className="block truncate text-xs text-slate-400">
-                          {a.publicadoHa ?? formatDateBR(a.data)}
+                          {n.sub} · {formatDateBR(new Date(n.quando).toISOString())}
                         </span>
                       </span>
                     </Link>
@@ -150,11 +186,11 @@ export function NotificacoesMenu() {
           )}
 
           <Link
-            to="/avisos"
+            to={ehAdmin ? '/admin/chamados' : '/avisos'}
             className="flex items-center justify-center gap-1.5 border-t border-slate-100 px-4 py-3 text-sm font-medium text-brand-600 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/60"
           >
             <Megaphone className="h-4 w-4" />
-            Ver todos os avisos
+            {ehAdmin ? 'Ver chamados' : 'Ver avisos'}
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>

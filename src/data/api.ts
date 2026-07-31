@@ -69,7 +69,7 @@ export async function listarInstituicoes(): Promise<Instituicao[]> {
 // ============================================================
 
 const USUARIO_SELECT = `
-  id, nome, email, telefone, foto_url, status,
+  id, nome, email, telefone, whatsapp, cpf, endereco, cep, curso, foto_url, status,
   funcao:funcoes(id, nome, permissoes),
   instituicao:instituicoes(id, nome, sigla),
   areas:usuario_areas(area:areas_atuacao(id, nome, cor)),
@@ -105,6 +105,11 @@ function mapUsuario(r: any): Usuario {
     nome: r.nome,
     email: r.email,
     telefone: r.telefone ?? undefined,
+    whatsapp: r.whatsapp ?? undefined,
+    cpf: r.cpf ?? undefined,
+    endereco: r.endereco ?? undefined,
+    cep: r.cep ?? undefined,
+    curso: r.curso ?? undefined,
     fotoUrl: r.foto_url ?? undefined,
     funcao: r.funcao ? mapFuncao(r.funcao) : { id: '', nome: '—', permissoes: [] },
     instituicao: r.instituicao ? mapInstituicao(r.instituicao) : undefined,
@@ -344,6 +349,35 @@ export async function perfilAtual(): Promise<Usuario | null> {
   }
   if (r.error) throw r.error
   return mapUsuario(r.data)
+}
+
+/** Campos que o usuário edita no PRÓPRIO perfil (ou o admin, de qualquer um). */
+export interface DadosPerfil {
+  nome: string
+  telefone?: string
+  whatsapp?: string
+  cpf?: string
+  endereco?: string
+  cep?: string
+  curso?: string
+}
+
+/** Salva os dados do perfil. RLS: o próprio dono ou um admin. */
+export async function atualizarMeuPerfil(id: string, dados: DadosPerfil): Promise<void> {
+  if (USE_MOCK || !supabase) return
+  const { error } = await supabase
+    .from('usuarios')
+    .update({
+      nome: dados.nome,
+      telefone: dados.telefone || null,
+      whatsapp: dados.whatsapp || null,
+      cpf: dados.cpf || null,
+      endereco: dados.endereco || null,
+      cep: dados.cep || null,
+      curso: dados.curso || null,
+    })
+    .eq('id', id)
+  if (error) throw error
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

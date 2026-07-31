@@ -45,6 +45,11 @@ export interface Usuario {
   nome: string
   email: string
   telefone?: string
+  whatsapp?: string
+  cpf?: string
+  endereco?: string
+  cep?: string
+  curso?: string
   fotoUrl?: string
   funcao: Funcao
   instituicao?: Instituicao
@@ -176,8 +181,10 @@ export interface Chamado {
   status: StatusChamado
   solicitanteId: string
   solicitanteNome?: string
+  solicitanteFotoUrl?: string
   responsavelId?: string
   responsavelNome?: string
+  anexoUrl?: string
   criadoEm: string
   atualizadoEm?: string
   finalizadoEm?: string

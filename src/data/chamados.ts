@@ -9,10 +9,10 @@ import type { Chamado, PrioridadeChamado, SetorChamado, StatusChamado } from '@/
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const SELECT = `
-  id, titulo, descricao, setor, categoria, prioridade, status,
+  id, titulo, descricao, setor, categoria, prioridade, status, anexo_url,
   solicitante_id, responsavel_id, created_at, updated_at, finalizado_em,
-  solicitante:solicitante_id (nome),
-  responsavel:responsavel_id (nome)
+  solicitante:solicitante_id (nome, foto_url),
+  responsavel:responsavel_id (nome, foto_url)
 `
 
 function mapChamado(r: any): Chamado {
@@ -26,8 +26,10 @@ function mapChamado(r: any): Chamado {
     status: r.status,
     solicitanteId: r.solicitante_id,
     solicitanteNome: r.solicitante?.nome ?? undefined,
+    solicitanteFotoUrl: r.solicitante?.foto_url ?? undefined,
     responsavelId: r.responsavel_id ?? undefined,
     responsavelNome: r.responsavel?.nome ?? undefined,
+    anexoUrl: r.anexo_url ?? undefined,
     criadoEm: r.created_at,
     atualizadoEm: r.updated_at ?? undefined,
     finalizadoEm: r.finalizado_em ?? undefined,
@@ -37,6 +39,24 @@ function mapChamado(r: any): Chamado {
 // Armazenamento em memória para o modo mock (sem banco).
 const mockChamados: Chamado[] = []
 
+// ---------- Anexo (Storage) ----------
+/**
+ * Envia um anexo do chamado (imagem/PDF) para o Storage e devolve a URL pública.
+ * Requer o bucket público `chamado-anexos` (ver docs/supabase-chamados.sql).
+ */
+export async function enviarAnexoChamado(arquivo: File): Promise<string> {
+  if (USE_MOCK || !supabase) return URL.createObjectURL(arquivo)
+  const { data: auth } = await supabase.auth.getUser()
+  const ext = (arquivo.name.split('.').pop() || 'bin').toLowerCase()
+  const caminho = `${auth.user?.id ?? 'anon'}/${Date.now()}.${ext}`
+  const { error } = await supabase.storage
+    .from('chamado-anexos')
+    .upload(caminho, arquivo, { upsert: true, contentType: arquivo.type || undefined })
+  if (error) throw error
+  const { data: pub } = supabase.storage.from('chamado-anexos').getPublicUrl(caminho)
+  return pub.publicUrl
+}
+
 // ---------- Abertura ----------
 export interface NovoChamado {
   titulo: string
@@ -44,6 +64,7 @@ export interface NovoChamado {
   setor: SetorChamado
   categoria?: string
   prioridade: PrioridadeChamado
+  anexoUrl?: string
 }
 
 export async function abrirChamado(input: NovoChamado): Promise<Chamado> {
@@ -69,6 +90,7 @@ export async function abrirChamado(input: NovoChamado): Promise<Chamado> {
       categoria: input.categoria || null,
       prioridade: input.prioridade,
       status: 'aberto',
+      anexo_url: input.anexoUrl || null,
       solicitante_id: auth.user?.id,
     })
     .select(SELECT)

@@ -1,12 +1,13 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { LifeBuoy, Send, Loader2, CheckCircle2, Clock } from 'lucide-react'
+import { useRef } from 'react'
+import { LifeBuoy, Send, Loader2, CheckCircle2, Clock, Paperclip, X } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { SectionCard } from '@/components/ui/SectionCard'
 import { Button } from '@/components/ui/Button'
 import { Field, Input, Textarea, Select } from '@/components/ui/Field'
 import { Badge } from '@/components/ui/Badge'
-import { abrirChamado, listarMeusChamados } from '@/data/chamados'
+import { abrirChamado, listarMeusChamados, enviarAnexoChamado } from '@/data/chamados'
 import {
   SETORES,
   CATEGORIAS_POR_SETOR,
@@ -36,7 +37,10 @@ export function AbrirChamadoPage() {
   const [setor, setSetor] = useState<SetorChamado>('ti')
   const [categoria, setCategoria] = useState('')
   const [prioridade, setPrioridade] = useState<PrioridadeChamado>('media')
+  const [arquivo, setArquivo] = useState<File | null>(null)
+  const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const categorias = useMemo(() => CATEGORIAS_POR_SETOR[setor], [setor])
 
@@ -50,14 +54,30 @@ export function AbrirChamadoPage() {
       setDescricao('')
       setCategoria('')
       setPrioridade('media')
+      setArquivo(null)
     },
-    onError: (e) => setErro(mensagemErro(e)),
   })
 
-  function enviar(e: FormEvent) {
+  async function enviar(e: FormEvent) {
     e.preventDefault()
     setErro(null)
-    criar.mutate({ titulo: titulo.trim(), descricao: descricao.trim(), setor, categoria: categoria || undefined, prioridade })
+    setEnviando(true)
+    try {
+      let anexoUrl: string | undefined
+      if (arquivo) anexoUrl = await enviarAnexoChamado(arquivo)
+      await criar.mutateAsync({
+        titulo: titulo.trim(),
+        descricao: descricao.trim(),
+        setor,
+        categoria: categoria || undefined,
+        prioridade,
+        anexoUrl,
+      })
+    } catch (err) {
+      setErro(mensagemErro(err))
+    } finally {
+      setEnviando(false)
+    }
   }
 
   return (
@@ -155,14 +175,60 @@ export function AbrirChamadoPage() {
               </Select>
             </Field>
 
+            {/* Anexo (opcional) */}
+            <div>
+              <span className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                Anexo (opcional)
+              </span>
+              {arquivo ? (
+                <div className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700">
+                  <Paperclip className="h-4 w-4 shrink-0 text-slate-400" />
+                  <span className="min-w-0 flex-1 truncate text-slate-700 dark:text-slate-200">
+                    {arquivo.name}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setArquivo(null)}
+                    className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-red-500 dark:hover:bg-slate-800"
+                    aria-label="Remover anexo"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => inputRef.current?.click()}
+                  className="inline-flex items-center gap-2 rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm font-medium text-slate-500 hover:border-brand-400 hover:text-brand-600 dark:border-slate-600"
+                >
+                  <Paperclip className="h-4 w-4" /> Anexar arquivo (print, foto, PDF…)
+                </button>
+              )}
+              <input
+                ref={inputRef}
+                type="file"
+                accept="image/*,.pdf"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0] ?? null
+                  if (f && f.size > 10 * 1024 * 1024) {
+                    setErro('O anexo deve ter no máximo 10 MB.')
+                    return
+                  }
+                  setArquivo(f)
+                  if (inputRef.current) inputRef.current.value = ''
+                }}
+              />
+            </div>
+
             {erro && (
               <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-300">
                 {erro}
               </p>
             )}
 
-            <Button type="submit" icon={criar.isPending ? undefined : Send} disabled={criar.isPending}>
-              {criar.isPending ? (
+            <Button type="submit" icon={enviando ? undefined : Send} disabled={enviando}>
+              {enviando ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" /> Enviando…
                 </>

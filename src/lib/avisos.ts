@@ -86,21 +86,27 @@ export function linkWhatsApp(aviso: AvisoCompartilhavel): string {
   return `https://wa.me/?text=${encodeURIComponent(textoWhatsApp(aviso))}`
 }
 
+/** Está num celular/tablet? (decide como compartilhar) */
+function ehDispositivoMovel(): boolean {
+  if (typeof navigator === 'undefined') return false
+  const uaData = (navigator as Navigator & { userAgentData?: { mobile?: boolean } }).userAgentData
+  if (uaData && typeof uaData.mobile === 'boolean') return uaData.mobile
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+}
+
 /**
- * Compartilha o aviso no WhatsApp de forma robusta.
+ * Compartilha o aviso no WhatsApp.
  *
- * Usa a **Web Share API** (`navigator.share`) quando disponível, passando o
- * texto COMPLETO como string nativa (sem `url` separada). Isso resolve os dois
- * problemas do deep link `wa.me`:
- *   • no celular, quando o texto tinha um link, o WhatsApp mandava só o link;
- *   • no desktop, o app do WhatsApp corrompia os emojis (viravam "�").
- *
- * Sem Web Share (alguns navegadores), cai para o link `wa.me` numa aba nova.
+ *   • CELULAR: usa a Web Share API (navigator.share) com o texto COMPLETO —
+ *     assim o WhatsApp recebe tudo (emojis + link), sem "engolir" o texto.
+ *   • DESKTOP: vai DIRETO pro WhatsApp (wa.me / WhatsApp Web), sem abrir a
+ *     bandeja de compartilhamento do Windows.
  */
 export async function compartilharWhatsApp(aviso: AvisoCompartilhavel): Promise<void> {
   const texto = textoWhatsApp(aviso)
   const nav = typeof navigator !== 'undefined' ? navigator : undefined
-  if (nav && typeof nav.share === 'function') {
+
+  if (ehDispositivoMovel() && nav && typeof nav.share === 'function') {
     try {
       await nav.share({ text: texto })
       return
@@ -109,5 +115,7 @@ export async function compartilharWhatsApp(aviso: AvisoCompartilhavel): Promise<
       if ((e as { name?: string })?.name === 'AbortError') return
     }
   }
+
+  // Desktop (ou sem Web Share): abre o WhatsApp Web direto.
   window.open(linkWhatsApp(aviso), '_blank', 'noopener,noreferrer')
 }
