@@ -1,4 +1,13 @@
-import { KeyRound, Mail, Phone, MessageCircle, Fingerprint, GraduationCap, MapPin } from 'lucide-react'
+import {
+  KeyRound,
+  Mail,
+  Phone,
+  MessageCircle,
+  Fingerprint,
+  GraduationCap,
+  MapPin,
+  UserCheck,
+} from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Avatar } from '@/components/ui/Avatar'
 import { UserDetail } from './UserDetail'
@@ -50,6 +59,7 @@ export function PessoaDetailModal({
       icon: MapPin,
       texto: participante.cep ? `${participante.endereco} — CEP ${participante.cep}` : participante.endereco,
     },
+    extras.responsavelNome && { icon: UserCheck, texto: `Responsável: ${extras.responsavelNome}` },
   ].filter(Boolean) as Array<{ icon: typeof Mail; texto: string }>
 
   return (

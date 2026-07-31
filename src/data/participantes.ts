@@ -276,16 +276,23 @@ export interface PerfilManual {
   endereco?: string
   cep?: string
   papelPretendido?: string
+  /** Para IC/Aluno: quem é o pesquisador/coordenador responsável por ele. */
+  responsavelId?: string
+  responsavelNome?: string
   observacoes?: string
 }
 
 /** Monta o objeto de `dados_extras` preservando o que já existir. */
 function extrasComPerfil(p: PerfilManual, base: Record<string, string> = {}) {
   const extras: Record<string, string> = { ...base }
-  if (p.whatsapp) extras.whatsapp = p.whatsapp
-  else delete extras.whatsapp
-  if (p.papelPretendido) extras.funcaoPretendida = p.papelPretendido
-  else delete extras.funcaoPretendida
+  const definir = (chave: string, valor?: string) => {
+    if (valor) extras[chave] = valor
+    else delete extras[chave]
+  }
+  definir('whatsapp', p.whatsapp)
+  definir('funcaoPretendida', p.papelPretendido)
+  definir('responsavelId', p.responsavelId)
+  definir('responsavelNome', p.responsavelNome)
   return extras
 }
 
@@ -352,6 +359,23 @@ export async function atualizarPerfilManual(
     .from('participantes')
     .update(linhaManual(p, extrasAtuais))
     .eq('id', id)
+  if (error) throw error
+}
+
+/**
+ * Ativa/desativa um perfil sem login (aluno/manual).
+ * NÃO apaga do banco — só muda o `status`, para poder reativar depois.
+ */
+export async function definirStatusParticipante(
+  id: string,
+  status: Participante['status'],
+): Promise<void> {
+  if (USE_MOCK || !supabase) {
+    const i = mockParticipantes.findIndex((p) => p.id === id)
+    if (i >= 0) mockParticipantes[i] = { ...mockParticipantes[i], status }
+    return
+  }
+  const { error } = await supabase.from('participantes').update({ status }).eq('id', id)
   if (error) throw error
 }
 

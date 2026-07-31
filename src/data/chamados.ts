@@ -15,6 +15,33 @@ const SELECT = `
   responsavel:responsavel_id (nome, foto_url)
 `
 
+// Mesmo select SEM a coluna `anexo_url` — plano B para bancos onde a migração
+// dos chamados (docs/supabase-atualizacoes.sql) ainda não foi rodada.
+const SELECT_SEM_ANEXO = SELECT.replace('status, anexo_url,', 'status,')
+
+/**
+ * A coluna/relacionamento pedido não existe no banco? (migração pendente)
+ * Cobre tanto o "column does not exist" (42703) quanto o aviso do PostgREST
+ * "Could not find the 'X' column ... in the schema cache".
+ */
+function ehColunaAusente(error: any): boolean {
+  const msg = String(error?.message ?? '')
+  return (
+    error?.code === '42703' ||
+    error?.code === 'PGRST204' ||
+    /could not find .* column|column .* does not exist|schema cache/i.test(msg)
+  )
+}
+
+/** Lê chamados tentando com `anexo_url` e, se a coluna faltar, sem ela. */
+async function selecionarChamados(
+  construir: (select: string) => PromiseLike<{ data: any; error: any }>,
+): Promise<{ data: any; error: any }> {
+  let r = await construir(SELECT)
+  if (r.error && ehColunaAusente(r.error)) r = await construir(SELECT_SEM_ANEXO)
+  return r
+}
+
 function mapChamado(r: any): Chamado {
   return {
     id: r.id,
@@ -81,33 +108,35 @@ export async function abrirChamado(input: NovoChamado): Promise<Chamado> {
     return novo
   }
   const { data: auth } = await supabase.auth.getUser()
-  const { data, error } = await supabase
-    .from('chamados')
-    .insert({
-      titulo: input.titulo,
-      descricao: input.descricao,
-      setor: input.setor,
-      categoria: input.categoria || null,
-      prioridade: input.prioridade,
-      status: 'aberto',
-      anexo_url: input.anexoUrl || null,
-      solicitante_id: auth.user?.id,
-    })
-    .select(SELECT)
-    .single()
-  if (error) throw error
-  return mapChamado(data)
+  const base = {
+    titulo: input.titulo,
+    descricao: input.descricao,
+    setor: input.setor,
+    categoria: input.categoria || null,
+    prioridade: input.prioridade,
+    status: 'aberto' as const,
+    solicitante_id: auth.user?.id,
+  }
+  // Só manda `anexo_url` quando há anexo — assim o campo é REALMENTE opcional.
+  const payload = input.anexoUrl ? { ...base, anexo_url: input.anexoUrl } : base
+
+  let r = await supabase.from('chamados').insert(payload).select(SELECT).single()
+  // Banco sem a coluna `anexo_url`: abre o chamado mesmo assim (sem o anexo).
+  if (r.error && ehColunaAusente(r.error)) {
+    r = await supabase.from('chamados').insert(base).select(SELECT_SEM_ANEXO).single()
+  }
+  if (r.error) throw r.error
+  return mapChamado(r.data)
 }
 
 // ---------- Leitura ----------
 export async function listarChamados(): Promise<Chamado[]> {
   if (USE_MOCK || !supabase) return [...mockChamados]
-  const { data, error } = await supabase
-    .from('chamados')
-    .select(SELECT)
-    .order('created_at', { ascending: false })
-  if (error) throw error
-  return (data ?? []).map(mapChamado)
+  const r = await selecionarChamados((sel) =>
+    supabase!.from('chamados').select(sel).order('created_at', { ascending: false }),
+  )
+  if (r.error) throw r.error
+  return (r.data ?? []).map(mapChamado)
 }
 
 export async function listarMeusChamados(): Promise<Chamado[]> {
@@ -115,13 +144,11 @@ export async function listarMeusChamados(): Promise<Chamado[]> {
   const { data: auth } = await supabase.auth.getUser()
   const id = auth.user?.id
   if (!id) return []
-  const { data, error } = await supabase
-    .from('chamados')
-    .select(SELECT)
-    .eq('solicitante_id', id)
-    .order('created_at', { ascending: false })
-  if (error) throw error
-  return (data ?? []).map(mapChamado)
+  const r = await selecionarChamados((sel) =>
+    supabase!.from('chamados').select(sel).eq('solicitante_id', id).order('created_at', { ascending: false }),
+  )
+  if (r.error) throw r.error
+  return (r.data ?? []).map(mapChamado)
 }
 
 // ---------- Gestão (admin) ----------

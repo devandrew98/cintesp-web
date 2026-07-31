@@ -148,7 +148,8 @@ begin
     exception when others then
       null;
     end;
-    delete from public.participantes where id = v_part.id;
+    -- Perfil manual "promovido" vira INATIVO (nada é apagado).
+    update public.participantes set status = 'inativo' where id = v_part.id;
   end if;
 
   return new;

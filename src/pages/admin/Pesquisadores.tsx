@@ -6,6 +6,7 @@ import {
   Search,
   Trash2,
   Pencil,
+  RotateCcw,
   Users2,
   ShieldCheck,
   GraduationCap,
@@ -36,7 +37,7 @@ import {
 import {
   listarParticipantes,
   listarImportacoes,
-  excluirParticipante,
+  definirStatusParticipante,
   criarPerfilManual,
   atualizarPerfilManual,
   type PerfilManual,
@@ -53,6 +54,7 @@ interface LinhaPessoa {
   fotoUrl?: string
   papel: string
   temAcesso: boolean
+  ativo: boolean
   cpf?: string
   curso?: string
   email?: string
@@ -75,7 +77,9 @@ function participanteParaPerfil(p: Participante): PerfilManual {
     whatsapp: extras.whatsapp,
     endereco: p.endereco,
     cep: p.cep,
-    papelPretendido: extras.funcaoPretendida ?? 'Participante',
+    papelPretendido: extras.funcaoPretendida ?? 'Aluno',
+    responsavelId: extras.responsavelId,
+    responsavelNome: extras.responsavelNome,
   }
 }
 
@@ -155,22 +159,32 @@ export function AdminPesquisadoresPage() {
       setEditParticipante(null)
     },
   })
-  const excluirParticipanteMut = useMutation({
-    mutationFn: excluirParticipante,
+  const statusParticipanteMut = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: Participante['status'] }) =>
+      definirStatusParticipante(id, status),
     onSuccess: invalidarP,
   })
 
-  /** "Excluir" um usuário = desativar (mantém cadastro/histórico e o login). */
-  function desativarUsuario(u: Usuario) {
-    salvarUsuarioMut.mutate({
-      id: u.id,
-      dados: {
-        nome: u.nome,
-        telefone: u.telefone,
-        instituicaoId: u.instituicao?.id,
-        status: 'inativo',
-      },
-    })
+  /**
+   * Ativa/desativa uma pessoa. NUNCA apaga do banco:
+   *  - usuário da plataforma → muda o status do cadastro (mantém login/histórico);
+   *  - perfil sem login → muda o status do participante.
+   */
+  function alternarStatus(p: LinhaPessoa, ativar: boolean) {
+    const status = ativar ? 'ativo' : 'inativo'
+    if (p.tipo === 'usuario' && p.usuario) {
+      salvarUsuarioMut.mutate({
+        id: p.usuario.id,
+        dados: {
+          nome: p.usuario.nome,
+          telefone: p.usuario.telefone,
+          instituicaoId: p.usuario.instituicao?.id,
+          status,
+        },
+      })
+    } else if (p.participante) {
+      statusParticipanteMut.mutate({ id: p.participante.id, status })
+    }
   }
 
   // ---------- Lista unificada ----------
@@ -182,6 +196,7 @@ export function AdminPesquisadoresPage() {
       fotoUrl: u.fotoUrl,
       papel: u.funcao?.nome || 'Pesquisador',
       temAcesso: true,
+      ativo: u.status === 'ativo',
       cpf: u.cpf,
       curso: u.curso,
       email: u.email,
@@ -198,6 +213,7 @@ export function AdminPesquisadoresPage() {
         nome: p.nome,
         papel: extras.funcaoPretendida ?? 'Aluno',
         temAcesso: false,
+        ativo: (p.status ?? 'ativo') === 'ativo',
         cpf: p.cpf,
         curso: p.curso,
         email: p.email,
@@ -215,6 +231,12 @@ export function AdminPesquisadoresPage() {
     for (const p of pessoas) if (p.curso) s.add(p.curso)
     return [...s].sort()
   }, [pessoas])
+
+  // Quem pode ser responsável por um aluno/IC: os usuários da plataforma.
+  const responsaveis = useMemo(
+    () => usuarios.map((u) => ({ id: u.id, nome: u.nome })),
+    [usuarios],
+  )
 
   const filtrados = useMemo(() => {
     const q = busca.trim().toLowerCase()
@@ -370,7 +392,9 @@ export function AdminPesquisadoresPage() {
                   <tr
                     key={p.key}
                     onClick={() => setDetalhe(p)}
-                    className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                    className={`cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60 ${
+                      p.ativo ? '' : 'opacity-60'
+                    }`}
                   >
                     {/* Pessoa */}
                     <td className="px-4 py-3">
@@ -386,16 +410,23 @@ export function AdminPesquisadoresPage() {
                     </td>
                     {/* Papel */}
                     <td className="px-4 py-3">
-                      <span
-                        className={
-                          p.temAcesso
-                            ? 'inline-flex rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-medium text-brand-700 dark:bg-brand-500/15 dark:text-brand-300'
-                            : 'inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-                        }
-                      >
-                        {p.papel}
-                        {!p.temAcesso && ' · sem acesso'}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span
+                          className={
+                            p.temAcesso
+                              ? 'inline-flex rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-medium text-brand-700 dark:bg-brand-500/15 dark:text-brand-300'
+                              : 'inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                          }
+                        >
+                          {p.papel}
+                          {!p.temAcesso && ' · sem acesso'}
+                        </span>
+                        {!p.ativo && (
+                          <span className="inline-flex rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-600 dark:bg-red-500/10 dark:text-red-300">
+                            Inativo
+                          </span>
+                        )}
+                      </div>
                     </td>
                     {/* CPF */}
                     <td className="px-4 py-3 text-slate-500">{p.cpf ? mascararCPF(p.cpf) : '—'}</td>
@@ -451,14 +482,25 @@ export function AdminPesquisadoresPage() {
                         >
                           <Pencil className="h-4 w-4" />
                         </button>
-                        <button
-                          onClick={() => setAExcluir(p)}
-                          className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
-                          aria-label={`Remover ${p.nome}`}
-                          title={p.temAcesso ? 'Desativar' : 'Excluir'}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        {p.ativo ? (
+                          <button
+                            onClick={() => setAExcluir(p)}
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
+                            aria-label={`Desativar ${p.nome}`}
+                            title="Desativar"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => alternarStatus(p, true)}
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-500/10"
+                            aria-label={`Reativar ${p.nome}`}
+                            title="Reativar"
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -532,6 +574,7 @@ export function AdminPesquisadoresPage() {
           onClose={() => setEditParticipante(null)}
           titulo="Editar dados"
           inicial={participanteParaPerfil(editParticipante)}
+          responsaveis={responsaveis}
           salvando={salvarManualMut.isPending}
           onSalvar={(dados) =>
             salvarManualMut.mutate({
@@ -548,6 +591,7 @@ export function AdminPesquisadoresPage() {
         <PessoaFormModal
           open={novoAberto}
           onClose={() => setNovoAberto(false)}
+          responsaveis={responsaveis}
           salvando={criarManualMut.isPending}
           onSalvar={(dados) => criarManualMut.mutate(dados)}
         />
@@ -563,22 +607,17 @@ export function AdminPesquisadoresPage() {
         }}
       />
 
-      {/* Confirmação de remoção */}
+      {/* Confirmação de desativação (nada é apagado do banco) */}
       <ConfirmDialog
         open={Boolean(aExcluir)}
         onClose={() => setAExcluir(null)}
         onConfirm={() => {
-          if (aExcluir?.tipo === 'usuario' && aExcluir.usuario) desativarUsuario(aExcluir.usuario)
-          else if (aExcluir?.participante) excluirParticipanteMut.mutate(aExcluir.participante.id)
+          if (aExcluir) alternarStatus(aExcluir, false)
           setAExcluir(null)
         }}
-        title={aExcluir?.temAcesso ? 'Desativar pessoa' : 'Excluir pessoa'}
-        message={
-          aExcluir?.temAcesso
-            ? `Desativar "${aExcluir?.nome}"? Ela perde o acesso à plataforma, mas o cadastro e o histórico são mantidos — dá para reativar depois.`
-            : `Excluir "${aExcluir?.nome}"? Este perfil (sem login) será removido de vez. Esta ação não pode ser desfeita.`
-        }
-        confirmLabel={aExcluir?.temAcesso ? 'Desativar' : 'Excluir'}
+        title="Desativar pessoa"
+        message={`Desativar "${aExcluir?.nome}"? A pessoa perde o acesso à plataforma, mas o cadastro e o histórico são mantidos — nada é apagado do banco e dá para reativar depois.`}
+        confirmLabel="Desativar"
         variant="danger"
       />
     </AdminShell>

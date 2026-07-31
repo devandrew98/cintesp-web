@@ -6,7 +6,17 @@ import { Field, Input, Select } from '@/components/ui/Field'
 import type { PerfilManual } from '@/data/participantes'
 
 /** Papéis que o admin pode indicar para um perfil manual. */
-export const PAPEIS_PRETENDIDOS = ['Pesquisador', 'Coordenador', 'Administrador', 'Participante']
+export const PAPEIS_PRETENDIDOS = [
+  'Aluno',
+  'IC',
+  'Pesquisador',
+  'Vice-coordenador',
+  'Coordenador',
+  'Administrador',
+]
+
+/** Papéis de estudante — para estes o admin escolhe um responsável. */
+export const PAPEIS_COM_RESPONSAVEL = ['Aluno', 'IC']
 
 /**
  * Modal de cadastro/edição MANUAL de uma pessoa (perfil sem login).
@@ -21,6 +31,7 @@ export function PessoaFormModal({
   onSalvar,
   salvando,
   inicial,
+  responsaveis = [],
   titulo = 'Adicionar pessoa',
 }: {
   open: boolean
@@ -28,6 +39,8 @@ export function PessoaFormModal({
   onSalvar: (dados: PerfilManual) => void
   salvando?: boolean
   inicial?: PerfilManual
+  /** Pessoas que podem ser responsáveis por um aluno/IC (pesquisadores etc.). */
+  responsaveis?: Array<{ id: string; nome: string }>
   titulo?: string
 }) {
   const editando = Boolean(inicial)
@@ -39,10 +52,14 @@ export function PessoaFormModal({
   const [whatsapp, setWhatsapp] = useState(inicial?.whatsapp ?? '')
   const [endereco, setEndereco] = useState(inicial?.endereco ?? '')
   const [cep, setCep] = useState(inicial?.cep ?? '')
-  const [papel, setPapel] = useState(inicial?.papelPretendido ?? 'Pesquisador')
+  const [papel, setPapel] = useState(inicial?.papelPretendido ?? 'Aluno')
+  const [responsavelId, setResponsavelId] = useState(inicial?.responsavelId ?? '')
+
+  const exigeResponsavel = PAPEIS_COM_RESPONSAVEL.includes(papel)
 
   function enviar(e: FormEvent) {
     e.preventDefault()
+    const resp = exigeResponsavel ? responsaveis.find((r) => r.id === responsavelId) : undefined
     onSalvar({
       nome: nome.trim(),
       email: email.trim() || undefined,
@@ -53,6 +70,8 @@ export function PessoaFormModal({
       endereco: endereco.trim() || undefined,
       cep: cep.trim() || undefined,
       papelPretendido: papel,
+      responsavelId: resp?.id,
+      responsavelNome: resp?.nome,
     })
   }
 
@@ -110,6 +129,23 @@ export function PessoaFormModal({
             </Select>
           </Field>
         </div>
+
+        {/* Responsável — só para aluno/IC */}
+        {exigeResponsavel && (
+          <Field
+            label="Pesquisador responsável"
+            hint="Coordenador, professor, vice-coordenador ou pesquisador que acompanha este aluno/IC."
+          >
+            <Select value={responsavelId} onChange={(e) => setResponsavelId(e.target.value)}>
+              <option value="">— Selecione —</option>
+              {responsaveis.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.nome}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="CPF">
