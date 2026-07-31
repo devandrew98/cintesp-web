@@ -1,10 +1,41 @@
+import { useState } from 'react'
+import { cn } from '@/lib/utils'
+
 /**
  * Marca do CINTESP.Br.
  *
- * O símbolo (estrela/bússola + órbitas) usa `currentColor`, então ele fica
- * PRETO no modo claro e BRANCO no modo escuro automaticamente — igual às duas
- * versões da logo. O ".Br" recebe o verde da marca para dar destaque.
+ * Usa a ARTE OFICIAL em /public:
+ *   • public/logo-cintesp.png         → versão PRETA  (modo claro)
+ *   • public/logo-cintesp-branca.png  → versão BRANCA (modo escuro)
+ * A troca claro/escuro é automática (classes `dark:` do Tailwind).
+ *
+ * Enquanto esses arquivos não existirem, cai para uma marca simples recriada
+ * (abaixo), para nunca aparecer imagem quebrada.
  */
+export function BrandLogo({ className = 'h-11 w-auto' }: { className?: string }) {
+  const [semArte, setSemArte] = useState(false)
+
+  if (semArte) return <MarcaRecriada />
+
+  return (
+    <>
+      <img
+        src="/logo-cintesp.png"
+        alt="CINTESP.Br"
+        onError={() => setSemArte(true)}
+        className={cn('block dark:hidden', className)}
+      />
+      <img
+        src="/logo-cintesp-branca.png"
+        alt="CINTESP.Br"
+        onError={() => setSemArte(true)}
+        className={cn('hidden dark:block', className)}
+      />
+    </>
+  )
+}
+
+/** Símbolo recriado (estrela/órbitas) — usado só como reserva. */
 export function MarcaCintesp({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 40 40" className={className} fill="none" aria-hidden="true">
@@ -20,7 +51,8 @@ export function MarcaCintesp({ className }: { className?: string }) {
   )
 }
 
-export function BrandLogo() {
+/** Reserva textual enquanto a arte oficial não está em /public. */
+function MarcaRecriada() {
   return (
     <div className="flex items-center gap-2.5">
       <MarcaCintesp className="h-9 w-9 shrink-0 text-slate-900 dark:text-white" />

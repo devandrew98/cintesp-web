@@ -43,8 +43,10 @@ export function LoginPage() {
       } else {
         const { error } = await cadastrar(email.trim(), senha, nome.trim())
         if (error) return setErro(traduzErro(error))
-        // Se a confirmação de e-mail estiver ligada, não há sessão ainda.
-        setOk('Conta criada! Se pedir confirmação por e-mail, confirme e depois entre.')
+        // Com a confirmação de e-mail DESLIGADA, o cadastro já devolve sessão e
+        // o app entra sozinho (via onAuthStateChange). Se ainda estiver ligada,
+        // mostramos a instrução e voltamos para a tela de entrar.
+        setOk('Conta criada! Entrando…')
         setModo('entrar')
       }
     } finally {
@@ -56,7 +58,7 @@ export function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 dark:bg-slate-950">
       <div className="w-full max-w-sm">
         <div className="mb-6 flex justify-center">
-          <BrandLogo />
+          <BrandLogo className="h-24 w-auto" />
         </div>
 
         <div className="card p-6">
@@ -181,6 +183,14 @@ function traduzErro(msg: string): string {
     return 'Não foi possível falar com o servidor. Verifique a URL do projeto (VITE_SUPABASE_URL) e sua conexão.'
   }
   if (m.includes('invalid login credentials')) return 'E-mail ou senha incorretos.'
+  // Limite do serviço de e-mail do Supabase (envio de confirmação).
+  if (m.includes('rate limit')) {
+    return (
+      'Muitos e-mails de confirmação em pouco tempo. Peça ao administrador para ' +
+      'DESATIVAR a confirmação por e-mail no Supabase (Authentication → Sign In / ' +
+      'Providers → Email → "Confirm email" OFF). Depois disso a conta é criada na hora.'
+    )
+  }
   if (m.includes('email not confirmed')) return 'Confirme seu e-mail antes de entrar.'
   if (m.includes('user already registered')) return 'Este e-mail já tem conta. Faça login.'
   if (m.includes('password should be at least')) return 'A senha deve ter ao menos 6 caracteres.'
