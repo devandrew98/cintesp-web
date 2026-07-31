@@ -149,3 +149,36 @@ export interface Importacao {
   autorNome?: string
   criadoEm: string
 }
+
+// ============================================================
+// Chamados (suporte: TI, Pesquisa, etc.)
+// ============================================================
+
+export type StatusChamado =
+  | 'aberto'
+  | 'em_andamento'
+  | 'aguardando_usuario'
+  | 'finalizado'
+  | 'cancelado'
+
+export type PrioridadeChamado = 'baixa' | 'media' | 'alta' | 'urgente'
+
+/** Setor responsável pelo chamado (define para qual equipe ele vai). */
+export type SetorChamado = 'ti' | 'pesquisa' | 'administrativo' | 'infraestrutura' | 'outro'
+
+export interface Chamado {
+  id: string
+  titulo: string
+  descricao: string
+  setor: SetorChamado
+  categoria?: string
+  prioridade: PrioridadeChamado
+  status: StatusChamado
+  solicitanteId: string
+  solicitanteNome?: string
+  responsavelId?: string
+  responsavelNome?: string
+  criadoEm: string
+  atualizadoEm?: string
+  finalizadoEm?: string
+}

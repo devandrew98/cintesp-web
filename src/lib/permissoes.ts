@@ -14,10 +14,11 @@ export interface PermissaoDef {
 /** Todas as permissões que uma função pode conceder. */
 export const PERMISSOES: PermissaoDef[] = [
   { id: 'gerenciar_tudo', label: 'Gerenciar tudo', descricao: 'Acesso total ao sistema (administração completa).' },
-  { id: 'ver_quadro', label: 'Ver quadro', descricao: 'Visualizar o quadro de disponibilidade da equipe.' },
+  { id: 'ver_quadro', label: 'Ver quadro', descricao: 'Acessar a plataforma (quadro, avisos, etc.). Sem isto, é apenas Participante.' },
   { id: 'editar_horarios', label: 'Editar horários', descricao: 'Editar os horários de qualquer pesquisador.' },
   { id: 'editar_meu_horario', label: 'Editar meu horário', descricao: 'Editar apenas o próprio horário.' },
   { id: 'publicar_avisos', label: 'Publicar avisos', descricao: 'Criar e publicar avisos para a equipe.' },
+  { id: 'abrir_chamado', label: 'Abrir chamado', descricao: 'Abrir chamados de suporte (todos os usuários já podem).' },
 ]
 
 /**

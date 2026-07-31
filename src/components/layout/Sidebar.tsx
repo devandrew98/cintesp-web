@@ -8,11 +8,15 @@ import { BrandLogo } from './BrandLogo'
 
 export function Sidebar() {
   const { sidebarOpen, setSidebarOpen } = useUI()
-  const { ehAdmin } = usePermissoes()
+  const { ehAdmin, podeUsarPlataforma } = usePermissoes()
 
-  // Esconde do menu as seções restritas a administradores.
-  // (As rotas também são protegidas por <RequireAdmin>, e o banco por RLS.)
-  const secoesVisiveis = navSections.filter((s) => !s.somenteAdmin || ehAdmin)
+  // Esconde as seções conforme o papel:
+  //  • somenteAdmin    → só administradores;
+  //  • somenteLiberado → some para quem ainda é Participante (só abre chamado).
+  // As rotas também são protegidas (<RequireAdmin>/<RequireLiberado>) e o banco por RLS.
+  const secoesVisiveis = navSections.filter(
+    (s) => (!s.somenteAdmin || ehAdmin) && (!s.somenteLiberado || podeUsarPlataforma),
+  )
 
   return (
     <>

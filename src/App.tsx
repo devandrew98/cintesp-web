@@ -1,7 +1,10 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Outlet } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { RequireAuth } from '@/components/auth/RequireAuth'
+import { RequireLiberado } from '@/components/auth/RequireLiberado'
 import { LoginPage } from '@/pages/Login'
+import { AbrirChamadoPage } from '@/pages/AbrirChamado'
+import { ChamadosAdminPage } from '@/pages/admin/ChamadosAdmin'
 import { DashboardPage } from '@/pages/Dashboard'
 import { QuadroPage } from '@/pages/Quadro'
 import { MeuHorarioPage } from '@/pages/MeuHorario'
@@ -35,16 +38,29 @@ export default function App() {
           </RequireAuth>
         }
       >
-        <Route index element={<DashboardPage />} />
+        {/* Acessível a QUALQUER usuário logado (inclusive Participante) */}
+        <Route path="/abrir-chamado" element={<AbrirChamadoPage />} />
 
-        <Route path="/quadro" element={<QuadroPage />} />
-        <Route path="/meu-horario" element={<MeuHorarioPage />} />
-        <Route path="/pesquisadores" element={<PesquisadoresPage />} />
-        <Route path="/agenda" element={<AgendaPage />} />
-        <Route path="/avisos" element={<AvisosPage />} />
-        <Route path="/busca" element={<BuscaPage />} />
-        <Route path="/relatorios" element={<RelatoriosPage />} />
+        {/* Plataforma — bloqueada para quem ainda é Participante */}
+        <Route
+          element={
+            <RequireLiberado>
+              <Outlet />
+            </RequireLiberado>
+          }
+        >
+          <Route index element={<DashboardPage />} />
+          <Route path="/quadro" element={<QuadroPage />} />
+          <Route path="/meu-horario" element={<MeuHorarioPage />} />
+          <Route path="/pesquisadores" element={<PesquisadoresPage />} />
+          <Route path="/agenda" element={<AgendaPage />} />
+          <Route path="/avisos" element={<AvisosPage />} />
+          <Route path="/busca" element={<BuscaPage />} />
+          <Route path="/relatorios" element={<RelatoriosPage />} />
+        </Route>
 
+        {/* Administração */}
+        <Route path="/admin/chamados" element={<RequireAdmin><ChamadosAdminPage /></RequireAdmin>} />
         <Route path="/admin/usuarios" element={<RequireAdmin><AdminUsuariosPage /></RequireAdmin>} />
         <Route path="/admin/participantes" element={<RequireAdmin><AdminParticipantesPage /></RequireAdmin>} />
         <Route path="/admin/funcoes" element={<RequireAdmin><AdminFuncoesPage /></RequireAdmin>} />

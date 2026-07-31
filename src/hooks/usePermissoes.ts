@@ -36,12 +36,22 @@ export function usePermissoes() {
     return ehAdmin || permissoes.includes(permissao)
   }
 
+  /**
+   * Tem acesso à plataforma (quadro, avisos, etc.)?
+   * Quem acabou de se cadastrar é "Participante" e ainda NÃO tem — só pode
+   * abrir chamado, até um admin definir a função dele.
+   */
+  const podeUsarPlataforma = ehAdmin || permissoes.includes('ver_quadro')
+
   return {
     perfil: perfil ?? null,
     permissoes,
     ehAdmin,
     pode,
     carregando,
+    /** Conta ainda em espera de liberação (só pode abrir chamado). */
+    ehParticipante: !podeUsarPlataforma,
+    podeUsarPlataforma,
     /** Pode publicar/editar avisos. */
     podePublicarAvisos: ehAdmin || permissoes.includes('publicar_avisos'),
     /** Pode editar o horário de QUALQUER pesquisador (não só o próprio). */
