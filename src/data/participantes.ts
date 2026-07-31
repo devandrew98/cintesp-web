@@ -1,4 +1,5 @@
 import { supabase, USE_MOCK } from '@/lib/supabase'
+import { normalizarCPF } from '@/lib/cpf'
 import type { Importacao, Participante, StatusImportacao } from '@/types'
 
 /**
@@ -251,6 +252,107 @@ export async function importarParticipantes(
   }
 
   return { criados, atualizados, erros: 0, importacaoId }
+}
+
+// ============================================================
+// Cadastro manual (perfil sem login — dados básicos)
+// ============================================================
+
+/**
+ * Dados de um perfil manual criado direto na tela (sem planilha).
+ *
+ * O WhatsApp e o "papel pretendido" (Pesquisador/Coordenador/Administrador)
+ * não têm coluna própria na tabela de participantes, então ficam guardados em
+ * `dados_extras`. Na Parte 2 (perfil-sem-login) esse papel será aplicado à
+ * conta quando a pessoa fizer login com o mesmo e-mail.
+ */
+export interface PerfilManual {
+  nome: string
+  email?: string
+  cpf?: string
+  curso?: string
+  telefone?: string
+  whatsapp?: string
+  endereco?: string
+  cep?: string
+  papelPretendido?: string
+  observacoes?: string
+}
+
+/** Monta o objeto de `dados_extras` preservando o que já existir. */
+function extrasComPerfil(p: PerfilManual, base: Record<string, string> = {}) {
+  const extras: Record<string, string> = { ...base }
+  if (p.whatsapp) extras.whatsapp = p.whatsapp
+  else delete extras.whatsapp
+  if (p.papelPretendido) extras.funcaoPretendida = p.papelPretendido
+  else delete extras.funcaoPretendida
+  return extras
+}
+
+/** Colunas do banco a partir de um perfil manual. */
+function linhaManual(p: PerfilManual, base: Record<string, string> = {}) {
+  return {
+    nome: p.nome.trim(),
+    cpf: p.cpf ? normalizarCPF(p.cpf) : null,
+    curso: p.curso?.trim() || null,
+    email: p.email?.trim() || null,
+    telefone: p.telefone?.trim() || null,
+    endereco: p.endereco?.trim() || null,
+    cep: p.cep?.trim() || null,
+    observacoes: p.observacoes?.trim() || null,
+    dados_extras: extrasComPerfil(p, base),
+  }
+}
+
+/** Cria um participante manualmente (perfil sem login). */
+export async function criarPerfilManual(p: PerfilManual): Promise<void> {
+  if (USE_MOCK || !supabase) {
+    mockParticipantes.unshift({
+      id: `pt-${Date.now()}`,
+      nome: p.nome.trim(),
+      cpf: p.cpf ? normalizarCPF(p.cpf) : undefined,
+      curso: p.curso || undefined,
+      email: p.email || undefined,
+      telefone: p.telefone || undefined,
+      endereco: p.endereco || undefined,
+      cep: p.cep || undefined,
+      status: 'ativo',
+      dadosExtras: extrasComPerfil(p),
+    })
+    return
+  }
+  const { error } = await supabase.from('participantes').insert(linhaManual(p))
+  if (error) throw error
+}
+
+/** Atualiza os dados básicos de um participante (perfil sem login). */
+export async function atualizarPerfilManual(
+  id: string,
+  p: PerfilManual,
+  extrasAtuais: Record<string, string> = {},
+): Promise<void> {
+  if (USE_MOCK || !supabase) {
+    const i = mockParticipantes.findIndex((x) => x.id === id)
+    if (i >= 0) {
+      mockParticipantes[i] = {
+        ...mockParticipantes[i],
+        nome: p.nome.trim(),
+        cpf: p.cpf ? normalizarCPF(p.cpf) : undefined,
+        curso: p.curso || undefined,
+        email: p.email || undefined,
+        telefone: p.telefone || undefined,
+        endereco: p.endereco || undefined,
+        cep: p.cep || undefined,
+        dadosExtras: extrasComPerfil(p, extrasAtuais),
+      }
+    }
+    return
+  }
+  const { error } = await supabase
+    .from('participantes')
+    .update(linhaManual(p, extrasAtuais))
+    .eq('id', id)
+  if (error) throw error
 }
 
 /** Exclui um participante (usado na tela de listagem). */

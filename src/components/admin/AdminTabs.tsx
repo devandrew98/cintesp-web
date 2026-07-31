@@ -8,8 +8,7 @@ import { cn } from '@/lib/utils'
  */
 
 const abas = [
-  { label: 'Usuários', to: '/admin/usuarios' },
-  { label: 'Participantes', to: '/admin/participantes' },
+  { label: 'Pesquisadores', to: '/admin/pesquisadores' },
   { label: 'Funções', to: '/admin/funcoes' },
   { label: 'Horários', to: '/admin/horarios' },
   { label: 'Áreas de Atuação', to: '/admin/areas' },

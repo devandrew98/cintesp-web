@@ -1,4 +1,4 @@
-import { Routes, Route, Outlet } from 'react-router-dom'
+import { Routes, Route, Outlet, Navigate } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { RequireAuth } from '@/components/auth/RequireAuth'
 import { RequireLiberado } from '@/components/auth/RequireLiberado'
@@ -14,7 +14,7 @@ import { BuscaPage } from '@/pages/Busca'
 import { RelatoriosPage } from '@/pages/Relatorios'
 import { AvisosPage } from '@/pages/Avisos'
 import { AdminUsuariosPage } from '@/pages/admin/Usuarios'
-import { AdminParticipantesPage } from '@/pages/admin/Participantes'
+import { AdminPesquisadoresPage } from '@/pages/admin/Pesquisadores'
 import { AdminHorariosPage } from '@/pages/admin/Horarios'
 import { AdminFuncoesPage } from '@/pages/admin/Funcoes'
 import { AdminAreasPage } from '@/pages/admin/Areas'
@@ -61,8 +61,10 @@ export default function App() {
 
         {/* Administração */}
         <Route path="/admin/chamados" element={<RequireAdmin><ChamadosAdminPage /></RequireAdmin>} />
+        <Route path="/admin/pesquisadores" element={<RequireAdmin><AdminPesquisadoresPage /></RequireAdmin>} />
+        {/* Rotas antigas, agora unificadas em "Pesquisadores" (mantidas p/ links salvos) */}
         <Route path="/admin/usuarios" element={<RequireAdmin><AdminUsuariosPage /></RequireAdmin>} />
-        <Route path="/admin/participantes" element={<RequireAdmin><AdminParticipantesPage /></RequireAdmin>} />
+        <Route path="/admin/participantes" element={<Navigate to="/admin/pesquisadores" replace />} />
         <Route path="/admin/funcoes" element={<RequireAdmin><AdminFuncoesPage /></RequireAdmin>} />
         <Route path="/admin/horarios" element={<RequireAdmin><AdminHorariosPage /></RequireAdmin>} />
         <Route path="/admin/areas" element={<RequireAdmin><AdminAreasPage /></RequireAdmin>} />

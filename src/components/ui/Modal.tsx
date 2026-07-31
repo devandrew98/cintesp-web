@@ -9,7 +9,13 @@ interface ModalProps {
   subtitle?: string
   children: ReactNode
   footer?: ReactNode
-  size?: 'md' | 'lg'
+  size?: 'md' | 'lg' | 'xl'
+}
+
+const larguraPorTamanho: Record<NonNullable<ModalProps['size']>, string> = {
+  md: 'sm:max-w-lg',
+  lg: 'sm:max-w-2xl',
+  xl: 'sm:max-w-4xl',
 }
 
 export function Modal({ open, onClose, title, subtitle, children, footer, size = 'md' }: ModalProps) {
@@ -37,9 +43,7 @@ export function Modal({ open, onClose, title, subtitle, children, footer, size =
       <div
         role="dialog"
         aria-modal="true"
-        className={`relative z-10 flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl dark:bg-slate-900 sm:rounded-2xl ${
-          size === 'lg' ? 'sm:max-w-2xl' : 'sm:max-w-lg'
-        }`}
+        className={`relative z-10 flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl dark:bg-slate-900 sm:rounded-2xl ${larguraPorTamanho[size]}`}
       >
         <header className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4 dark:border-slate-800">
           <div>
