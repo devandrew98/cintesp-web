@@ -11,8 +11,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
       manifest: {
-        name: 'CINTESP — Quadro de Pesquisadores',
-        short_name: 'CINTESP',
+        name: 'CINTESP.Br — Quadro de Pesquisadores',
+        short_name: 'CINTESP.Br',
         description: 'Gestão do quadro de funcionários: disponibilidade, horários e avisos.',
         theme_color: '#16a34a',
         background_color: '#f8fafc',

@@ -80,7 +80,7 @@ export function Sidebar() {
         </nav>
 
         <div className="border-t border-slate-200 px-3 py-3 text-xs text-slate-400 dark:border-slate-800">
-          CINTESP © {new Date().getFullYear()}
+          CINTESP.Br © {new Date().getFullYear()}
         </div>
       </aside>
     </>
