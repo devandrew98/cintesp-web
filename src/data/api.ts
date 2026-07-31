@@ -82,6 +82,15 @@ const USUARIO_SELECT = `
 // Sem `automatico`, todo mundo cai no modo automático (padrão seguro).
 const USUARIO_SELECT_COMPAT = USUARIO_SELECT.replace(', automatico)', ')')
 
+// Plano C (mínimo): SÓ colunas garantidas + a FUNÇÃO (que decide admin/permissões).
+// Se qualquer migração de coluna estiver pendente (cpf, whatsapp, etc.), ainda
+// assim carregamos o perfil e reconhecemos o administrador — o login NUNCA trava
+// por causa de uma coluna que falta. As telas caem para "sem dados extras".
+const USUARIO_SELECT_MIN = `
+  id, nome, email, status,
+  funcao:funcoes(id, nome, permissoes)
+`
+
 let jaAvisouMigracao = false
 // Detecta "coluna não existe" (42703) — sinal de migração pendente no banco.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -92,9 +101,32 @@ function avisarMigracaoPendente() {
   if (jaAvisouMigracao) return
   jaAvisouMigracao = true
   console.warn(
-    '[CINTESP] A coluna disponibilidade.automatico nao existe. Rode ' +
-      'docs/supabase-status-disponibilidade.sql no Supabase. Rodando em modo compativel.',
+    '[CINTESP] Alguma coluna de usuarios/disponibilidade ainda nao existe. Rode as ' +
+      'migracoes em docs/ (perfil-campos / status-disponibilidade). Rodando em modo compativel.',
   )
+}
+
+/**
+ * Executa uma consulta em `usuarios` tentando do select mais rico ao mínimo,
+ * degradando quando uma coluna ainda não existe (migração pendente). Assim o
+ * perfil/lista SEMPRE carregam o essencial (função → admin) e o app não trava.
+ *
+ * @param construir monta a query a partir de um texto de select
+ */
+async function selecionarUsuarios(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  construir: (select: string) => PromiseLike<{ data: any; error: any }>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): Promise<{ data: any; error: any }> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let ultimo: { data: any; error: any } = { data: null, error: null }
+  for (const sel of [USUARIO_SELECT, USUARIO_SELECT_COMPAT, USUARIO_SELECT_MIN]) {
+    ultimo = await construir(sel)
+    if (!ultimo.error) return ultimo
+    if (!ehColunaInexistente(ultimo.error)) return ultimo // erro real → propaga
+    avisarMigracaoPendente()
+  }
+  return ultimo
 }
 
 function mapUsuario(r: any): Usuario {
@@ -165,12 +197,7 @@ function normalizarStatus(v: unknown): StatusDisponibilidade {
 
 export async function listarUsuarios(): Promise<Usuario[]> {
   if (USE_MOCK || !supabase) return mock.usuarios
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let r: { data: any; error: any } = await supabase.from('usuarios').select(USUARIO_SELECT).order('nome')
-  if (r.error && ehColunaInexistente(r.error)) {
-    avisarMigracaoPendente()
-    r = await supabase.from('usuarios').select(USUARIO_SELECT_COMPAT).order('nome')
-  }
+  const r = await selecionarUsuarios((sel) => supabase!.from('usuarios').select(sel).order('nome'))
   if (r.error) throw r.error
   return ((r.data ?? []) as unknown[]).map(mapUsuario)
 }
@@ -337,18 +364,12 @@ export async function perfilAtual(): Promise<Usuario | null> {
   const { data: auth } = await supabase.auth.getUser()
   const id = auth.user?.id
   if (!id) return null
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let r: { data: any; error: any } = await supabase
-    .from('usuarios')
-    .select(USUARIO_SELECT)
-    .eq('id', id)
-    .single()
-  if (r.error && ehColunaInexistente(r.error)) {
-    avisarMigracaoPendente()
-    r = await supabase.from('usuarios').select(USUARIO_SELECT_COMPAT).eq('id', id).single()
-  }
+  // `maybeSingle` não vira erro quando não há linha (só devolve data = null).
+  const r = await selecionarUsuarios((sel) =>
+    supabase!.from('usuarios').select(sel).eq('id', id).maybeSingle(),
+  )
   if (r.error) throw r.error
-  return mapUsuario(r.data)
+  return r.data ? mapUsuario(r.data) : null
 }
 
 /** Campos que o usuário edita no PRÓPRIO perfil (ou o admin, de qualquer um). */
