@@ -30,6 +30,16 @@ export default {
         xl: '0.875rem',
         '2xl': '1.125rem',
       },
+      keyframes: {
+        // Bolinha "flutuando" (aniversariantes do mês).
+        flutua: {
+          '0%, 100%': { transform: 'translateY(0) rotate(-3deg)' },
+          '50%': { transform: 'translateY(-9px) rotate(3deg)' },
+        },
+      },
+      animation: {
+        flutua: 'flutua 2.8s ease-in-out infinite',
+      },
     },
   },
   plugins: [],

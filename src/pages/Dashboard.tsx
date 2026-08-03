@@ -33,6 +33,8 @@ export function DashboardPage() {
   const queryClient = useQueryClient();
   // Estado só para dar retorno visual enquanto recarrega.
   const [atualizando, setAtualizando] = useState(false);
+  // Aniversariantes: começa nas "bolinhas" animadas; clicar abre a lista.
+  const [aniversAberto, setAniversAberto] = useState(false);
 
   /** Recarrega os dados das consultas que alimentam o painel. */
   async function atualizar() {
@@ -169,6 +171,16 @@ export function DashboardPage() {
               Aniversariantes do mês
             </span>
           }
+          action={
+            aniversariantes.length > 0 ? (
+              <button
+                onClick={() => setAniversAberto((v) => !v)}
+                className="text-sm font-medium text-brand-600 hover:underline"
+              >
+                {aniversAberto ? "Ver bolinhas" : "Ver lista"}
+              </button>
+            ) : undefined
+          }
         >
           {aniversariantes.length === 0 ? (
             <div className="flex flex-col items-center gap-2 px-2 py-8 text-center">
@@ -184,7 +196,8 @@ export function DashboardPage() {
                 .
               </p>
             </div>
-          ) : (
+          ) : aniversAberto ? (
+            // ----- Lista aberta -----
             <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {aniversariantes.map(({ u, dia }) => {
                 const ehHoje = dia === diaAtual;
@@ -210,6 +223,51 @@ export function DashboardPage() {
                 );
               })}
             </div>
+          ) : (
+            // ----- Bolinhas flutuando (clique abre a lista) -----
+            <button
+              type="button"
+              onClick={() => setAniversAberto(true)}
+              className="group flex w-full flex-col items-center gap-4 px-2 py-6"
+              aria-label="Ver lista de aniversariantes"
+            >
+              <div className="flex min-h-[64px] flex-wrap items-center justify-center gap-3">
+                {aniversariantes.slice(0, 6).map(({ u, dia }, i) => (
+                  <span
+                    key={u.id}
+                    className="animate-flutua"
+                    style={{ animationDelay: `${i * 0.22}s` }}
+                    title={`${u.nome} — ${String(dia).padStart(2, "0")}/${String(mesAtual).padStart(2, "0")}`}
+                  >
+                    <Avatar
+                      nome={u.nome}
+                      fotoUrl={u.fotoUrl}
+                      size="md"
+                      className={`shadow-soft ring-2 ${
+                        dia === diaAtual
+                          ? "ring-brand-400 dark:ring-brand-500"
+                          : "ring-white dark:ring-slate-800"
+                      }`}
+                    />
+                  </span>
+                ))}
+                {aniversariantes.length > 6 && (
+                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+                    +{aniversariantes.length - 6}
+                  </span>
+                )}
+              </div>
+              <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                🎂 {aniversariantes.length}{" "}
+                {aniversariantes.length === 1 ? "aniversariante" : "aniversariantes"}
+                {aniversariantes.some((a) => a.dia === diaAtual) && (
+                  <span className="ml-1 text-brand-600">· alguém faz hoje!</span>
+                )}
+              </p>
+              <span className="text-xs text-slate-400 group-hover:text-brand-600">
+                Clique para ver a lista
+              </span>
+            </button>
           )}
         </SectionCard>
       </div>
