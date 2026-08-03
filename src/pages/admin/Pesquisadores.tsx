@@ -37,7 +37,7 @@ import {
 import {
   listarParticipantes,
   listarImportacoes,
-  definirStatusParticipante,
+  excluirParticipante,
   criarPerfilManual,
   atualizarPerfilManual,
   type PerfilManual,
@@ -128,7 +128,10 @@ export function AdminPesquisadoresPage() {
   const [editUsuario, setEditUsuario] = useState<Usuario | null>(null)
   const [editParticipante, setEditParticipante] = useState<Participante | null>(null)
   const [novoAberto, setNovoAberto] = useState(false)
-  const [aExcluir, setAExcluir] = useState<LinhaPessoa | null>(null)
+  const [aConfirmar, setAConfirmar] = useState<{
+    p: LinhaPessoa
+    acao: 'desativar' | 'excluir'
+  } | null>(null)
   const [wizardAberto, setWizardAberto] = useState(false)
 
   const carregando = carregandoU || carregandoP
@@ -159,32 +162,25 @@ export function AdminPesquisadoresPage() {
       setEditParticipante(null)
     },
   })
-  const statusParticipanteMut = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: Participante['status'] }) =>
-      definirStatusParticipante(id, status),
+  const excluirParticipanteMut = useMutation({
+    mutationFn: excluirParticipante,
     onSuccess: invalidarP,
   })
 
   /**
-   * Ativa/desativa uma pessoa. NUNCA apaga do banco:
-   *  - usuário da plataforma → muda o status do cadastro (mantém login/histórico);
-   *  - perfil sem login → muda o status do participante.
+   * Ativa/desativa um USUÁRIO da plataforma (com login). Nunca apaga o cadastro
+   * nem o login — só muda o status, para poder reativar depois.
    */
-  function alternarStatus(p: LinhaPessoa, ativar: boolean) {
-    const status = ativar ? 'ativo' : 'inativo'
-    if (p.tipo === 'usuario' && p.usuario) {
-      salvarUsuarioMut.mutate({
-        id: p.usuario.id,
-        dados: {
-          nome: p.usuario.nome,
-          telefone: p.usuario.telefone,
-          instituicaoId: p.usuario.instituicao?.id,
-          status,
-        },
-      })
-    } else if (p.participante) {
-      statusParticipanteMut.mutate({ id: p.participante.id, status })
-    }
+  function definirAtivoUsuario(u: Usuario, ativar: boolean) {
+    salvarUsuarioMut.mutate({
+      id: u.id,
+      dados: {
+        nome: u.nome,
+        telefone: u.telefone,
+        instituicaoId: u.instituicao?.id,
+        status: ativar ? 'ativo' : 'inativo',
+      },
+    })
   }
 
   // ---------- Lista unificada ----------
@@ -482,9 +478,20 @@ export function AdminPesquisadoresPage() {
                         >
                           <Pencil className="h-4 w-4" />
                         </button>
-                        {p.ativo ? (
+                        {p.tipo === 'participante' ? (
+                          // Sem login (aluno da planilha / manual) → pode EXCLUIR do banco.
                           <button
-                            onClick={() => setAExcluir(p)}
+                            onClick={() => setAConfirmar({ p, acao: 'excluir' })}
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
+                            aria-label={`Excluir ${p.nome}`}
+                            title="Excluir do banco"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        ) : p.ativo ? (
+                          // Com login → só DESATIVAR (nunca apaga).
+                          <button
+                            onClick={() => setAConfirmar({ p, acao: 'desativar' })}
                             className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
                             aria-label={`Desativar ${p.nome}`}
                             title="Desativar"
@@ -493,7 +500,7 @@ export function AdminPesquisadoresPage() {
                           </button>
                         ) : (
                           <button
-                            onClick={() => alternarStatus(p, true)}
+                            onClick={() => p.usuario && definirAtivoUsuario(p.usuario, true)}
                             className="rounded-lg p-1.5 text-slate-400 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-500/10"
                             aria-label={`Reativar ${p.nome}`}
                             title="Reativar"
@@ -607,17 +614,25 @@ export function AdminPesquisadoresPage() {
         }}
       />
 
-      {/* Confirmação de desativação (nada é apagado do banco) */}
+      {/* Confirmação: desativar (com login) ou excluir (sem login) */}
       <ConfirmDialog
-        open={Boolean(aExcluir)}
-        onClose={() => setAExcluir(null)}
+        open={Boolean(aConfirmar)}
+        onClose={() => setAConfirmar(null)}
         onConfirm={() => {
-          if (aExcluir) alternarStatus(aExcluir, false)
-          setAExcluir(null)
+          if (aConfirmar?.acao === 'excluir' && aConfirmar.p.participante) {
+            excluirParticipanteMut.mutate(aConfirmar.p.participante.id)
+          } else if (aConfirmar?.acao === 'desativar' && aConfirmar.p.usuario) {
+            definirAtivoUsuario(aConfirmar.p.usuario, false)
+          }
+          setAConfirmar(null)
         }}
-        title="Desativar pessoa"
-        message={`Desativar "${aExcluir?.nome}"? A pessoa perde o acesso à plataforma, mas o cadastro e o histórico são mantidos — nada é apagado do banco e dá para reativar depois.`}
-        confirmLabel="Desativar"
+        title={aConfirmar?.acao === 'excluir' ? 'Excluir pessoa' : 'Desativar pessoa'}
+        message={
+          aConfirmar?.acao === 'excluir'
+            ? `Excluir "${aConfirmar?.p.nome}" de vez? Este perfil sem login (importado da planilha ou cadastro manual) será removido do banco. Não dá para desfazer.`
+            : `Desativar "${aConfirmar?.p.nome}"? A pessoa perde o acesso à plataforma, mas o cadastro e o histórico são mantidos — nada é apagado do banco e dá para reativar depois.`
+        }
+        confirmLabel={aConfirmar?.acao === 'excluir' ? 'Excluir' : 'Desativar'}
         variant="danger"
       />
     </AdminShell>

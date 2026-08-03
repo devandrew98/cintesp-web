@@ -215,9 +215,8 @@ begin
     exception when others then
       null;
     end;
-    -- Perfil manual "promovido" vira INATIVO (não some do histórico, mas sai da
-    -- lista ativa — evita duplicar a pessoa que agora tem login).
-    update public.participantes set status = 'inativo' where id = v_part.id;
+    -- Perfil da planilha/manual "promovido" é REMOVIDO (não vira duplicata).
+    delete from public.participantes where id = v_part.id;
   end if;
 
   return new;
