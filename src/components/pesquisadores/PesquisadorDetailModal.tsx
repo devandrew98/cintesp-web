@@ -1,16 +1,17 @@
+import { useQuery } from '@tanstack/react-query'
 import { Mail, Phone, Building2 } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Avatar } from '@/components/ui/Avatar'
 import { DisponibilidadeBadge } from '@/components/ui/Badge'
 import { rotuloDia, ordemDias } from '@/lib/horarios'
 import { textoLivre } from '@/lib/pesquisadores'
-import { horarioPadrao } from '@/data/mock'
+import { listarHorarios } from '@/data/api'
 import type { Usuario } from '@/types'
 
 /**
  * Modal de detalhe (somente leitura) de um pesquisador, aberto ao clicar
- * num card do diretório. Mostra contato, áreas e o horário semanal.
- * (O horário usa `horarioPadrao` do mock; na Fase 4 virá do banco por usuário.)
+ * num card do diretório. Mostra contato, áreas e o horário semanal REAL
+ * (o mesmo que o admin cadastra), carregado do banco por usuário.
  */
 export function PesquisadorDetailModal({
   usuario,
@@ -20,6 +21,13 @@ export function PesquisadorDetailModal({
   onClose: () => void
 }) {
   const livre = usuario ? textoLivre(usuario) : ''
+
+  // Horário real do pesquisador (tabela `horarios`), não mais o mock.
+  const { data: horarios = [], isLoading: carregandoHorarios } = useQuery({
+    queryKey: ['horarios', usuario?.id],
+    queryFn: () => listarHorarios(usuario!.id),
+    enabled: Boolean(usuario),
+  })
 
   return (
     <Modal
@@ -83,9 +91,14 @@ export function PesquisadorDetailModal({
             <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">
               Horário da semana
             </p>
+            {carregandoHorarios ? (
+              <div className="rounded-xl border border-slate-100 px-3 py-6 text-center text-sm text-slate-400 dark:border-slate-800">
+                Carregando horário…
+              </div>
+            ) : (
             <div className="overflow-hidden rounded-xl border border-slate-100 dark:border-slate-800">
               {ordemDias.map((dia) => {
-                const h = horarioPadrao.find((x) => x.dia === dia)
+                const h = horarios.find((x) => x.dia === dia)
                 const blocos: string[] = []
                 if (h?.manha.ativo) blocos.push(`${h.manha.inicio}–${h.manha.fim}`)
                 if (h?.tarde.ativo) blocos.push(`${h.tarde.inicio}–${h.tarde.fim}`)
@@ -104,6 +117,7 @@ export function PesquisadorDetailModal({
                 )
               })}
             </div>
+            )}
           </div>
         </div>
       )}
