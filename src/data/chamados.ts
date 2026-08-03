@@ -177,3 +177,71 @@ export async function excluirChamado(id: string): Promise<void> {
   const { error } = await supabase.from('chamados').delete().eq('id', id)
   if (error) throw error
 }
+
+// ============================================================
+// Chat do chamado (mensagens)
+// ============================================================
+
+export interface MensagemChamado {
+  id: string
+  chamadoId: string
+  autorId?: string
+  autorNome?: string
+  autorFotoUrl?: string
+  corpo: string
+  criadoEm: string
+}
+
+const mockMensagens: MensagemChamado[] = []
+
+/** A tabela ainda não existe? (migração docs/supabase-chamado-mensagens.sql) */
+function ehTabelaAusente(error: any): boolean {
+  const msg = String(error?.message ?? '')
+  return (
+    error?.code === '42P01' ||
+    error?.code === 'PGRST205' ||
+    /relation .* does not exist|could not find the table .* in the schema cache/i.test(msg)
+  )
+}
+
+/** Mensagens (conversa) de um chamado, em ordem cronológica. */
+export async function listarMensagensChamado(chamadoId: string): Promise<MensagemChamado[]> {
+  if (USE_MOCK || !supabase) return mockMensagens.filter((m) => m.chamadoId === chamadoId)
+  const { data, error } = await supabase
+    .from('chamado_mensagens')
+    .select('id, chamado_id, autor_id, corpo, created_at, autor:autor_id (nome, foto_url)')
+    .eq('chamado_id', chamadoId)
+    .order('created_at', { ascending: true })
+  if (error) {
+    if (ehTabelaAusente(error)) return [] // migração pendente: não quebra a tela
+    throw error
+  }
+  return (data ?? []).map((r: any) => ({
+    id: r.id,
+    chamadoId: r.chamado_id,
+    autorId: r.autor_id ?? undefined,
+    autorNome: r.autor?.nome ?? undefined,
+    autorFotoUrl: r.autor?.foto_url ?? undefined,
+    corpo: r.corpo,
+    criadoEm: r.created_at,
+  }))
+}
+
+/** Envia uma mensagem no chamado (o banco barra se estiver finalizado). */
+export async function enviarMensagemChamado(chamadoId: string, corpo: string): Promise<void> {
+  if (USE_MOCK || !supabase) {
+    mockMensagens.push({
+      id: `m-${Date.now()}`,
+      chamadoId,
+      corpo,
+      autorNome: 'Você',
+      criadoEm: new Date().toISOString(),
+    })
+    return
+  }
+  const { data: auth } = await supabase.auth.getUser()
+  const { error } = await supabase
+    .from('chamado_mensagens')
+    .insert({ chamado_id: chamadoId, autor_id: auth.user?.id, corpo })
+  if (error) throw error
+}

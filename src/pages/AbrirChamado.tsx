@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { Field, Input, Textarea, Select } from '@/components/ui/Field'
 import { Badge } from '@/components/ui/Badge'
 import { abrirChamado, listarMeusChamados, enviarAnexoChamado } from '@/data/chamados'
+import { ChamadoDetailModal } from '@/components/chamados/ChamadoDetailModal'
 import {
   SETORES,
   CATEGORIAS_POR_SETOR,
@@ -18,7 +19,7 @@ import {
 } from '@/lib/chamados'
 import { mensagemErro, formatDateBR } from '@/lib/utils'
 import { usePermissoes } from '@/hooks/usePermissoes'
-import type { PrioridadeChamado, SetorChamado } from '@/types'
+import type { Chamado, PrioridadeChamado, SetorChamado } from '@/types'
 
 /**
  * "Abrir Chamado" — disponível para TODOS os usuários logados (inclusive quem
@@ -40,6 +41,7 @@ export function AbrirChamadoPage() {
   const [arquivo, setArquivo] = useState<File | null>(null)
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
+  const [detalhe, setDetalhe] = useState<Chamado | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const categorias = useMemo(() => CATEGORIAS_POR_SETOR[setor], [setor])
@@ -257,7 +259,11 @@ export function AbrirChamadoPage() {
                 const st = statusChamadoInfo[c.status]
                 const pr = prioridadeChamadoInfo[c.prioridade]
                 return (
-                  <div key={c.id} className="px-3 py-3">
+                  <div
+                    key={c.id}
+                    onClick={() => setDetalhe(c)}
+                    className="cursor-pointer rounded-xl px-3 py-3 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <p className="font-medium text-slate-800 dark:text-slate-100">{c.titulo}</p>
                       <Badge tone={st.tone as 'green' | 'amber' | 'blue' | 'violet' | 'slate'} dot>
@@ -281,6 +287,9 @@ export function AbrirChamadoPage() {
           )}
         </SectionCard>
       </div>
+
+      {/* Detalhe + conversa do chamado */}
+      <ChamadoDetailModal chamado={detalhe} onClose={() => setDetalhe(null)} />
     </div>
   )
 }

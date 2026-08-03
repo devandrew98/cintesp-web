@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Input, Select } from '@/components/ui/Field'
 import { Avatar } from '@/components/ui/Avatar'
 import { listarChamados, aceitarChamado, atualizarStatusChamado } from '@/data/chamados'
+import { ChamadoDetailModal } from '@/components/chamados/ChamadoDetailModal'
 import {
   SETORES,
   rotuloSetor,
@@ -14,7 +15,7 @@ import {
   prioridadeChamadoInfo,
 } from '@/lib/chamados'
 import { formatDateBR } from '@/lib/utils'
-import type { SetorChamado, StatusChamado } from '@/types'
+import type { Chamado, SetorChamado, StatusChamado } from '@/types'
 
 const STATUS_OPCOES: StatusChamado[] = [
   'aberto',
@@ -39,6 +40,7 @@ export function ChamadosAdminPage() {
   const [busca, setBusca] = useState('')
   const [status, setStatus] = useState<StatusChamado | 'todos'>('todos')
   const [setor, setSetor] = useState<SetorChamado | 'todos'>('todos')
+  const [detalhe, setDetalhe] = useState<Chamado | null>(null)
 
   const invalidar = () => {
     qc.invalidateQueries({ queryKey: ['chamados'] })
@@ -143,7 +145,11 @@ export function ChamadosAdminPage() {
               const st = statusChamadoInfo[c.status]
               const pr = prioridadeChamadoInfo[c.prioridade]
               return (
-                <div key={c.id} className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center">
+                <div
+                  key={c.id}
+                  onClick={() => setDetalhe(c)}
+                  className="flex cursor-pointer flex-col gap-3 p-4 hover:bg-slate-50 lg:flex-row lg:items-center dark:hover:bg-slate-800/40"
+                >
                   {/* Título + descrição */}
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -172,6 +178,7 @@ export function ChamadosAdminPage() {
                           href={c.anexoUrl}
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
                           className="inline-flex items-center gap-1 text-brand-600 hover:underline"
                         >
                           <Paperclip className="h-3 w-3" /> Anexo
@@ -181,7 +188,10 @@ export function ChamadosAdminPage() {
                   </div>
 
                   {/* Status + ações */}
-                  <div className="flex shrink-0 items-center gap-2">
+                  <div
+                    className="flex shrink-0 items-center gap-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <Badge tone={st.tone as 'green' | 'amber' | 'blue' | 'violet' | 'slate'} dot>
                       {st.label}
                     </Badge>
@@ -215,6 +225,9 @@ export function ChamadosAdminPage() {
           </div>
         )}
       </div>
+
+      {/* Detalhe + conversa */}
+      <ChamadoDetailModal chamado={detalhe} onClose={() => setDetalhe(null)} />
     </div>
   )
 }
