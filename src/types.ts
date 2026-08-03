@@ -50,6 +50,7 @@ export interface Usuario {
   endereco?: string
   cep?: string
   curso?: string
+  dataNascimento?: string // ISO (yyyy-mm-dd)
   fotoUrl?: string
   funcao: Funcao
   instituicao?: Instituicao

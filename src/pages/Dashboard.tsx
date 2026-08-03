@@ -12,13 +12,13 @@ import {
   Search,
   Clock,
   LayoutGrid,
-  Lightbulb,
+  Cake,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatCard } from "@/components/ui/StatCard";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { PersonRow } from "@/components/ui/PersonRow";
-import { DonutChart } from "@/components/ui/DonutChart";
+import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { listarUsuarios, listarMudancas, listarAvisos } from "@/data/api";
 
@@ -71,13 +71,21 @@ export function DashboardPage() {
   const ausentes = ativos.filter((u) => u.disponibilidade === "ausente");
 
   const total = ativos.length;
-  const pct = (n: number) => (total ? Math.round((n / total) * 100) : 0);
 
-  const segments = [
-    { label: "Disponíveis", value: disponiveis.length, color: "#22c55e" },
-    { label: "Em atendimento", value: emAtendimento.length, color: "#f59e0b" },
-    { label: "Ausentes", value: ausentes.length, color: "#ef4444" },
-  ];
+  // Aniversariantes do mês — puxa a data de nascimento do perfil (Meu Perfil).
+  const hoje = new Date();
+  const mesAtual = hoje.getMonth() + 1;
+  const diaAtual = hoje.getDate();
+  const mesNome = hoje.toLocaleDateString("pt-BR", { month: "long" });
+  const aniversariantes = ativos
+    .filter((u) => u.dataNascimento)
+    .map((u) => ({
+      u,
+      mes: Number(u.dataNascimento!.slice(5, 7)),
+      dia: Number(u.dataNascimento!.slice(8, 10)),
+    }))
+    .filter((x) => x.mes === mesAtual)
+    .sort((a, b) => a.dia - b.dia);
 
   return (
     <div>
@@ -154,34 +162,55 @@ export function DashboardPage() {
           </div>
         </SectionCard>
 
-        <SectionCard title="Resumo da Equipe">
-          <div className="flex flex-col items-center gap-5 p-2">
-            <DonutChart segments={segments} total={total} />
-            <div className="w-full space-y-2.5">
-              {segments.map((s) => (
-                <div
-                  key={s.label}
-                  className="flex items-center justify-between text-sm"
-                >
-                  <span className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
-                    <span
-                      className="h-2.5 w-2.5 rounded-full"
-                      style={{ backgroundColor: s.color }}
-                    />
-                    {s.label}
-                  </span>
-                  <span className="font-medium text-slate-800 dark:text-slate-100">
-                    {s.value}{" "}
-                    <span className="text-slate-400">({pct(s.value)}%)</span>
-                  </span>
-                </div>
-              ))}
+        <SectionCard
+          title={
+            <span className="flex items-center gap-2">
+              <Cake className="h-4 w-4 text-brand-600" />
+              Aniversariantes do mês
+            </span>
+          }
+        >
+          {aniversariantes.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 px-2 py-8 text-center">
+              <Cake className="h-8 w-8 text-slate-300 dark:text-slate-600" />
+              <p className="text-sm text-slate-500 first-letter:uppercase">
+                Ninguém faz aniversário em {mesNome}.
+              </p>
+              <p className="text-xs text-slate-400">
+                Cadastre sua data em{" "}
+                <Link to="/meu-horario" className="font-medium text-brand-600 hover:underline">
+                  Meu Perfil
+                </Link>
+                .
+              </p>
             </div>
-            <div className="flex w-full items-start gap-2 rounded-xl bg-brand-50 p-3 text-xs text-brand-800 dark:bg-brand-500/10 dark:text-brand-300">
-              <Lightbulb className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>Ótimo! A maioria da equipe está disponível.</span>
+          ) : (
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+              {aniversariantes.map(({ u, dia }) => {
+                const ehHoje = dia === diaAtual;
+                return (
+                  <div key={u.id} className="flex items-center gap-3 py-2.5">
+                    <Avatar nome={u.nome} fotoUrl={u.fotoUrl} size="sm" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-slate-700 dark:text-slate-200">
+                        {u.nome}
+                      </p>
+                      <p className="truncate text-xs text-slate-400">{u.funcao?.nome}</p>
+                    </div>
+                    {ehHoje ? (
+                      <span className="shrink-0 rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">
+                        Hoje 🎉
+                      </span>
+                    ) : (
+                      <span className="shrink-0 text-sm font-medium text-slate-500">
+                        {String(dia).padStart(2, "0")}/{String(mesAtual).padStart(2, "0")}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          </div>
+          )}
         </SectionCard>
       </div>
 

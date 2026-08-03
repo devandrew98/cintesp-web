@@ -15,11 +15,12 @@
 
 
 -- 1) COLUNAS DE PERFIL (conserta o acesso de admin) ----------
-alter table public.usuarios add column if not exists cpf      text;
-alter table public.usuarios add column if not exists whatsapp text;
-alter table public.usuarios add column if not exists endereco text;
-alter table public.usuarios add column if not exists cep      text;
-alter table public.usuarios add column if not exists curso    text;
+alter table public.usuarios add column if not exists cpf             text;
+alter table public.usuarios add column if not exists whatsapp        text;
+alter table public.usuarios add column if not exists endereco        text;
+alter table public.usuarios add column if not exists cep             text;
+alter table public.usuarios add column if not exists curso           text;
+alter table public.usuarios add column if not exists data_nascimento date;  -- aniversariantes
 
 
 -- 2) DISPONIBILIDADE.AUTOMATICO ------------------------------

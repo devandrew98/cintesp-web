@@ -69,7 +69,7 @@ export async function listarInstituicoes(): Promise<Instituicao[]> {
 // ============================================================
 
 const USUARIO_SELECT = `
-  id, nome, email, telefone, whatsapp, cpf, endereco, cep, curso, foto_url, status,
+  id, nome, email, telefone, whatsapp, cpf, endereco, cep, curso, data_nascimento, foto_url, status,
   funcao:funcoes(id, nome, permissoes),
   instituicao:instituicoes(id, nome, sigla),
   areas:usuario_areas(area:areas_atuacao(id, nome, cor)),
@@ -95,7 +95,14 @@ let jaAvisouMigracao = false
 // Detecta "coluna não existe" (42703) — sinal de migração pendente no banco.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function ehColunaInexistente(error: any): boolean {
-  return !!error && (error.code === '42703' || /column .* does not exist/i.test(error.message ?? ''))
+  const msg = String(error?.message ?? '')
+  return (
+    !!error &&
+    (error.code === '42703' ||
+      error.code === 'PGRST204' ||
+      /column .* does not exist/i.test(msg) ||
+      /could not find .* column .* schema cache/i.test(msg))
+  )
 }
 function avisarMigracaoPendente() {
   if (jaAvisouMigracao) return
@@ -142,6 +149,7 @@ function mapUsuario(r: any): Usuario {
     endereco: r.endereco ?? undefined,
     cep: r.cep ?? undefined,
     curso: r.curso ?? undefined,
+    dataNascimento: r.data_nascimento ?? undefined,
     fotoUrl: r.foto_url ?? undefined,
     funcao: r.funcao ? mapFuncao(r.funcao) : { id: '', nome: '—', permissoes: [] },
     instituicao: r.instituicao ? mapInstituicao(r.instituicao) : undefined,
@@ -381,23 +389,28 @@ export interface DadosPerfil {
   endereco?: string
   cep?: string
   curso?: string
+  dataNascimento?: string // ISO (yyyy-mm-dd)
 }
 
 /** Salva os dados do perfil. RLS: o próprio dono ou um admin. */
 export async function atualizarMeuPerfil(id: string, dados: DadosPerfil): Promise<void> {
   if (USE_MOCK || !supabase) return
-  const { error } = await supabase
-    .from('usuarios')
-    .update({
-      nome: dados.nome,
-      telefone: dados.telefone || null,
-      whatsapp: dados.whatsapp || null,
-      cpf: dados.cpf || null,
-      endereco: dados.endereco || null,
-      cep: dados.cep || null,
-      curso: dados.curso || null,
-    })
-    .eq('id', id)
+  const patch: Record<string, unknown> = {
+    nome: dados.nome,
+    telefone: dados.telefone || null,
+    whatsapp: dados.whatsapp || null,
+    cpf: dados.cpf || null,
+    endereco: dados.endereco || null,
+    cep: dados.cep || null,
+    curso: dados.curso || null,
+    data_nascimento: dados.dataNascimento || null,
+  }
+  let { error } = await supabase.from('usuarios').update(patch).eq('id', id)
+  // Banco ainda sem a coluna data_nascimento: salva o resto mesmo assim.
+  if (error && ehColunaInexistente(error)) {
+    delete patch.data_nascimento
+    ;({ error } = await supabase.from('usuarios').update(patch).eq('id', id))
+  }
   if (error) throw error
 }
 

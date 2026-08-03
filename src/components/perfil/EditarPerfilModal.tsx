@@ -29,6 +29,7 @@ export function EditarPerfilModal({
     endereco: usuario.endereco ?? '',
     cep: usuario.cep ?? '',
     curso: usuario.curso ?? '',
+    dataNascimento: usuario.dataNascimento ?? '',
   })
   const [erro, setErro] = useState<string | null>(null)
 
@@ -101,9 +102,14 @@ export function EditarPerfilModal({
           <Input value={dados.endereco} onChange={set('endereco')} placeholder="Rua, número, bairro" />
         </Field>
 
-        <Field label="CEP">
-          <Input value={dados.cep} onChange={set('cep')} placeholder="00000-000" className="sm:max-w-xs" />
-        </Field>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="CEP">
+            <Input value={dados.cep} onChange={set('cep')} placeholder="00000-000" />
+          </Field>
+          <Field label="Data de nascimento" hint="Usada nos aniversariantes do mês.">
+            <Input type="date" value={dados.dataNascimento} onChange={set('dataNascimento')} />
+          </Field>
+        </div>
 
         {erro && (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-300">
