@@ -1,15 +1,16 @@
 import { useMemo, useState, type FormEvent } from 'react'
-import { HandCoins } from 'lucide-react'
+import { HandCoins, Check } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Field, Input, Select, Textarea } from '@/components/ui/Field'
 import { formatarCPF } from '@/lib/cpf'
+import { cn } from '@/lib/utils'
 import type { ItemPatrimonio, NovoConsignado } from '@/data/consignados'
 import type { Usuario } from '@/types'
 
 const hoje = () => new Date().toISOString().slice(0, 10)
 
-/** Modal para registrar um empréstimo (consignar um item a um pesquisador). */
+/** Modal para registrar um empréstimo (consignar um ou mais itens a um pesquisador). */
 export function NovoConsignadoModal({
   open,
   onClose,
@@ -25,33 +26,43 @@ export function NovoConsignadoModal({
   itensDisponiveis: ItemPatrimonio[]
   pesquisadores: Usuario[]
 }) {
-  const [itemId, setItemId] = useState('')
+  const [itemIds, setItemIds] = useState<string[]>([])
   const [pesquisadorId, setPesquisadorId] = useState('')
   const [dataRetirada, setDataRetirada] = useState(hoje())
   const [dataEntrega, setDataEntrega] = useState('')
   const [local, setLocal] = useState('')
   const [observacoes, setObservacoes] = useState('')
 
-  const item = useMemo(() => itensDisponiveis.find((i) => i.id === itemId), [itensDisponiveis, itemId])
+  const itensSelecionados = useMemo(
+    () => itensDisponiveis.filter((i) => itemIds.includes(i.id)),
+    [itensDisponiveis, itemIds],
+  )
   const pesquisador = useMemo(
     () => pesquisadores.find((p) => p.id === pesquisadorId),
     [pesquisadores, pesquisadorId],
   )
+  const localPadraoSugerido = itensSelecionados.find((i) => i.localPadrao)?.localPadrao
+
+  function alternarItem(id: string) {
+    setItemIds((atual) => (atual.includes(id) ? atual.filter((x) => x !== id) : [...atual, id]))
+  }
 
   function enviar(e: FormEvent) {
     e.preventDefault()
-    if (!item) return
+    if (itensSelecionados.length === 0) return
     onSalvar({
-      itemId: item.id,
-      itemNumero: item.numeroPatrimonio,
-      itemNome: item.nome,
+      itens: itensSelecionados.map((it) => ({
+        itemId: it.id,
+        itemNumero: it.numeroPatrimonio,
+        itemNome: it.nome,
+      })),
       pesquisadorId: pesquisador?.id,
       pesquisadorNome: pesquisador?.nome,
       pesquisadorCpf: pesquisador?.cpf,
       pesquisadorArea: pesquisador?.areas.map((a) => a.nome).join(', ') || undefined,
       dataRetirada,
       dataEntregaPrevista: dataEntrega || undefined,
-      local: local.trim() || item.localPadrao || undefined,
+      local: local.trim() || localPadraoSugerido || undefined,
       observacoes: observacoes.trim() || undefined,
     })
   }
@@ -69,33 +80,67 @@ export function NovoConsignadoModal({
           Novo empréstimo
         </span>
       }
-      subtitle="Consigne um item a um pesquisador. Depois é só imprimir o protocolo para assinar."
+      subtitle="Consigne um ou mais itens a um pesquisador — todos ficam no mesmo protocolo. Depois é só imprimir o formulário para assinar."
       footer={
         <>
           <Button variant="secondary" type="button" onClick={onClose}>
             Cancelar
           </Button>
-          <Button type="submit" form="form-consignado" disabled={salvando || !itemId || !pesquisadorId}>
-            {salvando ? 'Registrando…' : 'Registrar empréstimo'}
+          <Button
+            type="submit"
+            form="form-consignado"
+            disabled={salvando || itemIds.length === 0 || !pesquisadorId}
+          >
+            {salvando
+              ? 'Registrando…'
+              : `Registrar empréstimo${itemIds.length > 1 ? ` (${itemIds.length} itens)` : ''}`}
           </Button>
         </>
       }
     >
       <form id="form-consignado" onSubmit={enviar} className="space-y-4">
-        <Field label="Item (patrimônio)">
-          <Select value={itemId} onChange={(e) => setItemId(e.target.value)}>
-            <option value="">— Selecione um item disponível —</option>
-            {itensDisponiveis.map((i) => (
-              <option key={i.id} value={i.id}>
-                {i.numeroPatrimonio} — {i.nome}
-                {i.categoria ? ` (${i.categoria})` : ''}
-              </option>
-            ))}
-          </Select>
-          {itensDisponiveis.length === 0 && (
-            <p className="mt-1 text-xs text-amber-600">
+        <Field
+          label={`Itens (patrimônio)${itemIds.length > 0 ? ` — ${itemIds.length} selecionado(s)` : ''}`}
+          hint="Marque um ou mais itens para consigná-los juntos, no mesmo protocolo."
+        >
+          {itensDisponiveis.length === 0 ? (
+            <p className="text-xs text-amber-600">
               Nenhum item disponível. Cadastre um item na aba “Patrimônio”.
             </p>
+          ) : (
+            <div className="max-h-56 space-y-1 overflow-y-auto rounded-xl border border-slate-200 p-2 dark:border-slate-700">
+              {itensDisponiveis.map((i) => {
+                const marcado = itemIds.includes(i.id)
+                return (
+                  <button
+                    key={i.id}
+                    type="button"
+                    onClick={() => alternarItem(i.id)}
+                    className={cn(
+                      'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors',
+                      marcado
+                        ? 'bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300'
+                        : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800/60',
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'flex h-4 w-4 shrink-0 items-center justify-center rounded border',
+                        marcado
+                          ? 'border-brand-600 bg-brand-600 text-white'
+                          : 'border-slate-300 dark:border-slate-600',
+                      )}
+                    >
+                      {marcado && <Check className="h-3 w-3" />}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="font-medium">{i.numeroPatrimonio}</span> — {i.nome}
+                      {i.categoria ? ` (${i.categoria})` : ''}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
           )}
         </Field>
 
@@ -127,11 +172,11 @@ export function NovoConsignadoModal({
           </Field>
         </div>
 
-        <Field label="Local de uso" hint="Onde o item vai ficar durante o empréstimo.">
+        <Field label="Local de uso" hint="Onde os itens vão ficar durante o empréstimo.">
           <Input
             value={local}
             onChange={(e) => setLocal(e.target.value)}
-            placeholder={item?.localPadrao ? `Padrão: ${item.localPadrao}` : 'Ex.: Praia Clube'}
+            placeholder={localPadraoSugerido ? `Padrão: ${localPadraoSugerido}` : 'Ex.: Praia Clube'}
           />
         </Field>
 
@@ -139,7 +184,7 @@ export function NovoConsignadoModal({
           <Textarea
             value={observacoes}
             onChange={(e) => setObservacoes(e.target.value)}
-            placeholder="Acessórios que acompanham, estado do item, etc."
+            placeholder="Acessórios que acompanham, estado dos itens, etc."
           />
         </Field>
       </form>

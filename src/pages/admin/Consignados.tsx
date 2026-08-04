@@ -28,12 +28,16 @@ import {
   atualizarItem,
   excluirItem,
   criarConsignado,
-  type Consignado,
   type DadosItem,
   type ItemPatrimonio,
 } from '@/data/consignados'
 import { listarUsuarios } from '@/data/api'
-import { statusItemInfo, statusConsignadoInfo } from '@/lib/consignados'
+import {
+  statusItemInfo,
+  statusConsignadoInfo,
+  agruparConsignadosPorProtocolo,
+  type GrupoConsignado,
+} from '@/lib/consignados'
 import { formatDateOnlyBR, cn } from '@/lib/utils'
 
 type Aba = 'emprestimos' | 'patrimonio'
@@ -51,7 +55,7 @@ export function AdminConsignadosPage() {
   const [novoItem, setNovoItem] = useState(false)
   const [editItem, setEditItem] = useState<ItemPatrimonio | null>(null)
   const [novoEmprestimo, setNovoEmprestimo] = useState(false)
-  const [detalhe, setDetalhe] = useState<Consignado | null>(null)
+  const [detalhe, setDetalhe] = useState<GrupoConsignado | null>(null)
   const [itemExcluir, setItemExcluir] = useState<ItemPatrimonio | null>(null)
 
   const { data: itens = [], isLoading: carregandoItens, error: erroItens } = useQuery({
@@ -95,26 +99,27 @@ export function AdminConsignadosPage() {
 
   const itensDisponiveis = useMemo(() => itens.filter((i) => i.status === 'disponivel'), [itens])
 
+  const grupos = useMemo(() => agruparConsignadosPorProtocolo(consignados), [consignados])
+
   const kpis = useMemo(
     () => ({
       total: itens.length,
       disponiveis: itens.filter((i) => i.status === 'disponivel').length,
       emUso: itens.filter((i) => i.status === 'em_uso').length,
-      ativos: consignados.filter((c) => c.status === 'em_uso').length,
+      ativos: grupos.filter((g) => g.status === 'em_uso').length,
     }),
-    [itens, consignados],
+    [itens, grupos],
   )
 
-  const consignadosFiltrados = useMemo(() => {
+  const gruposFiltrados = useMemo(() => {
     const q = busca.trim().toLowerCase()
-    return consignados.filter((c) => {
-      if (statusFiltro !== 'todos' && c.status !== statusFiltro) return false
+    return grupos.filter((g) => {
+      if (statusFiltro !== 'todos' && g.status !== statusFiltro) return false
       if (!q) return true
-      return `${c.itemNumero ?? ''} ${c.itemNome ?? ''} ${c.pesquisadorNome ?? ''} ${c.local ?? ''}`
-        .toLowerCase()
-        .includes(q)
+      const itensTexto = g.itens.map((it) => `${it.itemNumero ?? ''} ${it.itemNome ?? ''}`).join(' ')
+      return `${itensTexto} ${g.pesquisadorNome ?? ''} ${g.local ?? ''}`.toLowerCase().includes(q)
     })
-  }, [consignados, busca, statusFiltro])
+  }, [grupos, busca, statusFiltro])
 
   const itensFiltrados = useMemo(() => {
     const q = busca.trim().toLowerCase()
@@ -215,7 +220,7 @@ export function AdminConsignadosPage() {
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800">
                 <tr>
-                  <th className="px-4 py-3">Item / Patrimônio</th>
+                  <th className="px-4 py-3">Item(ns) / Patrimônio</th>
                   <th className="px-4 py-3">Pesquisador</th>
                   <th className="px-4 py-3">Retirada</th>
                   <th className="px-4 py-3">Entrega prev.</th>
@@ -228,32 +233,40 @@ export function AdminConsignadosPage() {
                   <tr>
                     <td colSpan={6} className="px-4 py-10 text-center text-slate-400">Carregando…</td>
                   </tr>
-                ) : consignadosFiltrados.length === 0 ? (
+                ) : gruposFiltrados.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
                       Nenhum empréstimo. Clique em “Novo empréstimo” para registrar.
                     </td>
                   </tr>
                 ) : (
-                  consignadosFiltrados.map((c) => {
-                    const st = statusConsignadoInfo[c.status]
+                  gruposFiltrados.map((g) => {
+                    const st = statusConsignadoInfo[g.status]
+                    const primeiro = g.itens[0]
                     return (
                       <tr
-                        key={c.id}
-                        onClick={() => setDetalhe(c)}
+                        key={g.protocolo}
+                        onClick={() => setDetalhe(g)}
                         className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60"
                       >
                         <td className="px-4 py-3">
-                          <p className="font-medium text-slate-800 dark:text-slate-100">{c.itemNome ?? '—'}</p>
-                          <p className="text-xs text-slate-400">Patrimônio {c.itemNumero ?? '—'}</p>
+                          <p className="font-medium text-slate-800 dark:text-slate-100">
+                            {primeiro?.itemNome ?? '—'}
+                            {g.itens.length > 1 && (
+                              <span className="ml-1.5 text-xs font-normal text-slate-400">
+                                +{g.itens.length - 1} item(ns)
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-xs text-slate-400">Patrimônio {primeiro?.itemNumero ?? '—'}</p>
                         </td>
-                        <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{c.pesquisadorNome ?? '—'}</td>
-                        <td className="px-4 py-3 text-slate-500">{formatDateOnlyBR(c.dataRetirada)}</td>
-                        <td className="px-4 py-3 text-slate-500">{formatDateOnlyBR(c.dataEntregaPrevista)}</td>
+                        <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{g.pesquisadorNome ?? '—'}</td>
+                        <td className="px-4 py-3 text-slate-500">{formatDateOnlyBR(g.dataRetirada)}</td>
+                        <td className="px-4 py-3 text-slate-500">{formatDateOnlyBR(g.dataEntregaPrevista)}</td>
                         <td className="px-4 py-3 text-slate-500">
-                          {c.local ? (
+                          {g.local ? (
                             <span className="inline-flex items-center gap-1">
-                              <MapPin className="h-3 w-3 text-slate-400" /> {c.local}
+                              <MapPin className="h-3 w-3 text-slate-400" /> {g.local}
                             </span>
                           ) : (
                             '—'
@@ -384,7 +397,7 @@ export function AdminConsignadosPage() {
         />
       )}
 
-      <ConsignadoDetailModal consignado={detalhe} onClose={() => setDetalhe(null)} />
+      <ConsignadoDetailModal grupo={detalhe} onClose={() => setDetalhe(null)} />
 
       <ConfirmDialog
         open={Boolean(itemExcluir)}
