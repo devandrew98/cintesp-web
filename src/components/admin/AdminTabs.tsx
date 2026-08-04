@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 
 const abas = [
   { label: 'Pesquisadores', to: '/admin/pesquisadores' },
+  { label: 'Consignados', to: '/admin/consignados' },
   { label: 'Funções', to: '/admin/funcoes' },
   { label: 'Horários', to: '/admin/horarios' },
   { label: 'Áreas de Atuação', to: '/admin/areas' },

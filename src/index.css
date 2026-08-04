@@ -51,3 +51,31 @@
 .dark ::-webkit-scrollbar-thumb {
   background: rgb(51 65 85);
 }
+
+/* ------------------------------------------------------------
+ * Impressão: mostra SÓ o bloco .area-impressao (ex.: protocolo de
+ * consignado). O resto da tela some. Força fundo branco/texto preto.
+ * ---------------------------------------------------------- */
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  .area-impressao,
+  .area-impressao * {
+    visibility: visible !important;
+  }
+  .area-impressao {
+    position: absolute !important;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 24px !important;
+    border: 0 !important;
+    color: #000 !important;
+    background: #fff !important;
+  }
+  .nao-imprimir {
+    display: none !important;
+  }
+}

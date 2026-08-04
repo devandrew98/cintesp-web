@@ -10,6 +10,7 @@ import {
   LifeBuoy,
   Headphones,
   UserCog,
+  Boxes,
   Shield,
   MapPin,
   Building2,
@@ -59,6 +60,7 @@ export const navSections: NavSection[] = [
     items: [
       { label: 'Chamados', to: '/admin/chamados', icon: Headphones },
       { label: 'Pesquisadores', to: '/admin/pesquisadores', icon: UserCog },
+      { label: 'Consignados', to: '/admin/consignados', icon: Boxes },
       { label: 'Funções', to: '/admin/funcoes', icon: Shield },
       { label: 'Horários', to: '/admin/horarios', icon: Clock },
       { label: 'Áreas de Atuação', to: '/admin/areas', icon: MapPin },

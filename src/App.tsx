@@ -5,6 +5,7 @@ import { RequireLiberado } from '@/components/auth/RequireLiberado'
 import { LoginPage } from '@/pages/Login'
 import { AbrirChamadoPage } from '@/pages/AbrirChamado'
 import { ChamadosAdminPage } from '@/pages/admin/ChamadosAdmin'
+import { AdminConsignadosPage } from '@/pages/admin/Consignados'
 import { DashboardPage } from '@/pages/Dashboard'
 import { QuadroPage } from '@/pages/Quadro'
 import { MeuHorarioPage } from '@/pages/MeuHorario'
@@ -61,6 +62,7 @@ export default function App() {
 
         {/* Administração */}
         <Route path="/admin/chamados" element={<RequireAdmin><ChamadosAdminPage /></RequireAdmin>} />
+        <Route path="/admin/consignados" element={<RequireAdmin><AdminConsignadosPage /></RequireAdmin>} />
         <Route path="/admin/pesquisadores" element={<RequireAdmin><AdminPesquisadoresPage /></RequireAdmin>} />
         {/* Rotas antigas, agora unificadas em "Pesquisadores" (mantidas p/ links salvos) */}
         <Route path="/admin/usuarios" element={<RequireAdmin><AdminUsuariosPage /></RequireAdmin>} />
