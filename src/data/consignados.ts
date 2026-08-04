@@ -30,6 +30,8 @@ export interface ItemPatrimonio {
 
 export interface Consignado {
   id: string
+  /** Agrupa vários itens emprestados juntos no mesmo protocolo/formulário. */
+  protocolo?: string
   itemId?: string
   itemNumero?: string
   itemNome?: string
@@ -76,6 +78,7 @@ function mapItem(r: any): ItemPatrimonio {
 function mapConsignado(r: any): Consignado {
   return {
     id: r.id,
+    protocolo: r.protocolo ?? undefined,
     itemId: r.item_id ?? undefined,
     itemNumero: r.item_numero ?? undefined,
     itemNome: r.item_nome ?? undefined,
@@ -186,10 +189,15 @@ export async function excluirItem(id: string): Promise<void> {
 // Consignados (empréstimos)
 // ============================================================
 
-export interface NovoConsignado {
+export interface ItemConsignadoInput {
   itemId: string
   itemNumero?: string
   itemNome?: string
+}
+
+export interface NovoConsignado {
+  /** Um ou mais itens emprestados juntos — todos ficam no mesmo protocolo. */
+  itens: ItemConsignadoInput[]
   pesquisadorId?: string
   pesquisadorNome?: string
   pesquisadorCpf?: string
@@ -213,22 +221,43 @@ export async function listarConsignados(): Promise<Consignado[]> {
   return (data ?? []).map(mapConsignado)
 }
 
-/** Registra um empréstimo e marca o item como "em uso". */
+/**
+ * Registra um empréstimo (um ou mais itens juntos) e marca os itens como
+ * "em uso". Todos os itens ficam sob o mesmo `protocolo`, para aparecerem
+ * juntos no formulário impresso.
+ */
 export async function criarConsignado(input: NovoConsignado): Promise<void> {
+  const protocolo = crypto.randomUUID()
+
   if (USE_MOCK || !supabase) {
-    mockConsignados.unshift({
-      id: `cs-${Date.now()}`,
-      status: 'em_uso',
-      ...input,
+    input.itens.forEach((it, i) => {
+      mockConsignados.unshift({
+        id: `cs-${Date.now()}-${i}`,
+        protocolo,
+        status: 'em_uso',
+        itemId: it.itemId,
+        itemNumero: it.itemNumero,
+        itemNome: it.itemNome,
+        pesquisadorId: input.pesquisadorId,
+        pesquisadorNome: input.pesquisadorNome,
+        pesquisadorCpf: input.pesquisadorCpf,
+        pesquisadorArea: input.pesquisadorArea,
+        dataRetirada: input.dataRetirada,
+        dataEntregaPrevista: input.dataEntregaPrevista,
+        local: input.local,
+        observacoes: input.observacoes,
+      })
+      const mockIt = mockItens.find((x) => x.id === it.itemId)
+      if (mockIt) mockIt.status = 'em_uso'
     })
-    const it = mockItens.find((x) => x.id === input.itemId)
-    if (it) it.status = 'em_uso'
     return
   }
-  const { error } = await supabase.from('consignados').insert({
-    item_id: input.itemId,
-    item_numero: input.itemNumero || null,
-    item_nome: input.itemNome || null,
+
+  const linhas = input.itens.map((it) => ({
+    protocolo,
+    item_id: it.itemId,
+    item_numero: it.itemNumero || null,
+    item_nome: it.itemNome || null,
     pesquisador_id: input.pesquisadorId || null,
     pesquisador_nome: input.pesquisadorNome || null,
     pesquisador_cpf: input.pesquisadorCpf || null,
@@ -238,30 +267,42 @@ export async function criarConsignado(input: NovoConsignado): Promise<void> {
     local: input.local || null,
     observacoes: input.observacoes || null,
     status: 'em_uso',
-  })
+  }))
+  const { error } = await supabase.from('consignados').insert(linhas)
   if (error) throw error
-  // Item passa a "em uso".
-  await supabase.from('patrimonio_itens').update({ status: 'em_uso' }).eq('id', input.itemId)
+  // Itens passam a "em uso".
+  const itemIds = input.itens.map((it) => it.itemId)
+  await supabase.from('patrimonio_itens').update({ status: 'em_uso' }).in('id', itemIds)
 }
 
-/** Registra a devolução: fecha o empréstimo e libera o item. */
-export async function registrarDevolucao(consignado: Consignado): Promise<void> {
+/** Registra a devolução de um grupo de empréstimos (mesmo protocolo): fecha e libera os itens. */
+export async function registrarDevolucao(consignados: Consignado[]): Promise<void> {
+  const hoje = new Date().toISOString().slice(0, 10)
+
   if (USE_MOCK || !supabase) {
-    const c = mockConsignados.find((x) => x.id === consignado.id)
-    if (c) {
-      c.status = 'devolvido'
-      c.dataDevolucao = new Date().toISOString().slice(0, 10)
+    for (const consignado of consignados) {
+      const c = mockConsignados.find((x) => x.id === consignado.id)
+      if (c) {
+        c.status = 'devolvido'
+        c.dataDevolucao = hoje
+      }
+      if (consignado.itemId) {
+        const it = mockItens.find((x) => x.id === consignado.itemId)
+        if (it) it.status = 'disponivel'
+      }
     }
-    const it = mockItens.find((x) => x.id === consignado.itemId)
-    if (it) it.status = 'disponivel'
     return
   }
+
+  const ids = consignados.map((c) => c.id)
   const { error } = await supabase
     .from('consignados')
-    .update({ status: 'devolvido', data_devolucao: new Date().toISOString().slice(0, 10) })
-    .eq('id', consignado.id)
+    .update({ status: 'devolvido', data_devolucao: hoje })
+    .in('id', ids)
   if (error) throw error
-  if (consignado.itemId) {
-    await supabase.from('patrimonio_itens').update({ status: 'disponivel' }).eq('id', consignado.itemId)
+
+  const itemIds = consignados.map((c) => c.itemId).filter((id): id is string => Boolean(id))
+  if (itemIds.length > 0) {
+    await supabase.from('patrimonio_itens').update({ status: 'disponivel' }).in('id', itemIds)
   }
 }

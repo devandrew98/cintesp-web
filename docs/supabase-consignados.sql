@@ -24,8 +24,12 @@ create table if not exists public.patrimonio_itens (
 );
 
 -- ---------- Empréstimos ----------
+-- Cada linha = 1 item emprestado. Quando o admin consigna vários itens de
+-- uma vez, cada item vira uma linha, todas com o mesmo `protocolo` — assim
+-- o formulário impresso reúne todos os itens do mesmo protocolo.
 create table if not exists public.consignados (
   id                    uuid primary key default gen_random_uuid(),
+  protocolo             uuid not null default gen_random_uuid(),
   -- Item (com "fotografia" dos dados, para o histórico sobreviver se o item for apagado)
   item_id               uuid references public.patrimonio_itens (id) on delete set null,
   item_numero           text,
@@ -46,9 +50,13 @@ create table if not exists public.consignados (
   updated_at            timestamptz not null default now()
 );
 
-create index if not exists idx_consignados_item   on public.consignados (item_id);
-create index if not exists idx_consignados_status on public.consignados (status);
-create index if not exists idx_consignados_pesq   on public.consignados (pesquisador_id);
+-- Se a tabela já existia (deploy anterior sem múltiplos itens por protocolo).
+alter table public.consignados add column if not exists protocolo uuid not null default gen_random_uuid();
+
+create index if not exists idx_consignados_item      on public.consignados (item_id);
+create index if not exists idx_consignados_status    on public.consignados (status);
+create index if not exists idx_consignados_pesq      on public.consignados (pesquisador_id);
+create index if not exists idx_consignados_protocolo on public.consignados (protocolo);
 
 -- updated_at automático (reaproveita a função dos chamados; cria se faltar).
 create or replace function public.touch_updated_at()
