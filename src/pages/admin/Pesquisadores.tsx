@@ -43,7 +43,7 @@ import {
   type PerfilManual,
 } from '@/data/participantes'
 import { diasAtivos, horasSemanais, formatarHoras } from '@/lib/horarios'
-import { mascararCPF } from '@/lib/cpf'
+import { formatarCPF } from '@/lib/cpf'
 import type { HorarioDia, Participante, Usuario } from '@/types'
 
 /** Uma pessoa da lista unificada — com login (usuário) ou sem (aluno/manual). */
@@ -424,8 +424,8 @@ export function AdminPesquisadoresPage() {
                         )}
                       </div>
                     </td>
-                    {/* CPF */}
-                    <td className="px-4 py-3 text-slate-500">{p.cpf ? mascararCPF(p.cpf) : '—'}</td>
+                    {/* CPF completo (tela só de admin) */}
+                    <td className="px-4 py-3 text-slate-500">{p.cpf ? formatarCPF(p.cpf) : '—'}</td>
                     {/* Curso */}
                     <td className="px-4 py-3 text-slate-500">{p.curso ?? '—'}</td>
                     {/* Contato */}
@@ -519,8 +519,8 @@ export function AdminPesquisadoresPage() {
       </div>
 
       <p className="mt-2 text-xs text-slate-400">
-        Mostrando {filtrados.length} de {pessoas.length} pessoas. O CPF aparece parcialmente oculto
-        por proteção de dados. Clique numa linha para ver todos os detalhes.
+        Mostrando {filtrados.length} de {pessoas.length} pessoas. Dados pessoais completos (incl.
+        CPF) — visíveis só para administradores. Clique numa linha para ver todos os detalhes.
       </p>
 
       {/* Histórico de importações */}

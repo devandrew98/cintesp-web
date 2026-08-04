@@ -7,7 +7,8 @@ import { Select } from '@/components/ui/Field'
 import { HorarioEditor } from './HorarioEditor'
 import { EditarUsuarioModal } from './EditarUsuarioModal'
 import { SelecionarAreasModal } from './SelecionarAreasModal'
-import { cn } from '@/lib/utils'
+import { cn, formatDateOnlyBR } from '@/lib/utils'
+import { formatarCPF } from '@/lib/cpf'
 import { rotuloPermissao } from '@/lib/permissoes'
 import {
   atualizarAreasUsuario,
@@ -151,7 +152,14 @@ export function UserDetail({ usuario }: { usuario: Usuario }) {
 function AbaInformacoes({ usuario }: { usuario: Usuario }) {
   const itens = [
     { label: 'E-mail', valor: usuario.email },
+    // CPF COMPLETO — tela só de admin; usado p/ pagamentos, artigos e FAU.
+    { label: 'CPF', valor: usuario.cpf ? formatarCPF(usuario.cpf) : '—' },
     { label: 'Telefone', valor: usuario.telefone ?? '—' },
+    { label: 'WhatsApp', valor: usuario.whatsapp ?? '—' },
+    { label: 'Data de nascimento', valor: formatDateOnlyBR(usuario.dataNascimento) },
+    { label: 'Curso', valor: usuario.curso ?? '—' },
+    { label: 'Endereço', valor: usuario.endereco ?? '—' },
+    { label: 'CEP', valor: usuario.cep ?? '—' },
     { label: 'Instituição', valor: usuario.instituicao?.nome ?? '—' },
     { label: 'Função', valor: usuario.funcao.nome },
     { label: 'Status', valor: usuario.status === 'ativo' ? 'Ativo' : 'Inativo' },

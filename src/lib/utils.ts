@@ -30,6 +30,18 @@ export function formatDateBR(iso: string): string {
 }
 
 /**
+ * Formata uma data "yyyy-mm-dd" (SEM hora) como "dd/mm/yyyy".
+ * Faz na mão para não cair no fuso: `new Date('1990-05-15')` viraria
+ * 14/05 no Brasil (UTC-3). Use para data de nascimento e afins.
+ */
+export function formatDateOnlyBR(iso?: string): string {
+  if (!iso) return '—'
+  const [ano, mes, dia] = iso.slice(0, 10).split('-')
+  if (!ano || !mes || !dia) return iso
+  return `${dia}/${mes}/${ano}`
+}
+
+/**
  * Extrai uma mensagem legível de qualquer erro.
  * Erros do Supabase/PostgREST são OBJETOS (não `Error`), com `message`,
  * `details`, `hint` e `code` — se você fizer `String(e)` neles, sai
