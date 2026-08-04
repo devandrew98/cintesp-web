@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   CheckCircle2,
   Users2,
@@ -30,26 +30,19 @@ function saudacao() {
 }
 
 export function DashboardPage() {
-  const queryClient = useQueryClient();
   // Estado só para dar retorno visual enquanto recarrega.
   const [atualizando, setAtualizando] = useState(false);
   // Aniversariantes: começa nas "bolinhas" animadas; clicar abre a lista.
   const [aniversAberto, setAniversAberto] = useState(false);
 
-  /** Recarrega os dados das consultas que alimentam o painel. */
-  async function atualizar() {
+  /**
+   * Atualizar = recarregar a página inteira (F5). Assim TODAS as informações
+   * são buscadas de novo — funciona igual no desktop e no celular.
+   * O pequeno atraso deixa o spinner aparecer antes do reload.
+   */
+  function atualizar() {
     setAtualizando(true);
-    try {
-      await queryClient.refetchQueries({
-        queryKey: ["usuarios"],
-      });
-      await Promise.all([
-        queryClient.refetchQueries({ queryKey: ["mudancas"] }),
-        queryClient.refetchQueries({ queryKey: ["avisos"] }),
-      ]);
-    } finally {
-      setAtualizando(false);
-    }
+    setTimeout(() => window.location.reload(), 60);
   }
 
   const { data: usuarios = [] } = useQuery({
