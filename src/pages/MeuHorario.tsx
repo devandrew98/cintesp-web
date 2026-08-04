@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Mail,
   Phone,
@@ -9,16 +9,18 @@ import {
   GraduationCap,
   Fingerprint,
   Pencil,
+  MapPinned,
   Loader2,
 } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { FotoPerfilUploader } from '@/components/perfil/FotoPerfilUploader'
 import { EditarPerfilModal } from '@/components/perfil/EditarPerfilModal'
+import { SelecionarAreasModal } from '@/components/admin/SelecionarAreasModal'
 import { DisponibilidadeBadge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { HorarioEditor } from '@/components/admin/HorarioEditor'
 import { usePermissoes } from '@/hooks/usePermissoes'
-import { perfilAtual, listarHorarios, salvarHorarios } from '@/data/api'
+import { perfilAtual, listarHorarios, salvarHorarios, atualizarAreasUsuario } from '@/data/api'
 
 /**
  * Tela "Meu Perfil".
@@ -38,12 +40,24 @@ export function MeuHorarioPage() {
   // Só a administração edita horários (regra do CINTESP).
   const { ehAdmin } = usePermissoes()
   const [editando, setEditando] = useState(false)
+  const [editandoAreas, setEditandoAreas] = useState(false)
 
   async function salvarMeuHorario(h: typeof horarios) {
     if (!eu) return
     await salvarHorarios(eu.id, h)
     queryClient.invalidateQueries({ queryKey: ['horarios', eu.id] })
   }
+
+  // Cada pesquisador escolhe as PRÓPRIAS áreas de atuação.
+  const salvarAreasMut = useMutation({
+    mutationFn: (ids: string[]) => atualizarAreasUsuario(eu!.id, ids),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['perfil'] })
+      queryClient.invalidateQueries({ queryKey: ['perfil-atual'] })
+      queryClient.invalidateQueries({ queryKey: ['usuarios'] })
+      setEditandoAreas(false)
+    },
+  })
 
   if (isLoading) {
     return (
@@ -106,6 +120,47 @@ export function MeuHorarioPage() {
         </div>
       </div>
 
+      {/* Áreas de atuação — o próprio pesquisador escolhe (uma ou mais) */}
+      <div className="card mb-6 p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 className="flex items-center gap-2 font-semibold text-slate-900 dark:text-white">
+              <MapPinned className="h-4 w-4 text-brand-600" /> Áreas de Atuação
+            </h3>
+            <p className="text-sm text-slate-500">
+              Em quais áreas você atua? Pode escolher uma ou mais — as opções são as que a
+              administração cadastrou.
+            </p>
+          </div>
+          <Button
+            variant="secondary"
+            icon={Pencil}
+            onClick={() => setEditandoAreas(true)}
+            className="shrink-0"
+          >
+            {eu.areas.length ? 'Editar áreas' : 'Escolher áreas'}
+          </Button>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {eu.areas.length === 0 ? (
+            <span className="text-sm text-slate-400">
+              Você ainda não informou suas áreas de atuação.
+            </span>
+          ) : (
+            eu.areas.map((a) => (
+              <span
+                key={a.id}
+                className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200"
+              >
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: a.cor }} />
+                {a.nome}
+              </span>
+            ))
+          )}
+        </div>
+      </div>
+
       {/* Editor de horários (persiste no banco) */}
       {carregandoHorarios ? (
         <div className="card flex items-center justify-center gap-2 px-6 py-16 text-sm text-slate-400">
@@ -121,6 +176,16 @@ export function MeuHorarioPage() {
       )}
 
       <EditarPerfilModal usuario={eu} open={editando} onClose={() => setEditando(false)} />
+
+      {editandoAreas && (
+        <SelecionarAreasModal
+          open={editandoAreas}
+          onClose={() => setEditandoAreas(false)}
+          areasAtuais={eu.areas.map((a) => a.id)}
+          onSalvar={(ids) => salvarAreasMut.mutate(ids)}
+          salvando={salvarAreasMut.isPending}
+        />
+      )}
     </div>
   )
 }
