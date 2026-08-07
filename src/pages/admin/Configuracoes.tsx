@@ -1,9 +1,13 @@
 import { useState, type ReactNode } from 'react'
-import { Moon, Sun, Bell, Mail, CalendarClock, Info, Database } from 'lucide-react'
+import { useMutation } from '@tanstack/react-query'
+import { Moon, Sun, Bell, Mail, CalendarClock, Info, Database, Send, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
 import { AdminShell } from '@/components/admin/AdminShell'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Field'
 import { useUI } from '@/store/ui'
 import { USE_MOCK } from '@/lib/supabase'
-import { cn } from '@/lib/utils'
+import { enviarEmailTeste } from '@/lib/email'
+import { mensagemErro, cn } from '@/lib/utils'
 
 /** Versão do app exibida em "Sobre" (mantida em sincronia com o ROADMAP). */
 const VERSAO = 'v1.2.0'
@@ -20,6 +24,12 @@ export function AdminConfiguracoesPage() {
   const [notifEmail, setNotifEmail] = useState(true)
   const [notifPush, setNotifPush] = useState(false)
   const [notifTurno, setNotifTurno] = useState(true)
+
+  // Teste do envio real de e-mail (Edge Function `notificar-email` + Resend).
+  const [emailTeste, setEmailTeste] = useState('rodriguesmarcotulio79@gmail.com')
+  const testeEmail = useMutation({
+    mutationFn: () => enviarEmailTeste(emailTeste.trim()),
+  })
 
   // Lê do supabase.ts (que considera as variáveis injetadas em runtime).
   const usandoMock = USE_MOCK
@@ -53,6 +63,58 @@ export function AdminConfiguracoesPage() {
           >
             <Toggle ativo={notifTurno} onChange={() => setNotifTurno((v) => !v)} />
           </LinhaConfig>
+        </Secao>
+
+        {/* Envio real de e-mail — testa a Edge Function `notificar-email` (Resend) */}
+        <Secao
+          titulo="Envio de e-mail"
+          descricao='Dispara um e-mail de teste pela mesma função usada para avisar "chamado respondido" e "aviso publicado".'
+        >
+          <div className="flex flex-col gap-3 py-3.5 sm:flex-row sm:items-end">
+            <div className="flex-1">
+              <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                Enviar e-mail de teste para
+              </label>
+              <Input
+                type="email"
+                value={emailTeste}
+                onChange={(e) => setEmailTeste(e.target.value)}
+                placeholder="voce@exemplo.com"
+              />
+            </div>
+            <Button
+              icon={testeEmail.isPending ? undefined : Send}
+              disabled={testeEmail.isPending || !emailTeste.trim()}
+              onClick={() => testeEmail.mutate()}
+              className="shrink-0"
+            >
+              {testeEmail.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" /> Enviando…
+                </>
+              ) : (
+                'Enviar teste'
+              )}
+            </Button>
+          </div>
+
+          {testeEmail.isSuccess && (
+            <p className="flex items-center gap-1.5 pb-3.5 text-sm text-brand-700 dark:text-brand-400">
+              <CheckCircle2 className="h-4 w-4 shrink-0" /> E-mail enviado! Confira a caixa de entrada (e o spam) de{' '}
+              {emailTeste}.
+            </p>
+          )}
+          {testeEmail.isError && (
+            <p className="flex items-start gap-1.5 pb-3.5 text-sm text-red-600 dark:text-red-400">
+              <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                Falha ao enviar: {mensagemErro(testeEmail.error)} — confira se a Edge Function{' '}
+                <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">notificar-email</code> está implantada e
+                se o secret <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">RESEND_API_KEY</code> foi
+                configurado (veja <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">docs/notificacoes-email.md</code>).
+              </span>
+            </p>
+          )}
         </Secao>
 
         {/* Sobre */}

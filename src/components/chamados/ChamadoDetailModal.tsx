@@ -13,6 +13,7 @@ import {
 } from '@/data/chamados'
 import { statusChamadoInfo, prioridadeChamadoInfo, rotuloSetor } from '@/lib/chamados'
 import { usePermissoes } from '@/hooks/usePermissoes'
+import { notificarChamadoRespondido } from '@/lib/email'
 import { cn, formatDateBR, mensagemErro } from '@/lib/utils'
 import type { Chamado, StatusChamado } from '@/types'
 
@@ -75,9 +76,20 @@ export function ChamadoDetailModal({
 
   const enviar = useMutation({
     mutationFn: (corpo: string) => enviarMensagemChamado(chamado!.id, corpo),
-    onSuccess: () => {
+    onSuccess: (_dados, corpo) => {
       setTexto('')
       qc.invalidateQueries({ queryKey: ['chamado-mensagens', chamado?.id] })
+      // Alguém (o admin/responsável) respondeu o chamado de outra pessoa → avisa por e-mail.
+      if (chamado && chamado.solicitanteId !== meuId) {
+        notificarChamadoRespondido({
+          destinatarioNome: chamado.solicitanteNome,
+          destinatarioEmail: chamado.solicitanteEmail,
+          chamadoId: chamado.id,
+          chamadoTitulo: chamado.titulo,
+          respondenteNome: perfil?.nome,
+          mensagem: corpo,
+        })
+      }
     },
   })
   const aceitar = useMutation({
