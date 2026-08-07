@@ -183,6 +183,7 @@ export interface Chamado {
   solicitanteId: string
   solicitanteNome?: string
   solicitanteFotoUrl?: string
+  solicitanteEmail?: string
   responsavelId?: string
   responsavelNome?: string
   anexoUrl?: string

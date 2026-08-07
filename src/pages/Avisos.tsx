@@ -33,7 +33,9 @@ import {
   excluirAviso,
   estatisticasAvisos,
   registrarLeituraAviso,
+  listarUsuarios,
 } from '@/data/api'
+import { notificarAvisoPublicado } from '@/lib/email'
 import { usePermissoes } from '@/hooks/usePermissoes'
 import type { Aviso, TipoAviso } from '@/types'
 
@@ -61,7 +63,25 @@ export function AvisosPage() {
   // Cria um aviso e atualiza a lista no cache.
   const criar = useMutation({
     mutationFn: criarAviso,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['avisos'] }),
+    onSuccess: (aviso) => {
+      queryClient.invalidateQueries({ queryKey: ['avisos'] })
+      // Publicado agora (não é "programado" p/ depois nem "arquivado") → notifica todo mundo por e-mail.
+      if (aviso.status === 'ativo') {
+        listarUsuarios()
+          .then((usuarios) =>
+            notificarAvisoPublicado({
+              destinatarios: usuarios
+                .filter((u) => u.status === 'ativo')
+                .map((u) => ({ nome: u.nome, email: u.email })),
+              avisoTitulo: aviso.titulo,
+              avisoDescricao: aviso.descricao,
+              avisoTipo: aviso.tipo,
+              autorNome: perfil?.nome,
+            }),
+          )
+          .catch((err) => console.warn('[avisos] falha ao notificar por e-mail:', err))
+      }
+    },
   })
 
   // Edita um aviso já publicado (só admin, garantido também pelo RLS).
@@ -83,7 +103,7 @@ export function AvisosPage() {
   })
 
   // Só administradores (ou quem tem 'publicar_avisos') podem criar avisos.
-  const { podePublicarAvisos } = usePermissoes()
+  const { podePublicarAvisos, perfil } = usePermissoes()
   // Aviso aberto para leitura (modal de detalhe).
   const [aberto, setAberto] = useState<Aviso | null>(null)
   // Aviso sendo editado (abre o formulário em modo edição).

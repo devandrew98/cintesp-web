@@ -11,7 +11,7 @@ import type { Chamado, PrioridadeChamado, SetorChamado, StatusChamado } from '@/
 const SELECT = `
   id, titulo, descricao, setor, categoria, prioridade, status, anexo_url,
   solicitante_id, responsavel_id, created_at, updated_at, finalizado_em,
-  solicitante:solicitante_id (nome, foto_url),
+  solicitante:solicitante_id (nome, foto_url, email),
   responsavel:responsavel_id (nome, foto_url)
 `
 
@@ -54,6 +54,7 @@ function mapChamado(r: any): Chamado {
     solicitanteId: r.solicitante_id,
     solicitanteNome: r.solicitante?.nome ?? undefined,
     solicitanteFotoUrl: r.solicitante?.foto_url ?? undefined,
+    solicitanteEmail: r.solicitante?.email ?? undefined,
     responsavelId: r.responsavel_id ?? undefined,
     responsavelNome: r.responsavel?.nome ?? undefined,
     anexoUrl: r.anexo_url ?? undefined,
