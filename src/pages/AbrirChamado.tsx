@@ -18,6 +18,7 @@ import {
   rotuloSetor,
 } from '@/lib/chamados'
 import { mensagemErro, formatDateBR } from '@/lib/utils'
+import { notificarChamadoAberto } from '@/lib/email'
 import { usePermissoes } from '@/hooks/usePermissoes'
 import type { Chamado, PrioridadeChamado, SetorChamado } from '@/types'
 
@@ -27,7 +28,7 @@ import type { Chamado, PrioridadeChamado, SetorChamado } from '@/types'
  */
 export function AbrirChamadoPage() {
   const qc = useQueryClient()
-  const { ehParticipante } = usePermissoes()
+  const { ehParticipante, perfil } = usePermissoes()
   const { data: meus = [], isLoading } = useQuery({
     queryKey: ['meus-chamados'],
     queryFn: listarMeusChamados,
@@ -48,10 +49,21 @@ export function AbrirChamadoPage() {
 
   const criar = useMutation({
     mutationFn: abrirChamado,
-    onSuccess: () => {
+    onSuccess: (chamado) => {
       qc.invalidateQueries({ queryKey: ['meus-chamados'] })
       qc.invalidateQueries({ queryKey: ['chamados'] })
       qc.invalidateQueries({ queryKey: ['chamados-stats'] })
+      // Avisa por e-mail os administradores responsáveis pelo setor. Quem são
+      // eles é resolvido na Edge Function — aqui só mandamos o setor.
+      notificarChamadoAberto({
+        chamadoTitulo: chamado.titulo,
+        chamadoDescricao: chamado.descricao,
+        setor: chamado.setor,
+        setorRotulo: rotuloSetor(chamado.setor),
+        prioridade: prioridadeChamadoInfo[chamado.prioridade]?.label,
+        categoria: chamado.categoria,
+        solicitanteNome: perfil?.nome,
+      })
       setTitulo('')
       setDescricao('')
       setCategoria('')
