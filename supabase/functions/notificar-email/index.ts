@@ -53,11 +53,6 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-interface Destinatario {
-  nome?: string
-  email: string
-}
-
 type Corpo =
   | {
       tipo: 'chamado_respondido'
@@ -70,8 +65,10 @@ type Corpo =
       appUrl?: string
     }
   | {
+      // Quem recebe é decidido AQUI, a partir do público-alvo — o navegador
+      // não manda lista de e-mails.
       tipo: 'aviso_publicado'
-      destinatarios: Destinatario[]
+      publicoAlvo?: string
       avisoTitulo: string
       avisoDescricao: string
       avisoTipo?: string
@@ -79,10 +76,25 @@ type Corpo =
       appUrl?: string
     }
   | {
+      // Idem: os administradores da área são resolvidos no servidor.
+      tipo: 'chamado_aberto'
+      chamadoTitulo: string
+      chamadoDescricao: string
+      /** Valor bruto ("ti", "administrativo"...) — é o que casa com as áreas. */
+      setor: string
+      /** Rótulo legível ("TI", "Administrativo") só para exibir no e-mail. */
+      setorRotulo?: string
+      prioridade?: string
+      categoria?: string
+      solicitanteNome?: string
+      appUrl?: string
+    }
+  | {
       tipo: 'teste'
       destinatarioEmail: string
       destinatarioNome?: string
     }
+  | { tipo: 'cota' }
 
 // ---------- Layout base (HTML com CSS inline — exigência dos clientes de e-mail) ----------
 function layout(titulo: string, corpoHtml: string): string {
@@ -164,6 +176,36 @@ function templateAvisoPublicado(a: Extract<Corpo, { tipo: 'aviso_publicado' }>, 
     ${link ? botao(link, 'Ver aviso') : ''}
   `
   return { assunto: `Novo aviso: ${a.avisoTitulo}`, html: layout('Novo aviso publicado', corpo) }
+}
+
+function templateChamadoAberto(c: Extract<Corpo, { tipo: 'chamado_aberto' }>, nomeDestinatario?: string) {
+  const link = c.appUrl ? `${c.appUrl.replace(/\/+$/, '')}/admin/chamados` : undefined
+  const linha = (rotulo: string, valor?: string) =>
+    valor
+      ? `<tr><td style="padding:2px 0;font-size:13px;color:#64748b;width:96px;">${rotulo}</td>
+           <td style="padding:2px 0;font-size:13px;color:#0f172a;font-weight:600;">${escaparHtml(valor)}</td></tr>`
+      : ''
+  const corpo = `
+    <p style="margin:0 0 12px;font-size:14px;color:#334155;">Olá${nomeDestinatario ? `, ${escaparHtml(nomeDestinatario)}` : ''}!</p>
+    <p style="margin:0 0 12px;font-size:14px;color:#334155;">
+      Um novo chamado foi aberto${c.solicitanteNome ? ` por <strong>${escaparHtml(c.solicitanteNome)}</strong>` : ''} e está aguardando atendimento:
+    </p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 8px;">
+      <tr>
+        <td style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;">
+          <p style="margin:0 0 10px;font-size:15px;font-weight:700;color:#0f172a;">${escaparHtml(c.chamadoTitulo)}</p>
+          <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 10px;">
+            ${linha('Setor', c.setorRotulo ?? c.setor)}
+            ${linha('Categoria', c.categoria)}
+            ${linha('Prioridade', c.prioridade)}
+          </table>
+          <p style="margin:0;font-size:14px;color:#334155;white-space:pre-wrap;">${escaparHtml(c.chamadoDescricao)}</p>
+        </td>
+      </tr>
+    </table>
+    ${link ? botao(link, 'Abrir chamado') : ''}
+  `
+  return { assunto: `Novo chamado: ${c.chamadoTitulo}`, html: layout('Novo chamado aberto', corpo) }
 }
 
 function templateTeste(nome?: string) {
@@ -251,16 +293,25 @@ async function enviarEmails(itens: ItemEmail[]) {
  *
  * Devolve `null` quando está tudo certo, ou o erro a responder.
  */
-async function conferirPermissao(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Cliente = any
+
+interface Chamador {
+  id: string
+  permissoes: string[]
+  cliente: Cliente
+}
+
+/** Identifica quem chamou. Devolve o erro a responder, ou o chamador. */
+async function identificarChamador(
   req: Request,
-  permitidas: string[],
-): Promise<{ status: number; mensagem: string } | null> {
+): Promise<{ erro?: { status: number; mensagem: string }; chamador?: Chamador }> {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    return { status: 500, mensagem: 'SUPABASE_URL/SUPABASE_ANON_KEY ausentes no ambiente da função.' }
+    return { erro: { status: 500, mensagem: 'SUPABASE_URL/SUPABASE_ANON_KEY ausentes no ambiente da função.' } }
   }
   const autorizacao = req.headers.get('Authorization') ?? ''
   if (!autorizacao.toLowerCase().startsWith('bearer ')) {
-    return { status: 401, mensagem: 'Requisição sem cabeçalho Authorization. Faça login novamente.' }
+    return { erro: { status: 401, mensagem: 'Requisição sem cabeçalho Authorization. Faça login novamente.' } }
   }
 
   // Cliente que age COMO a pessoa que chamou (respeita as políticas RLS).
@@ -271,7 +322,7 @@ async function conferirPermissao(
 
   const { data: sessao, error: erroSessao } = await cliente.auth.getUser()
   if (erroSessao || !sessao?.user) {
-    return { status: 401, mensagem: 'Sessão inválida ou expirada. Entre no sistema novamente.' }
+    return { erro: { status: 401, mensagem: 'Sessão inválida ou expirada. Entre no sistema novamente.' } }
   }
 
   const { data: perfil, error: erroPerfil } = await cliente
@@ -280,16 +331,123 @@ async function conferirPermissao(
     .eq('id', sessao.user.id)
     .maybeSingle()
   if (erroPerfil) {
-    return { status: 500, mensagem: `Não consegui ler o perfil de quem chamou: ${erroPerfil.message}` }
+    return { erro: { status: 500, mensagem: `Não consegui ler o perfil de quem chamou: ${erroPerfil.message}` } }
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const funcao = (perfil as any)?.funcao
   const permissoes: string[] = (Array.isArray(funcao) ? funcao[0]?.permissoes : funcao?.permissoes) ?? []
-  if (!permitidas.some((p) => permissoes.includes(p))) {
-    return { status: 403, mensagem: 'Sua conta não tem permissão para disparar notificações por e-mail.' }
+  return { chamador: { id: sessao.user.id, permissoes, cliente } }
+}
+
+// ---------- Lista de pessoas (resolvida no servidor) ----------
+interface Pessoa {
+  nome?: string
+  email: string
+  funcaoNome: string
+  permissoes: string[]
+  areas: string[]
+}
+
+/** Tira acentos e caixa, para comparar nomes de área/público sem sustos. */
+function normalizar(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+}
+
+/**
+ * O nome de uma área casa com um termo?
+ *
+ * Termos curtos ("TI", "RH") só valem como palavra inteira — senão "TI" casaria
+ * com "Inteligência ArTIficial" e o chamado iria para a pessoa errada.
+ */
+function combina(areaNome: string, termo: string): boolean {
+  const a = normalizar(areaNome)
+  const t = normalizar(termo)
+  if (!a || !t) return false
+  if (t.length <= 3) return a.split(/[^a-z0-9]+/).includes(t)
+  return a.includes(t) || t.includes(a)
+}
+
+/** Como cada setor de chamado se traduz em nomes de área de atuação. */
+const TERMOS_POR_SETOR: Record<string, string[]> = {
+  ti: ['ti', 'tecnologia', 'informatica', 'sistemas', 'suporte', 'devops', 'redes'],
+  pesquisa: ['pesquisa', 'cientific', 'clinica'],
+  administrativo: ['administrativo', 'administracao', 'rh', 'recursos humanos', 'financeiro', 'compras'],
+  infraestrutura: ['infraestrutura', 'infra', 'manutencao', 'predial', 'eletrica'],
+  outro: [],
+}
+
+async function listarPessoasAtivas(cliente: Cliente): Promise<Pessoa[]> {
+  const { data, error } = await cliente
+    .from('usuarios')
+    .select('nome, email, funcao:funcoes(nome, permissoes), areas:usuario_areas(area:areas_atuacao(nome))')
+    .eq('status', 'ativo')
+  if (error) throw new Error(`Não consegui ler a lista de usuários: ${error.message}`)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return ((data ?? []) as any[])
+    .map((r) => {
+      const funcao = Array.isArray(r.funcao) ? r.funcao[0] : r.funcao
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const areas = ((r.areas ?? []) as any[])
+        .map((ua) => (Array.isArray(ua.area) ? ua.area[0] : ua.area)?.nome)
+        .filter(Boolean) as string[]
+      return {
+        nome: r.nome ?? undefined,
+        email: r.email ?? '',
+        funcaoNome: funcao?.nome ?? '',
+        permissoes: (funcao?.permissoes ?? []) as string[],
+        areas,
+      }
+    })
+    .filter((p) => p.email)
+}
+
+const ehAdmin = (p: Pessoa) => p.permissoes.includes('gerenciar_tudo')
+
+/**
+ * Quem recebe o aviso, conforme o público-alvo escolhido.
+ * Texto livre é testado contra as ÁREAS DE ATUAÇÃO; se nada casar, cai para
+ * todos os ativos (melhor avisar demais do que deixar alguém sem o recado).
+ */
+function destinatariosDoAviso(pessoas: Pessoa[], publicoAlvo?: string): Pessoa[] {
+  const p = normalizar(publicoAlvo ?? '')
+  if (!p || p === 'todos') return pessoas
+  if (p === 'administradores') return pessoas.filter(ehAdmin)
+  if (p.startsWith('pesquisador')) return pessoas.filter((u) => normalizar(u.funcaoNome).startsWith('pesquisador'))
+  if (p.startsWith('coorden')) return pessoas.filter((u) => normalizar(u.funcaoNome).startsWith('coorden'))
+  const porArea = pessoas.filter((u) => u.areas.some((a) => combina(a, publicoAlvo as string)))
+  return porArea.length > 0 ? porArea : pessoas
+}
+
+/**
+ * Quem recebe o chamado novo: os administradores cuja área de atuação combina
+ * com o setor. Se nenhum admin cobre aquele setor, todos os admins recebem —
+ * assim nenhum chamado fica órfão.
+ */
+function destinatariosDoChamado(pessoas: Pessoa[], setor: string): Pessoa[] {
+  const admins = pessoas.filter(ehAdmin)
+  const termos = TERMOS_POR_SETOR[normalizar(setor)] ?? []
+  if (termos.length === 0) return admins
+  const daArea = admins.filter((u) => u.areas.some((a) => termos.some((t) => combina(a, t))))
+  return daArea.length > 0 ? daArea : admins
+}
+
+/** Consulta a cota do Gmail sem enviar nada (doGet do Apps Script). */
+async function consultarCota(): Promise<number | undefined> {
+  const r = await fetch(GAS_URL as string, { method: 'GET', redirect: 'follow' })
+  const texto = await r.text()
+  try {
+    return (JSON.parse(texto) as { cotaRestante?: number }).cotaRestante
+  } catch {
+    throw new Error(
+      `O Apps Script não devolveu JSON (HTTP ${r.status}). Confira se o web app está publicado para "Qualquer pessoa".`,
+    )
   }
-  return null
 }
 
 serve(async (req: Request) => {
@@ -312,14 +470,37 @@ serve(async (req: Request) => {
   try {
     const corpo = (await req.json()) as Corpo
 
-    // Quem publica aviso pode ser admin OU ter a permissão de publicar avisos;
-    // os demais disparos são exclusivos de administrador.
-    const permitidas =
-      corpo.tipo === 'aviso_publicado' ? ['gerenciar_tudo', 'publicar_avisos'] : ['gerenciar_tudo']
-    const negado = await conferirPermissao(req, permitidas)
-    if (negado) {
-      return new Response(JSON.stringify({ erro: negado.mensagem }), {
-        status: negado.status,
+    const { erro: erroAuth, chamador } = await identificarChamador(req)
+    if (erroAuth || !chamador) {
+      return new Response(JSON.stringify({ erro: erroAuth?.mensagem ?? 'Não autorizado.' }), {
+        status: erroAuth?.status ?? 401,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      })
+    }
+
+    /**
+     * Quem pode disparar cada tipo. `chamado_aberto` é o único liberado para
+     * qualquer pessoa logada — afinal, qualquer uma pode abrir um chamado — e
+     * por isso os destinatários dele são decididos aqui dentro, nunca pelo
+     * navegador.
+     */
+    const permitidas: Record<Corpo['tipo'], string[] | null> = {
+      teste: ['gerenciar_tudo'],
+      cota: ['gerenciar_tudo'],
+      chamado_respondido: ['gerenciar_tudo'],
+      aviso_publicado: ['gerenciar_tudo', 'publicar_avisos'],
+      chamado_aberto: null, // null = basta estar autenticado
+    }
+    const exigidas = permitidas[corpo.tipo]
+    if (exigidas && !exigidas.some((p) => chamador.permissoes.includes(p))) {
+      return new Response(
+        JSON.stringify({ erro: 'Sua conta não tem permissão para disparar notificações por e-mail.' }),
+        { status: 403, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+      )
+    }
+
+    if (corpo.tipo === 'cota') {
+      return new Response(JSON.stringify({ ok: true, cotaRestante: await consultarCota() }), {
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       })
     }
@@ -342,9 +523,28 @@ serve(async (req: Request) => {
       })
     }
 
+    if (corpo.tipo === 'chamado_aberto') {
+      const pessoas = await listarPessoasAtivas(chamador.cliente)
+      const destinatarios = destinatariosDoChamado(pessoas, corpo.setor)
+      if (destinatarios.length === 0) {
+        throw new Error('Nenhum administrador ativo com e-mail cadastrado para receber o chamado.')
+      }
+      const itens = destinatarios.map((d) => {
+        const { assunto, html } = templateChamadoAberto(corpo, d.nome)
+        return { para: d.email, assunto, html }
+      })
+      const r = await enviarEmails(itens)
+      return new Response(JSON.stringify({ ok: true, ...r }), {
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      })
+    }
+
     if (corpo.tipo === 'aviso_publicado') {
-      const destinatarios = (corpo.destinatarios || []).filter((d) => d.email)
-      if (destinatarios.length === 0) throw new Error('Nenhum destinatário com e-mail válido.')
+      const pessoas = await listarPessoasAtivas(chamador.cliente)
+      const destinatarios = destinatariosDoAviso(pessoas, corpo.publicoAlvo)
+      if (destinatarios.length === 0) {
+        throw new Error(`Nenhum usuário ativo corresponde ao público-alvo "${corpo.publicoAlvo ?? 'Todos'}".`)
+      }
       const itens = destinatarios.map((d) => {
         const { assunto, html } = templateAvisoPublicado(corpo, d.nome)
         return { para: d.email, assunto, html }
