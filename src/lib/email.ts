@@ -59,16 +59,42 @@ export async function notificarChamadoRespondido(dados: {
   await invocar('chamado_respondido', { ...dados, appUrl: appUrl() })
 }
 
-/** Um aviso foi publicado → avisa a lista de destinatários (usuários ativos). */
+/**
+ * Um aviso foi publicado → avisa quem se encaixa no público-alvo.
+ *
+ * A lista de destinatários NÃO é montada aqui: mandamos só o público-alvo e a
+ * Edge Function resolve quem recebe, consultando o banco. Assim o navegador
+ * nunca dita para quem o sistema manda e-mail.
+ */
 export async function notificarAvisoPublicado(dados: {
-  destinatarios: Array<{ nome?: string; email: string }>
+  publicoAlvo?: string
   avisoTitulo: string
   avisoDescricao: string
   avisoTipo?: string
   autorNome?: string
 }): Promise<void> {
-  if (dados.destinatarios.length === 0) return
   await invocar('aviso_publicado', { ...dados, appUrl: appUrl() })
+}
+
+/**
+ * Um chamado foi aberto → avisa os administradores da área correspondente.
+ *
+ * Quem recebe também é decidido na Edge Function (admins cuja área de atuação
+ * casa com o setor; se nenhum casar, todos os admins). Precisa ser assim: quem
+ * abre o chamado costuma não ser administrador e não pode escolher destinatário.
+ */
+export async function notificarChamadoAberto(dados: {
+  chamadoTitulo: string
+  chamadoDescricao: string
+  /** Valor bruto do setor — é o que a função usa para achar os admins da área. */
+  setor: string
+  /** Rótulo legível, só para o texto do e-mail. */
+  setorRotulo?: string
+  prioridade?: string
+  categoria?: string
+  solicitanteNome?: string
+}): Promise<void> {
+  await invocar('chamado_aberto', { ...dados, appUrl: appUrl() })
 }
 
 /** O que a função devolve depois de mandar (ou tentar mandar) os e-mails. */
@@ -90,4 +116,16 @@ export async function enviarEmailTeste(
   })
   if (error) throw new Error(await detalharErro(error))
   return (data ?? {}) as ResultadoEnvio
+}
+
+/**
+ * Quantos e-mails ainda cabem hoje na cota do Gmail.
+ * Só consulta — não gasta envio. Restrito a administradores pela função.
+ */
+export async function consultarCotaEmail(): Promise<number | null> {
+  if (!supabase) throw new Error('Supabase não configurado neste ambiente (modo mock).')
+  const { data, error } = await supabase.functions.invoke('notificar-email', { body: { tipo: 'cota' } })
+  if (error) throw new Error(await detalharErro(error))
+  const cota = (data as ResultadoEnvio | null)?.cotaRestante
+  return typeof cota === 'number' ? cota : null
 }
