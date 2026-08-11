@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/Field'
 import { useUI } from '@/store/ui'
 import { USE_MOCK } from '@/lib/supabase'
 import { enviarEmailTeste } from '@/lib/email'
+import { usePermissoes } from '@/hooks/usePermissoes'
 import { mensagemErro, cn } from '@/lib/utils'
 
 /** Versão do app exibida em "Sobre" (mantida em sincronia com o ROADMAP). */
@@ -26,9 +27,13 @@ export function AdminConfiguracoesPage() {
   const [notifTurno, setNotifTurno] = useState(true)
 
   // Teste do envio real de e-mail (Edge Function `notificar-email` + Resend).
-  const [emailTeste, setEmailTeste] = useState('rodriguesmarcotulio79@gmail.com')
+  // Por padrão manda para o e-mail do ADMIN logado — quem está testando recebe.
+  // `null` = "ainda não digitou nada"; ao digitar, o valor do campo manda.
+  const { perfil } = usePermissoes()
+  const [emailTeste, setEmailTeste] = useState<string | null>(null)
+  const destinoTeste = emailTeste ?? perfil?.email ?? ''
   const testeEmail = useMutation({
-    mutationFn: () => enviarEmailTeste(emailTeste.trim()),
+    mutationFn: () => enviarEmailTeste(destinoTeste.trim(), perfil?.nome),
   })
 
   // Lê do supabase.ts (que considera as variáveis injetadas em runtime).
@@ -65,7 +70,7 @@ export function AdminConfiguracoesPage() {
           </LinhaConfig>
         </Secao>
 
-        {/* Envio real de e-mail — testa a Edge Function `notificar-email` (Resend) */}
+        {/* Envio real de e-mail — testa a Edge Function `notificar-email` (Apps Script) */}
         <Secao
           titulo="Envio de e-mail"
           descricao='Dispara um e-mail de teste pela mesma função usada para avisar "chamado respondido" e "aviso publicado".'
@@ -77,14 +82,17 @@ export function AdminConfiguracoesPage() {
               </label>
               <Input
                 type="email"
-                value={emailTeste}
+                value={destinoTeste}
                 onChange={(e) => setEmailTeste(e.target.value)}
                 placeholder="voce@exemplo.com"
               />
+              <p className="mt-1 text-xs text-slate-500">
+                Já vem com o e-mail do administrador logado. Pode trocar por outro endereço.
+              </p>
             </div>
             <Button
               icon={testeEmail.isPending ? undefined : Send}
-              disabled={testeEmail.isPending || !emailTeste.trim()}
+              disabled={testeEmail.isPending || !destinoTeste.trim()}
               onClick={() => testeEmail.mutate()}
               className="shrink-0"
             >
@@ -99,9 +107,17 @@ export function AdminConfiguracoesPage() {
           </div>
 
           {testeEmail.isSuccess && (
-            <p className="flex items-center gap-1.5 pb-3.5 text-sm text-brand-700 dark:text-brand-400">
-              <CheckCircle2 className="h-4 w-4 shrink-0" /> E-mail enviado! Confira a caixa de entrada (e o spam) de{' '}
-              {emailTeste}.
+            <p className="flex items-start gap-1.5 pb-3.5 text-sm text-brand-700 dark:text-brand-400">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                E-mail enviado! Confira a caixa de entrada (e o spam) de {destinoTeste}.
+                {typeof testeEmail.data?.cotaRestante === 'number' && (
+                  <>
+                    {' '}
+                    Ainda cabem <strong>{testeEmail.data.cotaRestante}</strong> envios hoje.
+                  </>
+                )}
+              </span>
             </p>
           )}
           {testeEmail.isError && (
@@ -109,9 +125,11 @@ export function AdminConfiguracoesPage() {
               <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
               <span>
                 Falha ao enviar: {mensagemErro(testeEmail.error)} — confira se a Edge Function{' '}
-                <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">notificar-email</code> está implantada e
-                se o secret <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">RESEND_API_KEY</code> foi
-                configurado (veja <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">docs/notificacoes-email.md</code>).
+                <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">notificar-email</code> está implantada, se
+                os secrets <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">GAS_URL</code> e{' '}
+                <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">GAS_SEGREDO</code> foram configurados e se
+                o web app do Apps Script está publicado para "Qualquer pessoa" (veja{' '}
+                <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">docs/notificacoes-email.md</code>).
               </span>
             </p>
           )}
