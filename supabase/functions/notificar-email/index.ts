@@ -1,31 +1,45 @@
 // ============================================================
 // CINTESP WEB — notificações por e-mail (Supabase Edge Function)
 // ------------------------------------------------------------
-// Dispara e-mails transacionais via Resend (https://resend.com) quando:
+// Dispara e-mails transacionais quando:
 //   • um admin responde um chamado  -> avisa quem abriu
 //   • um aviso é publicado          -> avisa todos os usuários ativos
 //   • "teste" (usado pela tela Configurações > Notificações)
 //
+// O ENVIO em si é feito pelo Google Apps Script (docs/google-apps-script/Codigo.gs),
+// que manda pelo Gmail da conta dona do script. Esta função continua sendo a
+// dona dos MODELOS de e-mail e só entrega ao Apps Script a lista pronta
+// (destinatário + assunto + HTML).
+//
+// Por que passar por aqui e não chamar o Apps Script direto do navegador:
+//   • o segredo do Apps Script ficaria exposto no bundle do front;
+//   • o Apps Script não responde ao preflight CORS de requisições JSON.
+//
 // Variáveis de ambiente (secrets da função, NÃO do app):
-//   RESEND_API_KEY  (obrigatória) — chave da API do Resend.
-//   RESEND_FROM     (opcional)    — remetente. Padrão usa o domínio de teste
-//                                   do Resend, que só entrega para o e-mail
-//                                   da própria conta Resend até você
-//                                   verificar um domínio próprio.
+//   GAS_URL      (obrigatória) — URL do web app publicado (termina em /exec).
+//   GAS_SEGREDO  (obrigatória) — mesmo valor da propriedade CINTESP_SEGREDO
+//                                configurada no Apps Script.
 //
 // Deploy (Supabase self-hosted): copie esta pasta para
 // volumes/functions/notificar-email dentro do stack do Supabase e reinicie
 // o serviço "functions" (edge-runtime). Defina os secrets no .env desse
 // stack. Em Supabase Cloud: `supabase functions deploy notificar-email` e
-// `supabase secrets set RESEND_API_KEY=...`.
+// `supabase secrets set GAS_URL=... GAS_SEGREDO=...`.
 // ============================================================
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
-const RESEND_FROM = Deno.env.get('RESEND_FROM') || 'CINTESP.Br <onboarding@resend.dev>'
-const RESEND_URL = 'https://api.resend.com/emails'
-const RESEND_BATCH_URL = 'https://api.resend.com/emails/batch'
+// Deno.env.get() recebe o NOME da variável de ambiente, nunca o valor dela.
+// Os valores ficam no .env do stack do Supabase (veja docs/notificacoes-email.md).
+const GAS_URL = Deno.env.get('GAS_URL')
+const GAS_SEGREDO = Deno.env.get('GAS_SEGREDO')
+
+/**
+ * Quantos e-mails mandamos por requisição ao Apps Script. O teto de execução
+ * lá é de 6 minutos e cada envio leva perto de 1 segundo, então 50 deixa
+ * margem confortável.
+ */
+const LOTE = 50
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -157,37 +171,65 @@ function templateTeste(nome?: string) {
   return { assunto: 'CINTESP.Br — e-mail de teste', html: layout('Teste de notificação por e-mail', corpo) }
 }
 
-// ---------- Resend ----------
-async function enviarResend(payload: { to: string; subject: string; html: string }) {
-  const r = await fetch(RESEND_URL, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: RESEND_FROM, to: payload.to, subject: payload.subject, html: payload.html }),
-  })
-  const data = await r.json().catch(() => ({}))
-  if (!r.ok) throw new Error(data?.message || `Resend respondeu ${r.status}`)
-  return data
+// ---------- Envio (Google Apps Script → Gmail) ----------
+interface ItemEmail {
+  para: string
+  assunto: string
+  html: string
 }
 
-/** Resend aceita até 100 e-mails por chamada de lote; separa em pedaços por segurança. */
-async function enviarResendEmLote(itens: Array<{ to: string; subject: string; html: string }>) {
-  const LOTE = 100
-  const resultados: Array<{ email: string; ok: boolean; erro?: string }> = []
-  for (let i = 0; i < itens.length; i += LOTE) {
-    const pedaco = itens.slice(i, i + LOTE)
-    const r = await fetch(RESEND_BATCH_URL, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(pedaco.map((it) => ({ from: RESEND_FROM, to: it.to, subject: it.subject, html: it.html }))),
-    })
-    const data = await r.json().catch(() => ({}))
-    if (!r.ok) {
-      for (const it of pedaco) resultados.push({ email: it.to, ok: false, erro: data?.message || `Resend respondeu ${r.status}` })
-      continue
-    }
-    for (const it of pedaco) resultados.push({ email: it.to, ok: true })
+interface RespostaGas {
+  ok?: boolean
+  erro?: string
+  enviados?: number
+  falhas?: Array<{ email: string; erro: string }>
+  cotaRestante?: number
+}
+
+/**
+ * Entrega um lote ao Apps Script.
+ *
+ * Detalhe que engana: um web app do Apps Script responde HTTP 200 mesmo
+ * quando recusa a operação, e devolve HTML (tela de login do Google) quando a
+ * implantação ficou com acesso restrito. Por isso quem decide o sucesso é o
+ * campo `ok` do JSON — nunca o status HTTP.
+ */
+async function entregarAoAppsScript(itens: ItemEmail[]): Promise<RespostaGas> {
+  const r = await fetch(GAS_URL as string, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    // O /exec redireciona para script.googleusercontent.com; seguir é esperado.
+    redirect: 'follow',
+    body: JSON.stringify({ segredo: GAS_SEGREDO, emails: itens }),
+  })
+  const texto = await r.text()
+
+  let dados: RespostaGas
+  try {
+    dados = JSON.parse(texto)
+  } catch {
+    throw new Error(
+      `O Apps Script não devolveu JSON (HTTP ${r.status}). Quase sempre significa que o web app foi ` +
+        'implantado com acesso restrito — reimplante com "Quem pode acessar: Qualquer pessoa". ' +
+        `Início da resposta: ${texto.slice(0, 160)}`,
+    )
   }
-  return resultados
+  if (!dados.ok) throw new Error(dados.erro || 'O Apps Script recusou o envio.')
+  return dados
+}
+
+/** Envia todos os itens, quebrando em lotes que caibam no tempo de execução. */
+async function enviarEmails(itens: ItemEmail[]) {
+  let enviados = 0
+  const falhas: Array<{ email: string; erro: string }> = []
+  let cotaRestante: number | undefined
+  for (let i = 0; i < itens.length; i += LOTE) {
+    const dados = await entregarAoAppsScript(itens.slice(i, i + LOTE))
+    enviados += dados.enviados ?? 0
+    if (Array.isArray(dados.falhas)) falhas.push(...dados.falhas)
+    cotaRestante = dados.cotaRestante
+  }
+  return { enviados, falhas, cotaRestante }
 }
 
 serve(async (req: Request) => {
@@ -198,11 +240,11 @@ serve(async (req: Request) => {
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     })
   }
-  if (!RESEND_API_KEY) {
-    return new Response(JSON.stringify({ erro: 'RESEND_API_KEY não configurada nos secrets da função.' }), {
-      status: 500,
-      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-    })
+  if (!GAS_URL || !GAS_SEGREDO) {
+    return new Response(
+      JSON.stringify({ erro: 'GAS_URL e/ou GAS_SEGREDO não configuradas nos secrets da função.' }),
+      { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+    )
   }
 
   try {
@@ -211,8 +253,8 @@ serve(async (req: Request) => {
     if (corpo.tipo === 'teste') {
       if (!corpo.destinatarioEmail) throw new Error('destinatarioEmail é obrigatório')
       const { assunto, html } = templateTeste(corpo.destinatarioNome)
-      await enviarResend({ to: corpo.destinatarioEmail, subject: assunto, html })
-      return new Response(JSON.stringify({ ok: true, enviados: 1 }), {
+      const r = await enviarEmails([{ para: corpo.destinatarioEmail, assunto, html }])
+      return new Response(JSON.stringify({ ok: true, ...r }), {
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       })
     }
@@ -220,8 +262,8 @@ serve(async (req: Request) => {
     if (corpo.tipo === 'chamado_respondido') {
       if (!corpo.destinatarioEmail) throw new Error('destinatarioEmail é obrigatório')
       const { assunto, html } = templateChamadoRespondido(corpo)
-      await enviarResend({ to: corpo.destinatarioEmail, subject: assunto, html })
-      return new Response(JSON.stringify({ ok: true, enviados: 1 }), {
+      const r = await enviarEmails([{ para: corpo.destinatarioEmail, assunto, html }])
+      return new Response(JSON.stringify({ ok: true, ...r }), {
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       })
     }
@@ -231,12 +273,10 @@ serve(async (req: Request) => {
       if (destinatarios.length === 0) throw new Error('Nenhum destinatário com e-mail válido.')
       const itens = destinatarios.map((d) => {
         const { assunto, html } = templateAvisoPublicado(corpo, d.nome)
-        return { to: d.email, subject: assunto, html }
+        return { para: d.email, assunto, html }
       })
-      const resultados = await enviarResendEmLote(itens)
-      const enviados = resultados.filter((r) => r.ok).length
-      const falhas = resultados.filter((r) => !r.ok)
-      return new Response(JSON.stringify({ ok: true, enviados, falhas }), {
+      const r = await enviarEmails(itens)
+      return new Response(JSON.stringify({ ok: true, ...r }), {
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       })
     }
