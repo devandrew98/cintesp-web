@@ -28,11 +28,17 @@
 // ============================================================
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 // Deno.env.get() recebe o NOME da variável de ambiente, nunca o valor dela.
 // Os valores ficam no .env do stack do Supabase (veja docs/notificacoes-email.md).
 const GAS_URL = Deno.env.get('GAS_URL')
 const GAS_SEGREDO = Deno.env.get('GAS_SEGREDO')
+
+// Injetadas automaticamente pelo Supabase (Cloud e self-hosted). Servem para
+// descobrir QUEM está chamando a função e conferir a permissão dessa pessoa.
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')
 
 /**
  * Quantos e-mails mandamos por requisição ao Apps Script. O teto de execução
@@ -232,7 +238,63 @@ async function enviarEmails(itens: ItemEmail[]) {
   return { enviados, falhas, cotaRestante }
 }
 
+// ---------- Autorização ----------
+/**
+ * Confere se quem chamou a função tem permissão para disparar e-mail.
+ *
+ * Por que a checagem é feita AQUI e não pela plataforma: a verificação de JWT
+ * do Supabase roda ANTES da função e derruba o preflight CORS (o OPTIONS do
+ * navegador não leva cabeçalho Authorization), o que quebra a chamada com
+ * "Failed to send a request to the Edge Function". Desligando a verificação da
+ * plataforma o preflight passa — e esta função assume a responsabilidade,
+ * conferindo não só se a pessoa está logada, mas se ela é administradora.
+ *
+ * Devolve `null` quando está tudo certo, ou o erro a responder.
+ */
+async function conferirPermissao(
+  req: Request,
+  permitidas: string[],
+): Promise<{ status: number; mensagem: string } | null> {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    return { status: 500, mensagem: 'SUPABASE_URL/SUPABASE_ANON_KEY ausentes no ambiente da função.' }
+  }
+  const autorizacao = req.headers.get('Authorization') ?? ''
+  if (!autorizacao.toLowerCase().startsWith('bearer ')) {
+    return { status: 401, mensagem: 'Requisição sem cabeçalho Authorization. Faça login novamente.' }
+  }
+
+  // Cliente que age COMO a pessoa que chamou (respeita as políticas RLS).
+  const cliente = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: { headers: { Authorization: autorizacao } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+
+  const { data: sessao, error: erroSessao } = await cliente.auth.getUser()
+  if (erroSessao || !sessao?.user) {
+    return { status: 401, mensagem: 'Sessão inválida ou expirada. Entre no sistema novamente.' }
+  }
+
+  const { data: perfil, error: erroPerfil } = await cliente
+    .from('usuarios')
+    .select('funcao:funcoes(permissoes)')
+    .eq('id', sessao.user.id)
+    .maybeSingle()
+  if (erroPerfil) {
+    return { status: 500, mensagem: `Não consegui ler o perfil de quem chamou: ${erroPerfil.message}` }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const funcao = (perfil as any)?.funcao
+  const permissoes: string[] = (Array.isArray(funcao) ? funcao[0]?.permissoes : funcao?.permissoes) ?? []
+  if (!permitidas.some((p) => permissoes.includes(p))) {
+    return { status: 403, mensagem: 'Sua conta não tem permissão para disparar notificações por e-mail.' }
+  }
+  return null
+}
+
 serve(async (req: Request) => {
+  // O preflight tem de ser respondido ANTES de qualquer checagem: o navegador
+  // não manda Authorization no OPTIONS.
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS })
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ erro: 'Método não permitido' }), {
@@ -249,6 +311,18 @@ serve(async (req: Request) => {
 
   try {
     const corpo = (await req.json()) as Corpo
+
+    // Quem publica aviso pode ser admin OU ter a permissão de publicar avisos;
+    // os demais disparos são exclusivos de administrador.
+    const permitidas =
+      corpo.tipo === 'aviso_publicado' ? ['gerenciar_tudo', 'publicar_avisos'] : ['gerenciar_tudo']
+    const negado = await conferirPermissao(req, permitidas)
+    if (negado) {
+      return new Response(JSON.stringify({ erro: negado.mensagem }), {
+        status: negado.status,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      })
+    }
 
     if (corpo.tipo === 'teste') {
       if (!corpo.destinatarioEmail) throw new Error('destinatarioEmail é obrigatório')
