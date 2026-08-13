@@ -14,6 +14,7 @@ import { AgendaPage } from '@/pages/Agenda'
 import { BuscaPage } from '@/pages/Busca'
 import { RelatoriosPage } from '@/pages/Relatorios'
 import { AvisosPage } from '@/pages/Avisos'
+import { DocumentosPage } from '@/pages/Documentos'
 import { AdminUsuariosPage } from '@/pages/admin/Usuarios'
 import { AdminPesquisadoresPage } from '@/pages/admin/Pesquisadores'
 import { AdminHorariosPage } from '@/pages/admin/Horarios'
@@ -56,6 +57,7 @@ export default function App() {
           <Route path="/pesquisadores" element={<PesquisadoresPage />} />
           <Route path="/agenda" element={<AgendaPage />} />
           <Route path="/avisos" element={<AvisosPage />} />
+          <Route path="/documentos" element={<DocumentosPage />} />
           <Route path="/busca" element={<BuscaPage />} />
           <Route path="/relatorios" element={<RelatoriosPage />} />
         </Route>

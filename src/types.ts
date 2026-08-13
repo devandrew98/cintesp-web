@@ -103,6 +103,49 @@ export interface Aviso {
   visualizacoes?: number
 }
 
+// ============================================================
+// Documentos — biblioteca de arquivos disponibilizados pela administração
+// (formulários, manuais, políticas etc.), organizados por categoria e
+// departamento. Todo pesquisador vê e baixa; só admin sobe/edita/exclui.
+// ============================================================
+
+export type CategoriaDocumento =
+  | 'formulario'
+  | 'manual'
+  | 'politica'
+  | 'modelo'
+  | 'relatorio'
+  | 'ata'
+  | 'procedimento'
+  | 'outro'
+
+export type DepartamentoDocumento =
+  | 'geral'
+  | 'administracao'
+  | 'pesquisa'
+  | 'rh'
+  | 'financeiro'
+  | 'ti'
+  | 'juridico'
+  | 'comunicacao'
+
+export interface Documento {
+  id: string
+  titulo: string
+  descricao?: string
+  categoria: CategoriaDocumento
+  departamento: DepartamentoDocumento
+  arquivoUrl: string
+  arquivoNome: string
+  arquivoTipo?: string
+  /** Bytes. */
+  arquivoTamanho?: number
+  autorId?: string
+  autorNome?: string
+  criadoEm: string
+  atualizadoEm?: string
+}
+
 export interface EventoHistorico {
   id: string
   data: string

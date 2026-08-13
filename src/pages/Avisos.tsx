@@ -33,7 +33,6 @@ import {
   excluirAviso,
   estatisticasAvisos,
   registrarLeituraAviso,
-  listarUsuarios,
 } from '@/data/api'
 import { notificarAvisoPublicado } from '@/lib/email'
 import { usePermissoes } from '@/hooks/usePermissoes'
@@ -66,20 +65,15 @@ export function AvisosPage() {
     onSuccess: (aviso) => {
       queryClient.invalidateQueries({ queryKey: ['avisos'] })
       // Publicado agora (não é "programado" p/ depois nem "arquivado") → notifica todo mundo por e-mail.
+      // Quem recebe é resolvido na Edge Function a partir do publicoAlvo.
       if (aviso.status === 'ativo') {
-        listarUsuarios()
-          .then((usuarios) =>
-            notificarAvisoPublicado({
-              destinatarios: usuarios
-                .filter((u) => u.status === 'ativo')
-                .map((u) => ({ nome: u.nome, email: u.email })),
-              avisoTitulo: aviso.titulo,
-              avisoDescricao: aviso.descricao,
-              avisoTipo: aviso.tipo,
-              autorNome: perfil?.nome,
-            }),
-          )
-          .catch((err) => console.warn('[avisos] falha ao notificar por e-mail:', err))
+        notificarAvisoPublicado({
+          publicoAlvo: aviso.publicoAlvo,
+          avisoTitulo: aviso.titulo,
+          avisoDescricao: aviso.descricao,
+          avisoTipo: aviso.tipo,
+          autorNome: perfil?.nome,
+        }).catch((err) => console.warn('[avisos] falha ao notificar por e-mail:', err))
       }
     },
   })
