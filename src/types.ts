@@ -234,3 +234,66 @@ export interface Chamado {
   atualizadoEm?: string
   finalizadoEm?: string
 }
+
+// ============================================================
+// Projetos — projetos de pesquisa com equipe, TRL/progresso e chat privado.
+// ============================================================
+
+export type StatusProjeto = 'planejamento' | 'em_andamento' | 'pausado' | 'concluido' | 'cancelado'
+
+/** Escala TRL (Technology Readiness Level), de 1 a 9. */
+export type TRL = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+
+/**
+ * Campos de CONTEÚDO que o admin pode liberar para os pesquisadores
+ * vinculados (que não são o responsável) editarem. Título, status e datas
+ * nunca entram nessa lista — ficam sempre restritos a admin + responsável.
+ */
+export type CampoEditavelProjeto = 'trl' | 'progresso' | 'dadosTecnicos' | 'descricao' | 'observacoes'
+
+/** Um pesquisador vinculado ao projeto (o responsável também aparece aqui). */
+export interface PesquisadorVinculado {
+  usuarioId: string
+  nome?: string
+  fotoUrl?: string
+  papel: 'responsavel' | 'membro'
+}
+
+export interface Projeto {
+  id: string
+  titulo: string
+  descricao?: string
+  status: StatusProjeto
+  trl?: TRL
+  /** 0 a 100. */
+  progresso: number
+  dadosTecnicos?: string
+  observacoes?: string
+  dataInicio?: string
+  dataFimPrevista?: string
+  responsavelId: string
+  responsavelNome?: string
+  responsavelFotoUrl?: string
+  /** Todos os vinculados, incluindo o responsável (papel: 'responsavel'). */
+  pesquisadores: PesquisadorVinculado[]
+  /** Quais campos de CONTEÚDO os membros (não-responsáveis) podem editar. */
+  camposEditaveisMembros: CampoEditavelProjeto[]
+  criadoPorNome?: string
+  criadoEm: string
+  atualizadoEm?: string
+}
+
+/** Mensagem do chat privado do projeto (texto e/ou anexo). */
+export interface MensagemProjeto {
+  id: string
+  projetoId: string
+  autorId?: string
+  autorNome?: string
+  autorFotoUrl?: string
+  corpo?: string
+  anexoUrl?: string
+  anexoNome?: string
+  anexoTipo?: string
+  anexoTamanho?: number
+  criadoEm: string
+}
