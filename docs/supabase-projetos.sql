@@ -156,7 +156,7 @@ $$;
 drop policy if exists "projetos: leitura" on public.projetos;
 create policy "projetos: leitura" on public.projetos
   for select to authenticated
-  using (public.is_admin() or public.projeto_membro(id));
+  using (auth.uid() is not null);
 
 drop policy if exists "projetos: admin cria" on public.projetos;
 create policy "projetos: admin cria" on public.projetos
@@ -176,9 +176,12 @@ create policy "projetos: admin exclui" on public.projetos
 
 -- ---- projeto_pesquisadores (equipe) ----
 drop policy if exists "projeto_pesquisadores: leitura" on public.projeto_pesquisadores;
+
 create policy "projeto_pesquisadores: leitura" on public.projeto_pesquisadores
   for select to authenticated
-  using (public.is_admin() or public.projeto_membro(projeto_id));
+  using (
+    auth.uid() is not null
+  );
 
 drop policy if exists "projeto_pesquisadores: admin gere" on public.projeto_pesquisadores;
 create policy "projeto_pesquisadores: admin gere" on public.projeto_pesquisadores
