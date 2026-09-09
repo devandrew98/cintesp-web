@@ -1,10 +1,11 @@
 import type { FormEvent } from 'react'
-import { Wand2, ClipboardCopy, Code2, Eraser, CheckCircle2 } from 'lucide-react'
+import { Wand2, ClipboardCopy, Code2, Eraser, CheckCircle2, ImageDown } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Field, Input } from '@/components/ui/Field'
+import { AssinaturaLogoInput } from './AssinaturaLogoInput'
 import type { CampoAssinatura, DadosAssinatura } from '@/lib/assinaturaEmail'
 
-/** Formulário de dados da assinatura + botões de ação (gerar, copiar, limpar). */
+/** Formulário de dados da assinatura + botões de ação (gerar, copiar, baixar, limpar). */
 export function AssinaturaForm({
   dados,
   onChange,
@@ -13,8 +14,10 @@ export function AssinaturaForm({
   onGerar,
   onCopiarVisual,
   onCopiarHtml,
+  onBaixarPng,
   onLimpar,
   copiando,
+  baixandoPng,
 }: {
   dados: DadosAssinatura
   onChange: (patch: Partial<DadosAssinatura>) => void
@@ -23,8 +26,10 @@ export function AssinaturaForm({
   onGerar: () => void
   onCopiarVisual: () => void
   onCopiarHtml: () => void
+  onBaixarPng: () => void
   onLimpar: () => void
   copiando: 'visual' | 'html' | null
+  baixandoPng: boolean
 }) {
   function faltando(campo: CampoAssinatura) {
     return camposFaltando.includes(campo)
@@ -37,9 +42,7 @@ export function AssinaturaForm({
 
   return (
     <form onSubmit={enviar} className="space-y-4">
-      <Field label="URL da logo" hint="Precisa ser um link público (http/https) — clientes de e-mail não aceitam caminho de arquivo local.">
-        <Input value={dados.logoUrl} onChange={(e) => onChange({ logoUrl: e.target.value })} placeholder="https://..." />
-      </Field>
+      <AssinaturaLogoInput logoUrl={dados.logoUrl} onChange={(logoUrl) => onChange({ logoUrl })} />
 
       <Field label="Nome completo">
         <Input
@@ -90,6 +93,9 @@ export function AssinaturaForm({
         </Button>
         <Button type="button" variant="secondary" icon={Code2} onClick={onCopiarHtml} disabled={copiando === 'html'}>
           {copiando === 'html' ? 'Copiando…' : 'Copiar código HTML'}
+        </Button>
+        <Button type="button" variant="secondary" icon={ImageDown} onClick={onBaixarPng} disabled={baixandoPng}>
+          {baixandoPng ? 'Gerando PNG…' : 'Baixar PNG (380×75)'}
         </Button>
         <Button type="button" variant="ghost" icon={Eraser} onClick={onLimpar}>
           Limpar

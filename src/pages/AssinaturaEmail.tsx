@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import html2canvas from 'html2canvas'
 import { AlertCircle, CheckCircle2, Mail } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { SectionCard } from '@/components/ui/SectionCard'
@@ -6,11 +7,17 @@ import { AssinaturaForm } from '@/components/assinatura/AssinaturaForm'
 import { AssinaturaPreview } from '@/components/assinatura/AssinaturaPreview'
 import { AssinaturaCodigo } from '@/components/assinatura/AssinaturaCodigo'
 import { usePermissoes } from '@/hooks/usePermissoes'
+import { mensagemErro } from '@/lib/utils'
 import {
   gerarHtmlAssinatura,
+  gerarHtmlAssinaturaCompacta,
   gerarTextoAssinatura,
   valoresPadraoAssinatura,
   validarAssinatura,
+  urlParaDataUri,
+  LOGO_PADRAO_CAMINHO,
+  PNG_ASSINATURA_LARGURA,
+  PNG_ASSINATURA_ALTURA,
   type CampoAssinatura,
   type DadosAssinatura,
 } from '@/lib/assinaturaEmail'
@@ -19,12 +26,25 @@ import {
  * "Assinatura de E-mail" — gera a assinatura padrão do CINTESP.Br a partir
  * de um formulário. Tudo roda no navegador (sem backend/banco): o HTML é
  * montado na hora com tabelas + estilo inline, pronto pra colar no Gmail ou
- * Outlook, com ou sem formatação.
+ * Outlook, com ou sem formatação. A logo vai sempre embutida (base64) —
+ * nunca como link externo — pra não depender de nenhum site estar no ar.
  */
 export function AssinaturaEmailPage() {
   const { perfil } = usePermissoes()
 
   const [dados, setDados] = useState<DadosAssinatura>(valoresPadraoAssinatura)
+
+  // Assim que a página abre, já busca a logo padrão e embute como base64
+  // (o campo começa só com o caminho "/logo-....png" pra pré-visualização
+  // aparecer na hora; troca pela versão embutida assim que carrega).
+  const logoPadraoCarregada = useRef(false)
+  useEffect(() => {
+    if (logoPadraoCarregada.current) return
+    logoPadraoCarregada.current = true
+    urlParaDataUri(LOGO_PADRAO_CAMINHO)
+      .then((dataUri) => setDados((d) => (d.logoUrl === LOGO_PADRAO_CAMINHO ? { ...d, logoUrl: dataUri } : d)))
+      .catch((err) => console.warn('[assinatura] não foi possível embutir a logo padrão:', err))
+  }, [])
 
   // Só de brinde: pré-preenche com o nome/e-mail de quem está logado assim
   // que o perfil carrega (a consulta é assíncrona, não dá pra pegar no
@@ -35,9 +55,11 @@ export function AssinaturaEmailPage() {
     jaPreencheu.current = true
     setDados((d) => ({ ...d, nome: d.nome || perfil.nome || '', email: d.email || perfil.email || '' }))
   }, [perfil])
+
   const [camposFaltando, setCamposFaltando] = useState<CampoAssinatura[]>([])
   const [gerada, setGerada] = useState(false)
   const [copiando, setCopiando] = useState<'visual' | 'html' | null>(null)
+  const [baixandoPng, setBaixandoPng] = useState(false)
   const [mensagem, setMensagem] = useState<string | null>(null)
   const [erro, setErro] = useState<string | null>(null)
 
@@ -66,6 +88,13 @@ export function AssinaturaEmailPage() {
     setGerada(false)
     setMensagem(null)
     setErro(null)
+    logoPadraoCarregada.current = false
+    urlParaDataUri(LOGO_PADRAO_CAMINHO)
+      .then((dataUri) => setDados((d) => ({ ...d, logoUrl: dataUri })))
+      .catch(() => {})
+      .finally(() => {
+        logoPadraoCarregada.current = true
+      })
   }
 
   async function copiarVisual() {
@@ -107,6 +136,54 @@ export function AssinaturaEmailPage() {
     }
   }
 
+  /** Tira um "print" da assinatura (layout compacto) e baixa como PNG 380×75. */
+  async function baixarPng() {
+    setBaixandoPng(true)
+    setMensagem(null)
+    setErro(null)
+    const ESCALA = 3
+    const container = document.createElement('div')
+    container.style.position = 'fixed'
+    container.style.left = '-9999px'
+    container.style.top = '0'
+    container.innerHTML = gerarHtmlAssinaturaCompacta(dados)
+    document.body.appendChild(container)
+    try {
+      const capturado = await html2canvas(container.firstElementChild as HTMLElement, {
+        scale: ESCALA,
+        backgroundColor: '#ffffff',
+        width: PNG_ASSINATURA_LARGURA,
+        height: PNG_ASSINATURA_ALTURA,
+      })
+      // Redimensiona pro tamanho final exato (o html2canvas supersample em
+      // 3x deixa o texto mais nítido antes de reduzir).
+      const final = document.createElement('canvas')
+      final.width = PNG_ASSINATURA_LARGURA
+      final.height = PNG_ASSINATURA_ALTURA
+      const ctx = final.getContext('2d')
+      if (!ctx) throw new Error('Não foi possível preparar a imagem.')
+      ctx.drawImage(capturado, 0, 0, PNG_ASSINATURA_LARGURA, PNG_ASSINATURA_ALTURA)
+
+      const blob = await new Promise<Blob | null>((resolve) => final.toBlob(resolve, 'image/png'))
+      if (!blob) throw new Error('Não foi possível gerar o PNG.')
+
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'assinatura-cintesp.png'
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+      setMensagem('PNG baixado (380×75px).')
+    } catch (err) {
+      setErro(mensagemErro(err))
+    } finally {
+      document.body.removeChild(container)
+      setBaixandoPng(false)
+    }
+  }
+
   return (
     <div>
       <PageHeader
@@ -131,8 +208,10 @@ export function AssinaturaEmailPage() {
             onGerar={gerar}
             onCopiarVisual={copiarVisual}
             onCopiarHtml={copiarHtml}
+            onBaixarPng={baixarPng}
             onLimpar={limpar}
             copiando={copiando}
+            baixandoPng={baixandoPng}
           />
 
           {mensagem && (
