@@ -87,7 +87,7 @@ export function linkWhatsApp(aviso: AvisoCompartilhavel): string {
 }
 
 /** Está num celular/tablet? (decide como compartilhar) */
-function ehDispositivoMovel(): boolean {
+export function ehDispositivoMovel(): boolean {
   if (typeof navigator === 'undefined') return false
   const uaData = (navigator as Navigator & { userAgentData?: { mobile?: boolean } }).userAgentData
   if (uaData && typeof uaData.mobile === 'boolean') return uaData.mobile

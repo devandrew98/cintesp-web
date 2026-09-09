@@ -20,7 +20,9 @@ import { SectionCard } from "@/components/ui/SectionCard";
 import { PersonRow } from "@/components/ui/PersonRow";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
+import { AniversarioModal, type AniversarianteSelecionado } from "@/components/dashboard/AniversarioModal";
 import { listarUsuarios, listarMudancas, listarAvisos } from "@/data/api";
+import { usePermissoes } from "@/hooks/usePermissoes";
 
 function saudacao() {
   const h = new Date().getHours();
@@ -34,6 +36,9 @@ export function DashboardPage() {
   const [atualizando, setAtualizando] = useState(false);
   // Aniversariantes: começa nas "bolinhas" animadas; clicar abre a lista.
   const [aniversAberto, setAniversAberto] = useState(false);
+  // Aniversariante selecionado (clicou no nome/avatar) — abre o modal do WhatsApp.
+  const [aniversSelecionado, setAniversSelecionado] = useState<AniversarianteSelecionado | null>(null);
+  const { ehAdmin } = usePermissoes();
 
   /**
    * Atualizar = recarregar a página inteira (F5). Assim TODAS as informações
@@ -192,10 +197,15 @@ export function DashboardPage() {
           ) : aniversAberto ? (
             // ----- Lista aberta -----
             <div className="divide-y divide-slate-100 dark:divide-slate-800">
-              {aniversariantes.map(({ u, dia }) => {
+              {aniversariantes.map(({ u, dia, mes }) => {
                 const ehHoje = dia === diaAtual;
                 return (
-                  <div key={u.id} className="flex items-center gap-3 py-2.5">
+                  <button
+                    key={u.id}
+                    type="button"
+                    onClick={() => setAniversSelecionado({ u, dia, mes })}
+                    className="flex w-full items-center gap-3 rounded-xl py-2.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                  >
                     <Avatar nome={u.nome} fotoUrl={u.fotoUrl} size="sm" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-slate-700 dark:text-slate-200">
@@ -212,7 +222,7 @@ export function DashboardPage() {
                         {String(dia).padStart(2, "0")}/{String(mesAtual).padStart(2, "0")}
                       </span>
                     )}
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -225,10 +235,22 @@ export function DashboardPage() {
               aria-label="Ver lista de aniversariantes"
             >
               <div className="flex min-h-[64px] flex-wrap items-center justify-center gap-3">
-                {aniversariantes.slice(0, 6).map(({ u, dia }, i) => (
+                {aniversariantes.slice(0, 6).map(({ u, dia, mes }, i) => (
                   <span
                     key={u.id}
-                    className="animate-flutua"
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setAniversSelecionado({ u, dia, mes });
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.stopPropagation();
+                        setAniversSelecionado({ u, dia, mes });
+                      }
+                    }}
+                    className="animate-flutua cursor-pointer"
                     style={{ animationDelay: `${i * 0.22}s` }}
                     title={`${u.nome} — ${String(dia).padStart(2, "0")}/${String(mesAtual).padStart(2, "0")}`}
                   >
@@ -440,6 +462,12 @@ export function DashboardPage() {
         Sincronizado agora • Última atualização há poucos segundos
         <ArrowRight className="hidden h-3 w-3" />
       </div>
+
+      <AniversarioModal
+        aniversariante={aniversSelecionado}
+        ehAdmin={ehAdmin}
+        onClose={() => setAniversSelecionado(null)}
+      />
     </div>
   );
 }
