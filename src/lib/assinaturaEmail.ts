@@ -106,33 +106,29 @@ export function gerarTextoAssinatura(d: DadosAssinatura): string {
   return [d.nome, d.cargo, d.organizacao, d.email].filter(Boolean).join('\n')
 }
 
-export const PNG_ASSINATURA_LARGURA = 380
-export const PNG_ASSINATURA_ALTURA = 75
-
 /**
- * HTML compacto (flexbox, não precisa ser compatível com e-mail) usado só
- * pra tirar o "print" da assinatura em PNG, no tamanho exato exigido
- * (380×75). Como a altura é bem menor que a versão normal, o layout aqui é
- * mais apertado e não usa exatamente o mesmo espaçamento da tabela de e-mail.
+ * HTML usado só pra tirar o "print" da assinatura em PNG (via html2canvas).
+ * Sem tamanho fixo: cada linha usa `white-space:nowrap` pra NUNCA cortar
+ * texto — a imagem fica do tamanho que o conteúdo pedir (nome, cargo e
+ * e-mail longos simplesmente deixam a imagem mais larga/alta, em vez de
+ * truncar ou sobrepor). Fonte grande o bastante pra ficar nítida mesmo sem
+ * o navegador redimensionar a imagem na hora de exibir.
  */
-export function gerarHtmlAssinaturaCompacta(d: DadosAssinatura): string {
+export function gerarHtmlAssinaturaImagem(d: DadosAssinatura): string {
   const nome = escaparHtml(d.nome.trim())
   const cargo = escaparHtml(d.cargo.trim())
+  const organizacao = escaparHtml(d.organizacao.trim())
   const emailTexto = escaparHtml(d.email.trim())
   const logoUrl = escaparHtml(d.logoUrl.trim() || LOGO_PADRAO_CAMINHO)
 
-  // Só 3 linhas aqui (sem a organização): em 75px de altura, o nome completo
-  // "Centro Brasileiro de..." quebra em 2 linhas e fica apertado — e a
-  // logo já mostra "CINTESP.Br" + a tagline, então repetir o nome por
-  // extenso é redundante nesse formato compacto.
   return (
-    `<div style="box-sizing:border-box; width:${PNG_ASSINATURA_LARGURA}px; height:${PNG_ASSINATURA_ALTURA}px; overflow:hidden; ` +
-    `display:flex; align-items:center; gap:14px; padding:8px 12px; background:#ffffff; font-family:${FONTE};">` +
-    `<img src="${logoUrl}" alt="" style="height:58px; width:auto; max-width:95px; flex:none; object-fit:contain;" />` +
-    `<div style="min-width:0; display:flex; flex-direction:column; justify-content:center; gap:3px;">` +
-    `<div style="font-size:15px; line-height:17px; font-weight:700; color:${AZUL_CORPORATIVO}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${nome}</div>` +
-    `<div style="font-size:11px; line-height:13px; color:${CINZA_SECUNDARIO}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${cargo}</div>` +
-    `<div style="font-size:11px; line-height:13px; color:${AZUL_CORPORATIVO};">${emailTexto}</div>` +
+    `<div style="display:inline-flex; align-items:center; gap:28px; padding:24px 32px; background:#ffffff; font-family:${FONTE};">` +
+    `<img src="${logoUrl}" alt="" style="height:120px; width:auto; display:block; flex:none;" />` +
+    `<div style="display:flex; flex-direction:column; gap:6px;">` +
+    `<div style="font-size:24px; line-height:28px; font-weight:700; color:${AZUL_CORPORATIVO}; white-space:nowrap;">${nome}</div>` +
+    `<div style="font-size:17px; line-height:21px; color:${CINZA_SECUNDARIO}; white-space:nowrap;">${cargo}</div>` +
+    `<div style="font-size:17px; line-height:21px; color:${CINZA_SECUNDARIO}; white-space:nowrap;">${organizacao}</div>` +
+    `<div style="font-size:17px; line-height:21px; color:${AZUL_CORPORATIVO}; white-space:nowrap;">${emailTexto}</div>` +
     `</div>` +
     `</div>`
   )

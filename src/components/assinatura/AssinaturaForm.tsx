@@ -95,7 +95,7 @@ export function AssinaturaForm({
           {copiando === 'html' ? 'Copiando…' : 'Copiar código HTML'}
         </Button>
         <Button type="button" variant="secondary" icon={ImageDown} onClick={onBaixarPng} disabled={baixandoPng}>
-          {baixandoPng ? 'Gerando PNG…' : 'Baixar PNG (380×75)'}
+          {baixandoPng ? 'Gerando PNG…' : 'Baixar PNG'}
         </Button>
         <Button type="button" variant="ghost" icon={Eraser} onClick={onLimpar}>
           Limpar

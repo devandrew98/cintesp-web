@@ -10,14 +10,12 @@ import { usePermissoes } from '@/hooks/usePermissoes'
 import { mensagemErro } from '@/lib/utils'
 import {
   gerarHtmlAssinatura,
-  gerarHtmlAssinaturaCompacta,
+  gerarHtmlAssinaturaImagem,
   gerarTextoAssinatura,
   valoresPadraoAssinatura,
   validarAssinatura,
   urlParaDataUri,
   LOGO_PADRAO_CAMINHO,
-  PNG_ASSINATURA_LARGURA,
-  PNG_ASSINATURA_ALTURA,
   type CampoAssinatura,
   type DadosAssinatura,
 } from '@/lib/assinaturaEmail'
@@ -136,35 +134,31 @@ export function AssinaturaEmailPage() {
     }
   }
 
-  /** Tira um "print" da assinatura (layout compacto) e baixa como PNG 380×75. */
+  /**
+   * Tira um "print" da assinatura e baixa como PNG. Sem tamanho fixo: a
+   * imagem sai do tamanho que o conteúdo pedir (fonte grande, nada de
+   * `overflow:hidden`), pra nunca cortar nome/cargo/e-mail — só ajusta a
+   * nitidez com supersampling (renderiza em 2x e o navegador reduz ao
+   * exibir/inserir, ficando nítido em qualquer tela).
+   */
   async function baixarPng() {
     setBaixandoPng(true)
     setMensagem(null)
     setErro(null)
-    const ESCALA = 3
+    const ESCALA = 2
     const container = document.createElement('div')
     container.style.position = 'fixed'
     container.style.left = '-9999px'
     container.style.top = '0'
-    container.innerHTML = gerarHtmlAssinaturaCompacta(dados)
+    container.style.display = 'inline-block'
+    container.innerHTML = gerarHtmlAssinaturaImagem(dados)
     document.body.appendChild(container)
     try {
-      const capturado = await html2canvas(container.firstElementChild as HTMLElement, {
+      const canvas = await html2canvas(container.firstElementChild as HTMLElement, {
         scale: ESCALA,
         backgroundColor: '#ffffff',
-        width: PNG_ASSINATURA_LARGURA,
-        height: PNG_ASSINATURA_ALTURA,
       })
-      // Redimensiona pro tamanho final exato (o html2canvas supersample em
-      // 3x deixa o texto mais nítido antes de reduzir).
-      const final = document.createElement('canvas')
-      final.width = PNG_ASSINATURA_LARGURA
-      final.height = PNG_ASSINATURA_ALTURA
-      const ctx = final.getContext('2d')
-      if (!ctx) throw new Error('Não foi possível preparar a imagem.')
-      ctx.drawImage(capturado, 0, 0, PNG_ASSINATURA_LARGURA, PNG_ASSINATURA_ALTURA)
-
-      const blob = await new Promise<Blob | null>((resolve) => final.toBlob(resolve, 'image/png'))
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
       if (!blob) throw new Error('Não foi possível gerar o PNG.')
 
       const url = URL.createObjectURL(blob)
@@ -175,7 +169,7 @@ export function AssinaturaEmailPage() {
       link.click()
       link.remove()
       URL.revokeObjectURL(url)
-      setMensagem('PNG baixado (380×75px).')
+      setMensagem(`PNG baixado (${canvas.width / ESCALA}×${canvas.height / ESCALA}px, em dobro de resolução pra ficar nítido).`)
     } catch (err) {
       setErro(mensagemErro(err))
     } finally {
