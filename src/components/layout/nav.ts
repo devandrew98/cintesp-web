@@ -7,6 +7,7 @@ import {
   Megaphone,
   FolderOpen,
   FolderKanban,
+  Mail,
   Search,
   FileBarChart,
   LifeBuoy,
@@ -51,6 +52,7 @@ export const navSections: NavSection[] = [
       { label: 'Projetos', to: '/projetos', icon: FolderKanban },
       { label: 'Busca Rápida', to: '/busca', icon: Search },
       { label: 'Relatórios', to: '/relatorios', icon: FileBarChart },
+      { label: 'Assinatura de E-mail', to: '/assinatura-email', icon: Mail },
     ],
   },
   {
