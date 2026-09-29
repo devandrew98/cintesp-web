@@ -3,6 +3,7 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { RequireAuth } from '@/components/auth/RequireAuth'
 import { RequireLiberado } from '@/components/auth/RequireLiberado'
 import { LoginPage } from '@/pages/Login'
+import { PontoPage } from '@/pages/Ponto'
 import { AbrirChamadoPage } from '@/pages/AbrirChamado'
 import { ChamadosAdminPage } from '@/pages/admin/ChamadosAdmin'
 import { AdminConsignadosPage } from '@/pages/admin/Consignados'
@@ -24,6 +25,7 @@ import { AdminFuncoesPage } from '@/pages/admin/Funcoes'
 import { AdminAreasPage } from '@/pages/admin/Areas'
 import { AdminInstituicoesPage } from '@/pages/admin/Instituicoes'
 import { AdminConfiguracoesPage } from '@/pages/admin/Configuracoes'
+import { AdminPontoPage } from '@/pages/admin/Ponto'
 import { AdminEmConstrucao } from '@/pages/admin/AdminEmConstrucao'
 import { RequireAdmin } from '@/components/auth/RequireAdmin'
 import { Placeholder } from '@/pages/Placeholder'
@@ -33,6 +35,16 @@ export default function App() {
     <Routes>
       {/* Rota pública de autenticação */}
       <Route path="/login" element={<LoginPage />} />
+
+      {/* Terminal de ponto (kiosk): exige login, mas SEM o menu/sidebar do app. */}
+      <Route
+        path="/ponto"
+        element={
+          <RequireAuth>
+            <PontoPage />
+          </RequireAuth>
+        }
+      />
 
       {/* Tudo abaixo exige login (quando o Supabase está configurado) */}
       <Route
@@ -78,6 +90,7 @@ export default function App() {
         <Route path="/admin/areas" element={<RequireAdmin><AdminAreasPage /></RequireAdmin>} />
         <Route path="/admin/instituicoes" element={<RequireAdmin><AdminInstituicoesPage /></RequireAdmin>} />
         <Route path="/admin/configuracoes" element={<RequireAdmin><AdminConfiguracoesPage /></RequireAdmin>} />
+        <Route path="/admin/ponto" element={<RequireAdmin><AdminPontoPage /></RequireAdmin>} />
 
         <Route path="*" element={<Placeholder title="Página não encontrada" fase="—" descricao="O endereço acessado não existe." />} />
       </Route>

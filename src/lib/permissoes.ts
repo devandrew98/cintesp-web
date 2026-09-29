@@ -19,6 +19,11 @@ export const PERMISSOES: PermissaoDef[] = [
   { id: 'editar_meu_horario', label: 'Editar meu horário', descricao: 'Editar apenas o próprio horário.' },
   { id: 'publicar_avisos', label: 'Publicar avisos', descricao: 'Criar e publicar avisos para a equipe.' },
   { id: 'abrir_chamado', label: 'Abrir chamado', descricao: 'Abrir chamados de suporte (todos os usuários já podem).' },
+  {
+    id: 'registrar_ponto',
+    label: 'Registrar ponto',
+    descricao: 'Uso exclusivo do terminal de ponto (kiosk): registra entrada/saída via QR Code.',
+  },
 ]
 
 /**
