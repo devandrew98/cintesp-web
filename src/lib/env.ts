@@ -16,6 +16,8 @@ type ChaveEnv =
   | 'VITE_USE_MOCK'
   /** Endereço de incorporação da agenda do Google (Agenda do Dia). */
   | 'VITE_GOOGLE_CALENDAR_URL'
+  /** Identificador do terminal físico de ponto (kiosk). Um só hoje — fixo por padrão. */
+  | 'VITE_PONTO_TERMINAL_ID'
 
 declare global {
   interface Window {
@@ -33,6 +35,7 @@ const build: Record<ChaveEnv, string | undefined> = {
   VITE_SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY,
   VITE_USE_MOCK: import.meta.env.VITE_USE_MOCK,
   VITE_GOOGLE_CALENDAR_URL: import.meta.env.VITE_GOOGLE_CALENDAR_URL,
+  VITE_PONTO_TERMINAL_ID: import.meta.env.VITE_PONTO_TERMINAL_ID,
 }
 
 export function envVar(nome: ChaveEnv): string | undefined {

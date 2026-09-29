@@ -297,3 +297,41 @@ export interface MensagemProjeto {
   anexoTamanho?: number
   criadoEm: string
 }
+
+// ============================================================
+// Ponto — registro de entrada/saída por QR Code
+// ============================================================
+
+export type TipoPonto = 'entrada' | 'saida'
+export type OrigemPonto = 'qrcode' | 'manual'
+
+export interface RegistroPonto {
+  id: string
+  usuarioId: string
+  usuarioNome?: string
+  usuarioFotoUrl?: string
+  tipo: TipoPonto
+  registradoEm: string // ISO — sempre calculado pelo servidor
+  terminalId: string
+  ip?: string
+  origem: OrigemPonto
+  editado: boolean
+  motivoEdicao?: string
+  criadoPorNome?: string
+}
+
+/** Resultado devolvido pelo terminal ao ler um QR Code (ponto_registrar). */
+export interface ResultadoPonto {
+  usuarioId: string
+  nome: string
+  tipo: TipoPonto
+  registradoEm: string
+}
+
+/** Status do QR Code de um pesquisador, visão administrativa. */
+export interface StatusQrPesquisador {
+  usuarioId: string
+  ativo: boolean
+  criadoEm: string
+  atualizadoEm: string
+}

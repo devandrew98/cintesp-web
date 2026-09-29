@@ -17,6 +17,7 @@ import {
   MessageCircle,
   History,
   AlertCircle,
+  QrCode,
 } from 'lucide-react'
 import { AdminShell } from '@/components/admin/AdminShell'
 import { Button } from '@/components/ui/Button'
@@ -28,6 +29,7 @@ import { ImportWizard } from '@/components/participantes/ImportWizard'
 import { EditarUsuarioModal } from '@/components/admin/EditarUsuarioModal'
 import { PessoaFormModal } from '@/components/admin/PessoaFormModal'
 import { PessoaDetailModal } from '@/components/admin/PessoaDetailModal'
+import { QrPontoModal } from '@/components/admin/QrPontoModal'
 import {
   listarUsuarios,
   listarTodosHorarios,
@@ -128,6 +130,7 @@ export function AdminPesquisadoresPage() {
   const [editUsuario, setEditUsuario] = useState<Usuario | null>(null)
   const [editParticipante, setEditParticipante] = useState<Participante | null>(null)
   const [novoAberto, setNovoAberto] = useState(false)
+  const [qrUsuario, setQrUsuario] = useState<Usuario | null>(null)
   const [aConfirmar, setAConfirmar] = useState<{
     p: LinhaPessoa
     acao: 'desativar' | 'excluir'
@@ -466,6 +469,16 @@ export function AdminPesquisadoresPage() {
                         className="flex items-center justify-end gap-1"
                         onClick={(e) => e.stopPropagation()}
                       >
+                        {p.tipo === 'usuario' && (
+                          <button
+                            onClick={() => setQrUsuario(p.usuario!)}
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-500/10"
+                            aria-label={`QR de ponto de ${p.nome}`}
+                            title="QR de Ponto"
+                          >
+                            <QrCode className="h-4 w-4" />
+                          </button>
+                        )}
                         <button
                           onClick={() =>
                             p.tipo === 'usuario'
@@ -555,6 +568,9 @@ export function AdminPesquisadoresPage() {
       )}
 
       {/* ---------- Modais ---------- */}
+
+      {/* QR Code de ponto */}
+      <QrPontoModal usuario={qrUsuario} open={Boolean(qrUsuario)} onClose={() => setQrUsuario(null)} />
 
       {/* Detalhe (clique na linha) */}
       <PessoaDetailModal

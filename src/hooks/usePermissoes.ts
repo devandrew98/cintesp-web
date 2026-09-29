@@ -56,5 +56,7 @@ export function usePermissoes() {
     podePublicarAvisos: ehAdmin || permissoes.includes('publicar_avisos'),
     /** Pode editar o horário de QUALQUER pesquisador (não só o próprio). */
     podeEditarHorariosDeTerceiros: ehAdmin || permissoes.includes('editar_horarios'),
+    /** Pode operar o terminal de ponto (conta "Terminal Ponto" ou admin). */
+    podeRegistrarPonto: ehAdmin || permissoes.includes('registrar_ponto'),
   }
 }
