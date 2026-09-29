@@ -19,6 +19,9 @@
 --     pra escrever chamando essas funções, que validam permissão por dentro.
 -- ============================================================
 
+-- No Supabase (cloud e self-hosted), o pgcrypto normalmente já vem instalado
+-- no schema "extensions" (não em "public"). Por isso as funções abaixo que
+-- usam gen_random_bytes()/digest() incluem "extensions" no search_path.
 create extension if not exists pgcrypto;
 
 -- ---------- Função "Terminal Ponto" (conta compartilhada do kiosk) ----------
@@ -78,7 +81,7 @@ $$;
 -- banco só guarda o hash. Gerar de novo automaticamente invalida o anterior.
 create or replace function public.ponto_gerar_qr(p_usuario_id uuid)
 returns text
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, extensions as $$
 declare
   v_token text;
   v_hash  text;
@@ -147,7 +150,7 @@ $$;
 --   • evita duplicidade por leituras/cliques repetidos em menos de 60s.
 create or replace function public.ponto_registrar(p_token text, p_terminal_id text default 'CINTESP-PONTO-001')
 returns jsonb
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, extensions as $$
 declare
   v_hash          text;
   v_usuario_id    uuid;
