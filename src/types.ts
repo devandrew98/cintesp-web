@@ -335,3 +335,11 @@ export interface StatusQrPesquisador {
   criadoEm: string
   atualizadoEm: string
 }
+
+/** Devolvido por `ponto_status_token` — o que a página /ponto/:token mostra ANTES de confirmar. */
+export interface StatusPontoToken {
+  nome: string
+  proximoTipo: TipoPonto
+  ultimoTipo?: TipoPonto
+  ultimoRegistradoEm?: string
+}

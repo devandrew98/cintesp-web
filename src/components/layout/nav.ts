@@ -15,6 +15,7 @@ import {
   UserCog,
   Boxes,
   Shield,
+  Timer,
   MapPin,
   Building2,
   Settings,
@@ -50,6 +51,7 @@ export const navSections: NavSection[] = [
       { label: 'Avisos', to: '/avisos', icon: Megaphone },
       { label: 'Documentos', to: '/documentos', icon: FolderOpen },
       { label: 'Projetos', to: '/projetos', icon: FolderKanban },
+      { label: 'Meu Ponto', to: '/meu-ponto', icon: Timer },
       { label: 'Busca Rápida', to: '/busca', icon: Search },
       { label: 'Relatórios', to: '/relatorios', icon: FileBarChart },
       { label: 'Assinatura de E-mail', to: '/assinatura-email', icon: Mail },
@@ -66,6 +68,7 @@ export const navSections: NavSection[] = [
     items: [
       { label: 'Chamados', to: '/admin/chamados', icon: Headphones },
       { label: 'Pesquisadores', to: '/admin/pesquisadores', icon: UserCog },
+      { label: 'Registro de Ponto', to: '/admin/ponto', icon: Timer },
       { label: 'Consignados', to: '/admin/consignados', icon: Boxes },
       { label: 'Funções', to: '/admin/funcoes', icon: Shield },
       { label: 'Horários', to: '/admin/horarios', icon: Clock },

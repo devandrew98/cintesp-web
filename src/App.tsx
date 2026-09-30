@@ -4,6 +4,8 @@ import { RequireAuth } from '@/components/auth/RequireAuth'
 import { RequireLiberado } from '@/components/auth/RequireLiberado'
 import { LoginPage } from '@/pages/Login'
 import { PontoPage } from '@/pages/Ponto'
+import { RegistrarPontoPage } from '@/pages/RegistrarPonto'
+import { MeuPontoPage } from '@/pages/MeuPonto'
 import { AbrirChamadoPage } from '@/pages/AbrirChamado'
 import { ChamadosAdminPage } from '@/pages/admin/ChamadosAdmin'
 import { AdminConsignadosPage } from '@/pages/admin/Consignados'
@@ -35,6 +37,11 @@ export default function App() {
     <Routes>
       {/* Rota pública de autenticação */}
       <Route path="/login" element={<LoginPage />} />
+
+      {/* Autoatendimento do ponto pelo celular: PÚBLICA de propósito — o
+          pesquisador lê o QR com a câmera, geralmente sem sessão no app.
+          A autorização é só o token (ver docs/supabase-ponto-autoatendimento.sql). */}
+      <Route path="/ponto/:token" element={<RegistrarPontoPage />} />
 
       {/* Terminal de ponto (kiosk): exige login, mas SEM o menu/sidebar do app. */}
       <Route
@@ -73,6 +80,7 @@ export default function App() {
           <Route path="/avisos" element={<AvisosPage />} />
           <Route path="/documentos" element={<DocumentosPage />} />
           <Route path="/projetos" element={<ProjetosPage />} />
+          <Route path="/meu-ponto" element={<MeuPontoPage />} />
           <Route path="/busca" element={<BuscaPage />} />
           <Route path="/relatorios" element={<RelatoriosPage />} />
           <Route path="/assinatura-email" element={<AssinaturaEmailPage />} />
