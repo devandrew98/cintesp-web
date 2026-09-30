@@ -21,8 +21,9 @@ export const PERMISSOES: PermissaoDef[] = [
   { id: 'abrir_chamado', label: 'Abrir chamado', descricao: 'Abrir chamados de suporte (todos os usuários já podem).' },
   {
     id: 'registrar_ponto',
-    label: 'Registrar ponto',
-    descricao: 'Uso exclusivo do terminal de ponto (kiosk): registra entrada/saída via QR Code.',
+    label: 'Terminal de ponto',
+    descricao:
+      'Uso exclusivo do notebook/terminal do laboratório: mostra em tempo real o último registro de ponto de qualquer pesquisador (o registro em si é feito pelo próprio pesquisador, no celular).',
   },
 ]
 

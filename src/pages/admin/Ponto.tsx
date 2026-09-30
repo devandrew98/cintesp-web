@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { CalendarPlus, Clock, LogIn, LogOut, Pencil, Users2 } from 'lucide-react'
+import { CalendarPlus, FileSpreadsheet, Pencil, UserCheck, UserX, Users2 } from 'lucide-react'
 import { AdminShell } from '@/components/admin/AdminShell'
 import { Button } from '@/components/ui/Button'
 import { Select, Input } from '@/components/ui/Field'
@@ -8,40 +8,56 @@ import { StatCard } from '@/components/ui/StatCard'
 import { Avatar } from '@/components/ui/Avatar'
 import { CorrigirPontoModal } from '@/components/admin/CorrigirPontoModal'
 import { LancarPontoManualModal } from '@/components/admin/LancarPontoManualModal'
+import { RelatorioMensalModal } from '@/components/admin/RelatorioMensalModal'
 import { listarRegistrosPonto } from '@/data/ponto'
 import { listarUsuarios } from '@/data/api'
-import { TIPO_PONTO_LABEL, TIPO_PONTO_COR, formatarDataHoraPonto } from '@/lib/ponto'
+import { agruparPorDia, type DiaFrequencia } from '@/lib/ponto'
 import type { RegistroPonto } from '@/types'
 
-/** Início do dia de hoje, em ISO — usado como filtro padrão. */
-function inicioDeHojeISO(): string {
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  return d.toISOString()
+type Aba = 'hoje' | 'semana' | 'mes'
+
+function inicioDoDia(d: Date): Date {
+  const c = new Date(d)
+  c.setHours(0, 0, 0, 0)
+  return c
+}
+function limiteDataPorAba(aba: Aba): { de: string; ate: string } {
+  const hoje = inicioDoDia(new Date())
+  const ate = new Date().toISOString()
+  if (aba === 'hoje') return { de: hoje.toISOString(), ate }
+  if (aba === 'semana') {
+    const diaSemana = hoje.getDay() // 0=domingo
+    const inicioSemana = new Date(hoje)
+    inicioSemana.setDate(hoje.getDate() - diaSemana)
+    return { de: inicioSemana.toISOString(), ate }
+  }
+  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
+  return { de: inicioMes.toISOString(), ate }
 }
 
 /**
- * "Administração > Ponto" — registros de entrada/saída lidos pelo terminal
- * de QR Code, com filtro por pesquisador/período, correção manual e
- * lançamento retroativo. Tudo aqui é só LEITURA/edição de auditoria — quem
- * decide entrada/saída na hora do registro é sempre o terminal (/ponto).
+ * "Administração > Registro de Ponto" — centraliza a gestão do ponto:
+ * KPIs do dia, registros agrupados por dia (entrada/saída pareadas, não
+ * só uma lista solta de leituras), filtro por pesquisador/período,
+ * correção, lançamento manual e relatório mensal .xlsx.
+ *
+ * Quem registra é sempre o próprio pesquisador (QR pelo celular) — aqui só
+ * se consulta, corrige (com motivo, auditado) ou lança um retroativo.
  */
 export function AdminPontoPage() {
+  const [aba, setAba] = useState<Aba>('hoje')
   const [usuarioFiltro, setUsuarioFiltro] = useState('')
-  const [de, setDe] = useState(() => inicioDeHojeISO().slice(0, 10))
-  const [ate, setAte] = useState('')
+  const [busca, setBusca] = useState('')
   const [corrigindo, setCorrigindo] = useState<RegistroPonto | null>(null)
   const [lancarAberto, setLancarAberto] = useState(false)
+  const [relatorioAberto, setRelatorioAberto] = useState(false)
 
   const { data: usuarios = [] } = useQuery({ queryKey: ['usuarios'], queryFn: listarUsuarios })
 
+  const periodo = useMemo(() => limiteDataPorAba(aba), [aba])
   const filtro = useMemo(
-    () => ({
-      usuarioId: usuarioFiltro || undefined,
-      de: de ? new Date(`${de}T00:00:00`).toISOString() : undefined,
-      ate: ate ? new Date(`${ate}T23:59:59`).toISOString() : undefined,
-    }),
-    [usuarioFiltro, de, ate],
+    () => ({ usuarioId: usuarioFiltro || undefined, de: periodo.de, ate: periodo.ate }),
+    [usuarioFiltro, periodo],
   )
 
   const { data: registros = [], isLoading } = useQuery({
@@ -49,115 +65,105 @@ export function AdminPontoPage() {
     queryFn: () => listarRegistrosPonto(filtro),
   })
 
-  const kpis = useMemo(
-    () => ({
-      total: registros.length,
-      entradas: registros.filter((r) => r.tipo === 'entrada').length,
-      saidas: registros.filter((r) => r.tipo === 'saida').length,
-      pessoas: new Set(registros.map((r) => r.usuarioId)).size,
-    }),
-    [registros],
-  )
+  const dias = useMemo(() => {
+    const q = busca.trim().toLowerCase()
+    const agrupados = agruparPorDia(registros)
+    if (!q) return agrupados
+    return agrupados.filter((d) => d.usuarioNome.toLowerCase().includes(q))
+  }, [registros, busca])
+
+  const kpis = useMemo(() => {
+    const ativos = usuarios.filter((u) => u.status === 'ativo')
+    const hojeISO = new Date().toISOString().slice(0, 10)
+    const presentesHoje = new Set(
+      registros.filter((r) => r.registradoEm.slice(0, 10) === hojeISO).map((r) => r.usuarioId),
+    )
+    return {
+      total: ativos.length,
+      presentes: presentesHoje.size,
+      ausentes: Math.max(ativos.length - presentesHoje.size, 0),
+    }
+  }, [usuarios, registros])
 
   return (
     <AdminShell
       actions={
-        <Button icon={CalendarPlus} onClick={() => setLancarAberto(true)}>
-          Lançar manual
-        </Button>
+        <>
+          <Button variant="secondary" icon={FileSpreadsheet} onClick={() => setRelatorioAberto(true)}>
+            Relatório mensal
+          </Button>
+          <Button icon={CalendarPlus} onClick={() => setLancarAberto(true)}>
+            Lançar manual
+          </Button>
+        </>
       }
     >
-      <div className="mb-6 grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <StatCard icon={Clock} value={kpis.total} label="Registros" hint="No período" accent="blue" />
-        <StatCard icon={LogIn} value={kpis.entradas} label="Entradas" hint="No período" accent="green" />
-        <StatCard icon={LogOut} value={kpis.saidas} label="Saídas" hint="No período" accent="amber" />
-        <StatCard icon={Users2} value={kpis.pessoas} label="Pessoas" hint="Com registro" accent="violet" />
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard icon={Users2} value={kpis.total} label="Pesquisadores" hint="Ativos na plataforma" accent="violet" />
+        <StatCard icon={UserCheck} value={kpis.presentes} label="Presentes hoje" hint="Com registro hoje" accent="green" />
+        <StatCard icon={UserX} value={kpis.ausentes} label="Ausentes hoje" hint="Sem registro hoje" accent="amber" />
       </div>
 
-      {/* Filtros */}
-      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_160px_160px]">
-        <Select value={usuarioFiltro} onChange={(e) => setUsuarioFiltro(e.target.value)}>
-          <option value="">Todos os pesquisadores</option>
-          {usuarios.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.nome}
-            </option>
+      {/* Abas de período + filtros */}
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="inline-flex rounded-xl border border-slate-200 p-1 dark:border-slate-700">
+          {(['hoje', 'semana', 'mes'] as Aba[]).map((a) => (
+            <button
+              key={a}
+              onClick={() => setAba(a)}
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium capitalize transition-colors ${
+                aba === a
+                  ? 'bg-brand-600 text-white'
+                  : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              {a === 'mes' ? 'Mês' : a}
+            </button>
           ))}
-        </Select>
-        <Input type="date" value={de} onChange={(e) => setDe(e.target.value)} />
-        <Input type="date" value={ate} onChange={(e) => setAte(e.target.value)} />
+        </div>
+        <div className="flex-1 min-w-[200px]">
+          <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar pesquisador…" />
+        </div>
+        <div className="min-w-[220px]">
+          <Select value={usuarioFiltro} onChange={(e) => setUsuarioFiltro(e.target.value)}>
+            <option value="">Todos os pesquisadores</option>
+            {usuarios.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.nome}
+              </option>
+            ))}
+          </Select>
+        </div>
       </div>
 
-      {/* Tabela */}
+      {/* Tabela agrupada por dia */}
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800">
               <tr>
-                <th className="px-4 py-3">Pessoa</th>
-                <th className="px-4 py-3">Tipo</th>
-                <th className="px-4 py-3">Horário</th>
-                <th className="px-4 py-3">Origem</th>
-                <th className="px-4 py-3">Terminal</th>
-                <th className="px-4 py-3 text-right">Ações</th>
+                <th className="px-4 py-3">Pesquisador</th>
+                <th className="px-4 py-3">Data</th>
+                <th className="px-4 py-3">Entrada</th>
+                <th className="px-4 py-3">Saída</th>
+                <th className="px-4 py-3">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
+                  <td colSpan={5} className="px-4 py-10 text-center text-slate-400">
                     Carregando…
                   </td>
                 </tr>
-              ) : registros.length === 0 ? (
+              ) : dias.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
+                  <td colSpan={5} className="px-4 py-10 text-center text-slate-400">
                     Nenhum registro no período.
                   </td>
                 </tr>
               ) : (
-                registros.map((r) => (
-                  <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/60">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <Avatar nome={r.usuarioNome ?? '?'} fotoUrl={r.usuarioFotoUrl} size="sm" />
-                        <span className="font-medium text-slate-800 dark:text-slate-100">
-                          {r.usuarioNome ?? 'Pesquisador removido'}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${TIPO_PONTO_COR[r.tipo]}`}>
-                        {TIPO_PONTO_LABEL[r.tipo]}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
-                      {formatarDataHoraPonto(r.registradoEm)}
-                      {r.editado && (
-                        <span
-                          className="ml-2 inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-300"
-                          title={r.motivoEdicao}
-                        >
-                          editado
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-slate-500">
-                      {r.origem === 'qrcode' ? 'QR Code' : `Manual${r.criadoPorNome ? ` · ${r.criadoPorNome}` : ''}`}
-                    </td>
-                    <td className="px-4 py-3 text-slate-500">{r.terminalId}</td>
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => setCorrigindo(r)}
-                        className="rounded-lg p-1.5 text-slate-400 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-500/10"
-                        aria-label={`Corrigir registro de ${r.usuarioNome}`}
-                        title="Corrigir"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                dias.map((d) => <LinhaDia key={`${d.usuarioId}-${d.data}-${d.entrada?.id}-${d.saida?.id}`} dia={d} onCorrigir={setCorrigindo} />)
               )}
             </tbody>
           </table>
@@ -165,9 +171,9 @@ export function AdminPontoPage() {
       </div>
 
       <p className="mt-2 text-xs text-slate-400">
-        Mostrando {registros.length} registro(s). Horário e tipo de entrada/saída são sempre
-        decididos pelo servidor no momento da leitura do QR Code — aqui só é possível corrigir um
-        registro já existente ou lançar um retroativo, ambos com motivo obrigatório e auditoria.
+        Mostrando {dias.length} dia(s). Horário e tipo de entrada/saída são sempre decididos pelo
+        servidor no momento da leitura do QR Code — aqui só é possível corrigir um registro já
+        existente ou lançar um retroativo, ambos com motivo obrigatório e auditoria.
       </p>
 
       <CorrigirPontoModal registro={corrigindo} open={Boolean(corrigindo)} onClose={() => setCorrigindo(null)} />
@@ -176,6 +182,78 @@ export function AdminPontoPage() {
         open={lancarAberto}
         onClose={() => setLancarAberto(false)}
       />
+      <RelatorioMensalModal
+        usuarios={usuarios.map((u) => ({ id: u.id, nome: u.nome }))}
+        open={relatorioAberto}
+        onClose={() => setRelatorioAberto(false)}
+      />
     </AdminShell>
+  )
+}
+
+function LinhaDia({ dia, onCorrigir }: { dia: DiaFrequencia; onCorrigir: (r: RegistroPonto) => void }) {
+  return (
+    <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/60">
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-3">
+          <Avatar nome={dia.usuarioNome} fotoUrl={dia.entrada?.usuarioFotoUrl ?? dia.saida?.usuarioFotoUrl} size="sm" />
+          <span className="font-medium text-slate-800 dark:text-slate-100">{dia.usuarioNome}</span>
+        </div>
+      </td>
+      <td className="px-4 py-3 text-slate-500">
+        {new Date(`${dia.data}T00:00:00`).toLocaleDateString('pt-BR')}
+      </td>
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-1.5">
+          <span className="text-slate-700 dark:text-slate-200">
+            {dia.entrada ? new Date(dia.entrada.registradoEm).toLocaleTimeString('pt-BR') : '—'}
+          </span>
+          {dia.entrada && (
+            <button
+              onClick={() => onCorrigir(dia.entrada!)}
+              className="rounded p-1 text-slate-300 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-500/10"
+              title="Corrigir entrada"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      </td>
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-1.5">
+          <span className="text-slate-700 dark:text-slate-200">
+            {dia.saida ? new Date(dia.saida.registradoEm).toLocaleTimeString('pt-BR') : '—'}
+          </span>
+          {dia.saida && (
+            <button
+              onClick={() => onCorrigir(dia.saida!)}
+              className="rounded p-1 text-slate-300 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-500/10"
+              title="Corrigir saída"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      </td>
+      <td className="px-4 py-3">
+        <div className="flex flex-wrap gap-1.5">
+          {dia.incompleto && (
+            <span className="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
+              incompleto
+            </span>
+          )}
+          {dia.corrigido && (
+            <span className="inline-flex rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700 dark:bg-sky-500/10 dark:text-sky-300">
+              corrigido
+            </span>
+          )}
+          {(dia.entrada?.origem === 'manual' || dia.saida?.origem === 'manual') && (
+            <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+              manual
+            </span>
+          )}
+        </div>
+      </td>
+    </tr>
   )
 }

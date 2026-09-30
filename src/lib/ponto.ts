@@ -1,4 +1,4 @@
-import type { TipoPonto } from '@/types'
+import type { RegistroPonto, TipoPonto } from '@/types'
 
 /** Rótulo amigável de cada tipo de registro. */
 export const TIPO_PONTO_LABEL: Record<TipoPonto, string> = {
@@ -33,4 +33,177 @@ export function paraDatetimeLocal(iso: string): string {
 /** Converte o valor de um `<input type="datetime-local">` de volta para ISO. */
 export function deDatetimeLocal(valor: string): string {
   return new Date(valor).toISOString()
+}
+
+/** URL funcional que o QR Code do pesquisador deve conter — abre direto em /ponto/:token. */
+export function urlRegistroPonto(token: string): string {
+  return `${window.location.origin}/ponto/${token}`
+}
+
+// ============================================================
+// Frequência — agrupa registros soltos (entrada/saída) em "dias" e resume
+// por pesquisador. Usado pelo painel administrativo e pelo relatório mensal.
+// ============================================================
+
+/** Um par entrada/saída de um dia (ou um lado órfão, quando falta o par). */
+export interface DiaFrequencia {
+  usuarioId: string
+  usuarioNome: string
+  /** Data (yyyy-mm-dd) da entrada — ou da saída, se for um registro órfão. */
+  data: string
+  entrada?: RegistroPonto
+  saida?: RegistroPonto
+  /** true quando só tem entrada OU só saída (sem o par). */
+  incompleto: boolean
+  /** true quando qualquer um dos dois lados foi corrigido/lançado manualmente. */
+  corrigido: boolean
+}
+
+/**
+ * Agrupa uma lista de registros (já filtrada por período) em dias
+ * trabalhados por pesquisador, casando ENTRADA com a SAÍDA seguinte.
+ * Não conta simplesmente "quantidade de leituras" — segue a sequência
+ * real entrada→saída→entrada→saída de cada pessoa.
+ */
+export function agruparPorDia(registros: RegistroPonto[]): DiaFrequencia[] {
+  const porUsuario = new Map<string, RegistroPonto[]>()
+  for (const r of registros) {
+    const lista = porUsuario.get(r.usuarioId) ?? []
+    lista.push(r)
+    porUsuario.set(r.usuarioId, lista)
+  }
+
+  const dias: DiaFrequencia[] = []
+  for (const [usuarioId, lista] of porUsuario) {
+    const ordenados = [...lista].sort((a, b) => a.registradoEm.localeCompare(b.registradoEm))
+    const nome = ordenados[0]?.usuarioNome ?? ''
+    let aberto: DiaFrequencia | null = null
+
+    for (const r of ordenados) {
+      if (r.tipo === 'entrada') {
+        if (aberto) dias.push(aberto) // entrada anterior nunca teve saída — fecha como incompleta
+        aberto = {
+          usuarioId,
+          usuarioNome: nome,
+          data: r.registradoEm.slice(0, 10),
+          entrada: r,
+          incompleto: true,
+          corrigido: r.editado,
+        }
+      } else if (aberto) {
+        aberto.saida = r
+        aberto.incompleto = false
+        aberto.corrigido = aberto.corrigido || r.editado
+        dias.push(aberto)
+        aberto = null
+      } else {
+        // Saída sem entrada correspondente no período (ex.: entrada ficou fora do filtro).
+        dias.push({
+          usuarioId,
+          usuarioNome: nome,
+          data: r.registradoEm.slice(0, 10),
+          saida: r,
+          incompleto: true,
+          corrigido: r.editado,
+        })
+      }
+    }
+    if (aberto) dias.push(aberto)
+  }
+
+  return dias.sort((a, b) => b.data.localeCompare(a.data) || a.usuarioNome.localeCompare(b.usuarioNome, 'pt-BR'))
+}
+
+/** Resumo mensal (ou de qualquer período) por pesquisador — base do relatório .xlsx. */
+export interface ResumoFrequencia {
+  usuarioId: string
+  usuarioNome: string
+  diasTrabalhados: number
+  entradas: number
+  saidas: number
+  incompletos: number
+  corrigidos: number
+  /** Soma das horas de dias com entrada E saída válidas. */
+  horasTrabalhadas: number
+}
+
+export function resumirFrequencia(dias: DiaFrequencia[]): ResumoFrequencia[] {
+  const porUsuario = new Map<string, ResumoFrequencia>()
+  for (const d of dias) {
+    let r = porUsuario.get(d.usuarioId)
+    if (!r) {
+      r = {
+        usuarioId: d.usuarioId,
+        usuarioNome: d.usuarioNome,
+        diasTrabalhados: 0,
+        entradas: 0,
+        saidas: 0,
+        incompletos: 0,
+        corrigidos: 0,
+        horasTrabalhadas: 0,
+      }
+      porUsuario.set(d.usuarioId, r)
+    }
+    if (d.entrada) r.entradas++
+    if (d.saida) r.saidas++
+    if (d.corrigido) r.corrigidos++
+    if (d.incompleto) {
+      r.incompletos++
+    } else if (d.entrada && d.saida) {
+      r.diasTrabalhados++
+      const horas = (new Date(d.saida.registradoEm).getTime() - new Date(d.entrada.registradoEm).getTime()) / 3_600_000
+      if (horas > 0) r.horasTrabalhadas += horas
+    }
+  }
+  return [...porUsuario.values()].sort((a, b) => a.usuarioNome.localeCompare(b.usuarioNome, 'pt-BR'))
+}
+
+/** "7h30" a partir de horas fracionárias (7.5). */
+export function formatarHoras(horas: number): string {
+  const totalMin = Math.round(horas * 60)
+  const h = Math.floor(totalMin / 60)
+  const m = totalMin % 60
+  return `${h}h${m > 0 ? String(m).padStart(2, '0') : ''}`
+}
+
+/**
+ * Exporta o relatório mensal de frequência em .xlsx (SheetJS — mesma
+ * biblioteca já usada em src/lib/planilha.ts para importar planilhas).
+ * Import dinâmico: só baixa a lib quando alguém realmente exporta.
+ */
+export async function exportarFrequenciaXlsx(
+  resumo: ResumoFrequencia[],
+  opcoes: { mes: number; ano: number },
+): Promise<void> {
+  const XLSX = await import('xlsx')
+
+  const nomeMes = new Date(opcoes.ano, opcoes.mes - 1, 1).toLocaleDateString('pt-BR', {
+    month: 'long',
+    year: 'numeric',
+  })
+
+  const linhas = resumo.map((r) => ({
+    Pesquisador: r.usuarioNome,
+    'Dias trabalhados': r.diasTrabalhados,
+    Entradas: r.entradas,
+    Saídas: r.saidas,
+    'Registros incompletos': r.incompletos,
+    'Registros corrigidos/manuais': r.corrigidos,
+    'Horas trabalhadas': formatarHoras(r.horasTrabalhadas),
+  }))
+
+  const ws = XLSX.utils.json_to_sheet(linhas)
+  ws['!cols'] = [
+    { wch: 28 }, // Pesquisador
+    { wch: 16 }, // Dias trabalhados
+    { wch: 10 }, // Entradas
+    { wch: 10 }, // Saídas
+    { wch: 20 }, // Registros incompletos
+    { wch: 24 }, // Registros corrigidos/manuais
+    { wch: 16 }, // Horas trabalhadas
+  ]
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Frequência')
+  XLSX.writeFile(wb, `frequencia-ponto-${nomeMes.replace(' ', '-')}.xlsx`)
 }
