@@ -5,7 +5,9 @@ import { RequireLiberado } from '@/components/auth/RequireLiberado'
 import { LoginPage } from '@/pages/Login'
 import { PontoPage } from '@/pages/Ponto'
 import { RegistrarPontoPage } from '@/pages/RegistrarPonto'
-import { MeuPontoPage } from '@/pages/MeuPonto'
+import { QrAcessoPage } from '@/pages/QrAcesso'
+import { RequirePermissao } from '@/components/auth/RequirePermissao'
+import { MeuAcessoPage } from '@/pages/MeuAcesso'
 import { AbrirChamadoPage } from '@/pages/AbrirChamado'
 import { ChamadosAdminPage } from '@/pages/admin/ChamadosAdmin'
 import { AdminConsignadosPage } from '@/pages/admin/Consignados'
@@ -80,7 +82,8 @@ export default function App() {
           <Route path="/avisos" element={<AvisosPage />} />
           <Route path="/documentos" element={<DocumentosPage />} />
           <Route path="/projetos" element={<ProjetosPage />} />
-          <Route path="/meu-ponto" element={<MeuPontoPage />} />
+          <Route path="/meu-acesso" element={<MeuAcessoPage />} />
+          <Route path="/qr-acesso" element={<RequirePermissao permissao="registrar_ponto"><QrAcessoPage /></RequirePermissao>} />
           <Route path="/busca" element={<BuscaPage />} />
           <Route path="/relatorios" element={<RelatoriosPage />} />
           <Route path="/assinatura-email" element={<AssinaturaEmailPage />} />

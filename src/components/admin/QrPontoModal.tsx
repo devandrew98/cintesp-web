@@ -103,7 +103,7 @@ export function QrPontoModal({
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">
             <QrCode className="h-5 w-5" />
           </span>
-          QR Code de Ponto — {usuario.nome}
+          QR Code de Acesso — {usuario.nome}
         </span>
       }
       footer={
