@@ -101,6 +101,13 @@ export function AbrirChamadoPage() {
         subtitle="Descreva seu problema ou solicitação. A equipe responsável vai atender."
       />
 
+      <div className="mb-6 flex items-start gap-3 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-800 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-300">
+        <LifeBuoy className="mt-0.5 h-5 w-5 shrink-0" />
+        <p>
+          Se for seu <strong>primeiro acesso</strong>, favor abra um chamado e aguarde sua liberação.
+        </p>
+      </div>
+
       {ehParticipante && (
         <div className="mb-6 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300">
           <Clock className="mt-0.5 h-5 w-5 shrink-0" />
