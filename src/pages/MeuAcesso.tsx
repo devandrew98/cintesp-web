@@ -7,12 +7,12 @@ import { agruparPorDia } from '@/lib/ponto'
 import { usePermissoes } from '@/hooks/usePermissoes'
 
 /**
- * "Meu Ponto" — o pesquisador vê SÓ o próprio histórico (RLS garante isso
+ * "Meu Acesso" — o pesquisador vê SÓ o próprio histórico (RLS garante isso
  * também no banco: `auth.uid() = usuario_id`). Não expõe horário de
  * colegas; quem precisa ver todo mundo é a Administração > Registro de
  * Ponto.
  */
-export function MeuPontoPage() {
+export function MeuAcessoPage() {
   const { perfil } = usePermissoes()
 
   const { data: registros = [], isLoading } = useQuery({
@@ -28,7 +28,7 @@ export function MeuPontoPage() {
 
   return (
     <div>
-      <PageHeader title="Meu Ponto" subtitle="Seus registros de entrada e saída, feitos pelo QR Code pessoal." />
+      <PageHeader title="Meu Acesso" subtitle="Seus registros de entrada e saída, feitos pelo QR Code pessoal." />
 
       {isLoading ? (
         <div className="flex justify-center py-16">

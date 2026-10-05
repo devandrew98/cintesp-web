@@ -103,7 +103,7 @@ export function RegistrarPontoPage() {
                 ) : (
                   <>
                     <QrCode className="h-5 w-5" />
-                    Registrar meu ponto
+                    Registrar meu acesso
                   </>
                 )}
               </button>
