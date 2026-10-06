@@ -77,6 +77,15 @@ function detectarLinhaCabecalho(matriz: unknown[][]): number {
   return melhorIndice
 }
 
+/** Decodifica um CSV: UTF-8 quando válido, senão Windows-1252. */
+function decodificarTexto(buffer: ArrayBuffer): string {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(buffer)
+  } catch {
+    return new TextDecoder('windows-1252').decode(buffer)
+  }
+}
+
 /**
  * Lê o arquivo e devolve colunas + linhas.
  * @param file arquivo escolhido pelo usuário
@@ -89,7 +98,13 @@ export async function lerPlanilha(file: File, nomeAba?: string): Promise<Planilh
 
   const buffer = await file.arrayBuffer()
   // cellDates: converte datas do Excel em objetos Date de verdade.
-  const wb = XLSX.read(buffer, { cellDates: true })
+  // CSV: decodifica nós mesmos (UTF-8; se não for válido, Windows-1252 — o padrão
+  // do Excel em português) e lê em modo "raw" para não perder zeros à esquerda
+  // (ex.: nº de patrimônio 000123).
+  const ehCsv = /\.(csv|txt)$/i.test(file.name)
+  const wb = ehCsv
+    ? XLSX.read(decodificarTexto(buffer), { type: 'string', raw: true, cellDates: true })
+    : XLSX.read(buffer, { cellDates: true })
 
   const abas = wb.SheetNames
   if (abas.length === 0) throw new Error('A planilha não tem nenhuma aba.')

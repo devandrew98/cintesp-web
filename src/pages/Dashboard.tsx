@@ -53,6 +53,7 @@ export function DashboardPage() {
   const { data: usuarios = [] } = useQuery({
     queryKey: ["usuarios"],
     queryFn: listarUsuarios,
+    refetchInterval: 30_000, // acompanha quem bate o ponto
   });
   const { data: mudancas = [] } = useQuery({
     queryKey: ["mudancas"],

@@ -162,6 +162,28 @@ export async function criarItem(d: DadosItem): Promise<void> {
   if (error) throw error
 }
 
+/** Cadastra vários itens de uma vez (importação de planilha). Quem já existe deve ser filtrado antes. */
+export async function criarItensEmLote(itens: DadosItem[]): Promise<void> {
+  if (itens.length === 0) return
+  if (USE_MOCK || !supabase) {
+    itens.forEach((d, i) => mockItens.unshift({ id: `it-${Date.now()}-${i}`, status: 'disponivel', ...d }))
+    return
+  }
+  const linhas = itens.map((d) => ({
+    numero_patrimonio: d.numeroPatrimonio.trim(),
+    nome: d.nome.trim(),
+    categoria: d.categoria || null,
+    descricao: d.descricao || null,
+    local_padrao: d.localPadrao || null,
+    status: d.status || 'disponivel',
+    observacoes: d.observacoes || null,
+  }))
+  for (let i = 0; i < linhas.length; i += 200) {
+    const { error } = await supabase.from('patrimonio_itens').insert(linhas.slice(i, i + 200))
+    if (error) throw error
+  }
+}
+
 export async function atualizarItem(id: string, d: DadosItem): Promise<void> {
   if (USE_MOCK || !supabase) return
   const { error } = await supabase

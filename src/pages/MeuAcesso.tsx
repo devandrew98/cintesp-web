@@ -23,8 +23,8 @@ export function MeuAcessoPage() {
 
   const dias = useMemo(() => agruparPorDia(registros), [registros])
   const hojeISO = new Date().toISOString().slice(0, 10)
-  const hoje = dias.find((d) => d.data === hojeISO)
-  const historico = dias.filter((d) => d.data !== hojeISO).slice(0, 30)
+  const hoje = dias.find((d) => d.data === hojeISO && !d.falta)
+  const historico = dias.filter((d) => d.data !== hojeISO || d.falta).slice(0, 30)
 
   return (
     <div>
@@ -80,15 +80,21 @@ export function MeuAcessoPage() {
             ) : (
               <ul className="divide-y divide-slate-100 text-sm dark:divide-slate-800">
                 {historico.map((d) => (
-                  <li key={`${d.usuarioId}-${d.data}-${d.entrada?.id ?? d.saida?.id}`} className="flex items-center justify-between gap-3 py-2.5">
+                  <li key={`${d.usuarioId}-${d.data}-${d.entrada?.id ?? d.saida?.id ?? d.falta?.id}`} className="flex items-center justify-between gap-3 py-2.5">
                     <span className="text-slate-500">
                       {new Date(`${d.data}T00:00:00`).toLocaleDateString('pt-BR')}
                     </span>
-                    <span className="font-medium text-slate-700 dark:text-slate-200">
-                      {d.entrada ? new Date(d.entrada.registradoEm).toLocaleTimeString('pt-BR') : '—'}
-                      {' → '}
-                      {d.saida ? new Date(d.saida.registradoEm).toLocaleTimeString('pt-BR') : '—'}
-                    </span>
+                    {d.falta ? (
+                      <span className="rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-700 dark:bg-red-500/10 dark:text-red-300">
+                        falta
+                      </span>
+                    ) : (
+                      <span className="font-medium text-slate-700 dark:text-slate-200">
+                        {d.entrada ? new Date(d.entrada.registradoEm).toLocaleTimeString('pt-BR') : '—'}
+                        {' → '}
+                        {d.saida ? new Date(d.saida.registradoEm).toLocaleTimeString('pt-BR') : '—'}
+                      </span>
+                    )}
                     {d.incompleto && (
                       <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
                         incompleto

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Package,
+  FileSpreadsheet,
   HandCoins,
   Boxes,
   CheckCircle2,
@@ -19,6 +20,7 @@ import { StatCard } from '@/components/ui/StatCard'
 import { Badge } from '@/components/ui/Badge'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { NovoItemModal } from '@/components/consignados/NovoItemModal'
+import { ImportarItensModal } from '@/components/consignados/ImportarItensModal'
 import { NovoConsignadoModal } from '@/components/consignados/NovoConsignadoModal'
 import { ConsignadoDetailModal } from '@/components/consignados/ConsignadoDetailModal'
 import {
@@ -53,6 +55,7 @@ export function AdminConsignadosPage() {
   const [statusFiltro, setStatusFiltro] = useState<'todos' | 'em_uso' | 'devolvido'>('todos')
 
   const [novoItem, setNovoItem] = useState(false)
+  const [importarItens, setImportarItens] = useState(false)
   const [editItem, setEditItem] = useState<ItemPatrimonio | null>(null)
   const [novoEmprestimo, setNovoEmprestimo] = useState(false)
   const [detalhe, setDetalhe] = useState<GrupoConsignado | null>(null)
@@ -135,6 +138,9 @@ export function AdminConsignadosPage() {
     <AdminShell
       actions={
         <>
+          <Button variant="secondary" icon={FileSpreadsheet} onClick={() => setImportarItens(true)}>
+            Importar planilha
+          </Button>
           <Button variant="secondary" icon={Package} onClick={() => setNovoItem(true)}>
             Novo item
           </Button>
@@ -375,6 +381,13 @@ export function AdminConsignadosPage() {
           onClose={() => setNovoItem(false)}
           salvando={criarItemMut.isPending}
           onSalvar={(dados) => criarItemMut.mutate(dados)}
+        />
+      )}
+      {importarItens && (
+        <ImportarItensModal
+          open={importarItens}
+          onClose={() => setImportarItens(false)}
+          numerosExistentes={new Set(itens.map((i) => i.numeroPatrimonio.trim().toLowerCase()))}
         />
       )}
       {editItem && (

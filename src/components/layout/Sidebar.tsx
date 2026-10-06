@@ -1,23 +1,25 @@
-import { NavLink } from 'react-router-dom'
-import { X } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { useUI } from '@/store/ui'
-import { navSections } from './nav'
-import { usePermissoes } from '@/hooks/usePermissoes'
-import { BrandLogo } from './BrandLogo'
+import { NavLink } from "react-router-dom";
+import { X } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useUI } from "@/store/ui";
+import { navSections } from "./nav";
+import { usePermissoes } from "@/hooks/usePermissoes";
+import { BrandLogo } from "./BrandLogo";
 
 export function Sidebar() {
-  const { sidebarOpen, setSidebarOpen } = useUI()
-  const { ehAdmin, podeUsarPlataforma, pode } = usePermissoes()
+  const { sidebarOpen, setSidebarOpen } = useUI();
+  const { ehAdmin, podeUsarPlataforma, pode } = usePermissoes();
 
   // Esconde as seções conforme o papel:
-  //  • somenteAdmin    → só administradores;
-  //  • somenteLiberado → some para quem ainda é Participante (só abre chamado).
+  // • somenteAdmin    → só administradores;
+  // • somenteLiberado → some para quem ainda é Participante (só abre chamado).
   // As rotas também são protegidas (<RequireAdmin>/<RequireLiberado>) e o banco por RLS.
   const secoesVisiveis = navSections.filter(
-    (s) => (!s.somenteAdmin || ehAdmin) && (!s.somenteLiberado || podeUsarPlataforma) &&
+    (s) =>
+      (!s.somenteAdmin || ehAdmin) &&
+      (!s.somenteLiberado || podeUsarPlataforma) &&
       (!s.permissao || pode(s.permissao)),
-  )
+  );
 
   return (
     <>
@@ -31,13 +33,14 @@ export function Sidebar() {
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-slate-200 bg-white transition-transform duration-300 dark:border-slate-800 dark:bg-slate-900',
-          'lg:translate-x-0',
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full',
+          "fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-slate-200 bg-white transition-transform duration-300 dark:border-slate-800 dark:bg-slate-900",
+          "lg:translate-x-0",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
         <div className="flex h-16 items-center justify-between px-5">
           <BrandLogo />
+
           <button
             className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 lg:hidden dark:hover:bg-slate-800"
             onClick={() => setSidebarOpen(false)}
@@ -47,37 +50,42 @@ export function Sidebar() {
           </button>
         </div>
 
-        <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-4">
-          {secoesVisiveis.map((section, i) => (
-            <div key={i}>
-              {section.title && (
-                <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  {section.title}
-                </p>
-              )}
-              <div className="space-y-1">
-                {section.items.map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    end={item.to === '/'}
-                    onClick={() => setSidebarOpen(false)}
-                    className={({ isActive }) =>
-                      cn('nav-link', isActive && 'nav-link-active')
-                    }
-                  >
-                    <item.icon className="h-[18px] w-[18px] shrink-0" />
-                    <span className="flex-1 truncate">{item.label}</span>
-                    {item.badge && (
-                      <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
-                        {item.badge}
-                      </span>
-                    )}
-                  </NavLink>
-                ))}
+        <nav className="flex-1 overflow-y-auto px-3 py-4">
+          <div className="flex flex-col gap-1">
+            {secoesVisiveis.map((section, i) => (
+              <div key={i} className={cn(section.title && "mt-4 first:mt-0")}>
+                {section.title && (
+                  <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    {section.title}
+                  </p>
+                )}
+
+                <div className="flex flex-col gap-1">
+                  {section.items.map((item) => (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      end={item.to === "/"}
+                      onClick={() => setSidebarOpen(false)}
+                      className={({ isActive }) =>
+                        cn("nav-link", isActive && "nav-link-active")
+                      }
+                    >
+                      <item.icon className="h-[18px] w-[18px] shrink-0" />
+
+                      <span className="flex-1 truncate">{item.label}</span>
+
+                      {item.badge && (
+                        <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                          {item.badge}
+                        </span>
+                      )}
+                    </NavLink>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </nav>
 
         <div className="border-t border-slate-200 px-3 py-3 text-xs text-slate-400 dark:border-slate-800">
@@ -85,5 +93,5 @@ export function Sidebar() {
         </div>
       </aside>
     </>
-  )
+  );
 }

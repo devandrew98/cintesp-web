@@ -5,13 +5,13 @@ import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Field, Select, Input, Textarea } from '@/components/ui/Field'
 import { lancarPontoManual } from '@/data/ponto'
-import { deDatetimeLocal } from '@/lib/ponto'
+import { deDatetimeLocal, deDateLocal } from '@/lib/ponto'
 import { mensagemErro } from '@/lib/utils'
 import type { TipoPonto } from '@/types'
 
 /**
  * Lança um registro de ponto retroativo (pesquisador esqueceu de bater o
- * ponto). Exige motivo — fica em auditoria, igual à correção.
+ * ponto) ou uma FALTA (dia inteiro, sem horário). Exige motivo — fica em auditoria, igual à correção.
  */
 export function LancarPontoManualModal({
   usuarios,
@@ -28,6 +28,14 @@ export function LancarPontoManualModal({
   const [horario, setHorario] = useState('')
   const [motivo, setMotivo] = useState('')
 
+  const ehFalta = tipo === 'falta'
+
+  function mudarTipo(novo: TipoPonto) {
+    // O campo muda entre data+hora e só data; o valor antigo não serve no outro formato.
+    if ((novo === 'falta') !== ehFalta) setHorario('')
+    setTipo(novo)
+  }
+
   function limpar() {
     setUsuarioId('')
     setTipo('entrada')
@@ -37,9 +45,10 @@ export function LancarPontoManualModal({
 
   const salvarMut = useMutation({
     mutationFn: () =>
-      lancarPontoManual({ usuarioId, tipo, registradoEm: deDatetimeLocal(horario), motivo: motivo.trim() }),
+      lancarPontoManual({ usuarioId, tipo, registradoEm: tipo === 'falta' ? deDateLocal(horario) : deDatetimeLocal(horario), motivo: motivo.trim() }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ponto-registros'] })
+      qc.invalidateQueries({ queryKey: ['usuarios'] })
       limpar()
       onClose()
     },
@@ -66,7 +75,7 @@ export function LancarPontoManualModal({
             onClick={() => salvarMut.mutate()}
             disabled={salvarMut.isPending || !usuarioId || !horario || !motivo.trim()}
           >
-            {salvarMut.isPending ? 'Salvando…' : 'Lançar registro'}
+            {salvarMut.isPending ? 'Salvando…' : ehFalta ? 'Lançar falta' : 'Lançar registro'}
           </Button>
         </>
       }
@@ -83,15 +92,20 @@ export function LancarPontoManualModal({
           </Select>
         </Field>
         <Field label="Tipo">
-          <Select value={tipo} onChange={(e) => setTipo(e.target.value as TipoPonto)}>
+          <Select value={tipo} onChange={(e) => mudarTipo(e.target.value as TipoPonto)}>
             <option value="entrada">Entrada</option>
             <option value="saida">Saída</option>
+            <option value="falta">Falta</option>
           </Select>
         </Field>
-        <Field label="Horário">
-          <Input type="datetime-local" value={horario} onChange={(e) => setHorario(e.target.value)} />
+        <Field label={ehFalta ? 'Data da falta' : 'Horário'}>
+          <Input
+            type={ehFalta ? 'date' : 'datetime-local'}
+            value={horario}
+            onChange={(e) => setHorario(e.target.value)}
+          />
         </Field>
-        <Field label="Motivo" hint="Obrigatório — ex.: esqueceu de bater o ponto na entrada.">
+        <Field label="Motivo" hint={ehFalta ? 'Obrigatório — ex.: falta justificada, atestado médico.' : 'Obrigatório — ex.: esqueceu de bater o ponto na entrada.'}>
           <Textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Explique o motivo do lançamento manual…" />
         </Field>
         {salvarMut.isError && (

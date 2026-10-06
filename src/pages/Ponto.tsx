@@ -52,6 +52,7 @@ export function PontoPage() {
     if (!podeVerTerminalPonto) return
 
     function receber(r: RegistroPonto) {
+      if (r.tipo === 'falta') return // falta é lançamento administrativo, não batida de ponto
       const nome = r.usuarioNome ?? usuariosRef.current.find((u) => u.id === r.usuarioId)?.nome
       setUltimo(nome ? { ...r, usuarioNome: nome } : r)
     }

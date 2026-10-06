@@ -137,6 +137,7 @@ export function RelatorioMensalModal({
                   <th className="px-3 py-2">Dias</th>
                   <th className="px-3 py-2">Entradas</th>
                   <th className="px-3 py-2">Saídas</th>
+                  <th className="px-3 py-2">Faltas</th>
                   <th className="px-3 py-2">Incompletos</th>
                   <th className="px-3 py-2">Corrigidos</th>
                   <th className="px-3 py-2">Horas</th>
@@ -145,13 +146,13 @@ export function RelatorioMensalModal({
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={7} className="px-3 py-8 text-center text-slate-400">
+                    <td colSpan={8} className="px-3 py-8 text-center text-slate-400">
                       <Loader2 className="mx-auto h-5 w-5 animate-spin" />
                     </td>
                   </tr>
                 ) : resumo.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-3 py-8 text-center text-slate-400">
+                    <td colSpan={8} className="px-3 py-8 text-center text-slate-400">
                       Nenhum registro neste período.
                     </td>
                   </tr>
@@ -162,6 +163,7 @@ export function RelatorioMensalModal({
                       <td className="px-3 py-2 text-slate-500">{r.diasTrabalhados}</td>
                       <td className="px-3 py-2 text-slate-500">{r.entradas}</td>
                       <td className="px-3 py-2 text-slate-500">{r.saidas}</td>
+                      <td className="px-3 py-2 text-slate-500">{r.faltas}</td>
                       <td className="px-3 py-2 text-slate-500">{r.incompletos}</td>
                       <td className="px-3 py-2 text-slate-500">{r.corrigidos}</td>
                       <td className="px-3 py-2 text-slate-500">{formatarHoras(r.horasTrabalhadas)}</td>

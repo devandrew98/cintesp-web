@@ -22,17 +22,24 @@ function inicioDoDia(d: Date): Date {
   return c
 }
 function limiteDataPorAba(aba: Aba): { de: string; ate: string } {
+  // O fim é o do período (não "agora"), para que faltas lançadas para dias
+  // futuros do período — ou hoje à tarde — também apareçam.
   const hoje = inicioDoDia(new Date())
-  const ate = new Date().toISOString()
-  if (aba === 'hoje') return { de: hoje.toISOString(), ate }
+  if (aba === 'hoje') {
+    const fimDia = new Date(hoje)
+    fimDia.setDate(hoje.getDate() + 1)
+    return { de: hoje.toISOString(), ate: fimDia.toISOString() }
+  }
   if (aba === 'semana') {
-    const diaSemana = hoje.getDay() // 0=domingo
     const inicioSemana = new Date(hoje)
-    inicioSemana.setDate(hoje.getDate() - diaSemana)
-    return { de: inicioSemana.toISOString(), ate }
+    inicioSemana.setDate(hoje.getDate() - hoje.getDay()) // 0=domingo
+    const fimSemana = new Date(inicioSemana)
+    fimSemana.setDate(inicioSemana.getDate() + 7)
+    return { de: inicioSemana.toISOString(), ate: fimSemana.toISOString() }
   }
   const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
-  return { de: inicioMes.toISOString(), ate }
+  const fimMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1)
+  return { de: inicioMes.toISOString(), ate: fimMes.toISOString() }
 }
 
 /**
@@ -76,7 +83,7 @@ export function AdminPontoPage() {
     const ativos = usuarios.filter((u) => u.status === 'ativo')
     const hojeISO = new Date().toISOString().slice(0, 10)
     const presentesHoje = new Set(
-      registros.filter((r) => r.registradoEm.slice(0, 10) === hojeISO).map((r) => r.usuarioId),
+      registros.filter((r) => r.tipo !== 'falta' && r.registradoEm.slice(0, 10) === hojeISO).map((r) => r.usuarioId),
     )
     return {
       total: ativos.length,
@@ -173,7 +180,7 @@ export function AdminPontoPage() {
       <p className="mt-2 text-xs text-slate-400">
         Mostrando {dias.length} dia(s). Horário e tipo de entrada/saída são sempre decididos pelo
         servidor no momento da leitura do QR Code — aqui só é possível corrigir um registro já
-        existente ou lançar um retroativo, ambos com motivo obrigatório e auditoria.
+        existente, lançar um retroativo ou registrar uma falta, todos com motivo obrigatório e auditoria.
       </p>
 
       <CorrigirPontoModal registro={corrigindo} open={Boolean(corrigindo)} onClose={() => setCorrigindo(null)} />
@@ -237,17 +244,25 @@ function LinhaDia({ dia, onCorrigir }: { dia: DiaFrequencia; onCorrigir: (r: Reg
       </td>
       <td className="px-4 py-3">
         <div className="flex flex-wrap gap-1.5">
+          {dia.falta && (
+            <span
+              className="inline-flex rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-700 dark:bg-red-500/10 dark:text-red-300"
+              title={dia.falta.motivoEdicao}
+            >
+              falta
+            </span>
+          )}
           {dia.incompleto && (
             <span className="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
               incompleto
             </span>
           )}
-          {dia.corrigido && (
+          {dia.corrigido && !dia.falta && (
             <span className="inline-flex rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700 dark:bg-sky-500/10 dark:text-sky-300">
               corrigido
             </span>
           )}
-          {(dia.entrada?.origem === 'manual' || dia.saida?.origem === 'manual') && (
+          {!dia.falta && (dia.entrada?.origem === 'manual' || dia.saida?.origem === 'manual') && (
             <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-300">
               manual
             </span>

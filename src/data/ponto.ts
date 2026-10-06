@@ -177,7 +177,7 @@ export async function obterStatusPorToken(token: string): Promise<StatusPontoTok
     if (!usuario) throw new Error('Pesquisador não encontrado.')
     if (usuario.status !== 'ativo') throw new Error('Pesquisador inativo — ponto não registrado.')
     const ultimo = [...mockRegistros]
-      .filter((r) => r.usuarioId === usuarioId)
+      .filter((r) => r.usuarioId === usuarioId && r.tipo !== 'falta')
       .sort((a, b) => b.registradoEm.localeCompare(a.registradoEm))[0]
     return {
       nome: usuario.nome,
@@ -211,7 +211,7 @@ export async function registrarPontoPorToken(
     if (usuario.status !== 'ativo') throw new Error('Pesquisador inativo — ponto não registrado.')
 
     const ultimo = [...mockRegistros]
-      .filter((r) => r.usuarioId === usuarioId)
+      .filter((r) => r.usuarioId === usuarioId && r.tipo !== 'falta')
       .sort((a, b) => b.registradoEm.localeCompare(a.registradoEm))[0]
     if (ultimo && Date.now() - new Date(ultimo.registradoEm).getTime() < 60_000) {
       throw new Error('Registro muito recente — aguarde um instante e tente novamente.')
@@ -342,4 +342,33 @@ export async function lancarPontoManual(dados: {
     p_motivo: dados.motivo,
   })
   if (error) throw error
+}
+
+// ============================================================
+// Presença — quem está "dentro" agora (base da disponibilidade)
+// ============================================================
+
+/**
+ * Ids dos pesquisadores com ENTRADA aberta HOJE (último registro do dia é
+ * entrada, sem saída depois). É o que torna alguém "disponível": bater o
+ * ponto de entrada. Devolve `null` quando não dá para saber (migração
+ * `docs/supabase-ponto-falta-presenca.sql` pendente) — aí o chamador cai no
+ * cálculo antigo, pelo horário.
+ */
+export async function listarPresentesAgora(): Promise<Set<string> | null> {
+  if (USE_MOCK || !supabase) {
+    const hoje = new Date().toDateString()
+    const ultimoPorUsuario = new Map<string, RegistroPonto>()
+    for (const r of [...mockRegistros].sort((a, b) => a.registradoEm.localeCompare(b.registradoEm))) {
+      if (r.tipo === 'falta' || new Date(r.registradoEm).toDateString() !== hoje) continue
+      ultimoPorUsuario.set(r.usuarioId, r)
+    }
+    return new Set([...ultimoPorUsuario.values()].filter((r) => r.tipo === 'entrada').map((r) => r.usuarioId))
+  }
+  const { data, error } = await supabase.rpc('ponto_presentes')
+  if (error) {
+    if (ehTabelaAusente(error)) return null
+    throw error
+  }
+  return new Set((data ?? []).map((r: any) => (typeof r === 'string' ? r : r.ponto_presentes ?? r.usuario_id)))
 }

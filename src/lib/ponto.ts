@@ -4,12 +4,14 @@ import type { RegistroPonto, TipoPonto } from '@/types'
 export const TIPO_PONTO_LABEL: Record<TipoPonto, string> = {
   entrada: 'Entrada',
   saida: 'Saída',
+  falta: 'Falta',
 }
 
 /** Cores (badge) por tipo de registro. */
 export const TIPO_PONTO_COR: Record<TipoPonto, string> = {
   entrada: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
   saida: 'bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
+  falta: 'bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-300',
 }
 
 /** Formata um ISO completo como "dd/mm/aaaa às HH:MM:SS". */
@@ -30,6 +32,16 @@ export function paraDatetimeLocal(iso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+/** Converte um Date local para o formato de `<input type="date">` (yyyy-mm-dd). */
+export function paraDateLocal(iso: string): string {
+  return paraDatetimeLocal(iso).slice(0, 10)
+}
+
+/** Dia inteiro (`<input type="date">`) → ISO ao meio-dia local (evita virar o dia por fuso). */
+export function deDateLocal(valor: string): string {
+  return new Date(`${valor}T12:00:00`).toISOString()
+}
+
 /** Converte o valor de um `<input type="datetime-local">` de volta para ISO. */
 export function deDatetimeLocal(valor: string): string {
   return new Date(valor).toISOString()
@@ -45,6 +57,11 @@ export function urlRegistroPonto(token: string): string {
 // por pesquisador. Usado pelo painel administrativo e pelo relatório mensal.
 // ============================================================
 
+/** yyyy-mm-dd no fuso local. */
+function localDia(iso: string): string {
+  return paraDateLocal(iso)
+}
+
 /** Um par entrada/saída de um dia (ou um lado órfão, quando falta o par). */
 export interface DiaFrequencia {
   usuarioId: string
@@ -57,6 +74,8 @@ export interface DiaFrequencia {
   incompleto: boolean
   /** true quando qualquer um dos dois lados foi corrigido/lançado manualmente. */
   corrigido: boolean
+  /** Registro de falta (dia inteiro) lançado pelo admin — não tem entrada/saída. */
+  falta?: RegistroPonto
 }
 
 /**
@@ -80,7 +99,17 @@ export function agruparPorDia(registros: RegistroPonto[]): DiaFrequencia[] {
     let aberto: DiaFrequencia | null = null
 
     for (const r of ordenados) {
-      if (r.tipo === 'entrada') {
+      if (r.tipo === 'falta') {
+        // Falta é um dia à parte: não entra no pareamento entrada→saída.
+        dias.push({
+          usuarioId,
+          usuarioNome: nome,
+          data: localDia(r.registradoEm),
+          falta: r,
+          incompleto: false,
+          corrigido: r.editado,
+        })
+      } else if (r.tipo === 'entrada') {
         if (aberto) dias.push(aberto) // entrada anterior nunca teve saída — fecha como incompleta
         aberto = {
           usuarioId,
@@ -123,6 +152,7 @@ export interface ResumoFrequencia {
   saidas: number
   incompletos: number
   corrigidos: number
+  faltas: number
   /** Soma das horas de dias com entrada E saída válidas. */
   horasTrabalhadas: number
 }
@@ -140,9 +170,14 @@ export function resumirFrequencia(dias: DiaFrequencia[]): ResumoFrequencia[] {
         saidas: 0,
         incompletos: 0,
         corrigidos: 0,
+        faltas: 0,
         horasTrabalhadas: 0,
       }
       porUsuario.set(d.usuarioId, r)
+    }
+    if (d.falta) {
+      r.faltas++
+      continue
     }
     if (d.entrada) r.entradas++
     if (d.saida) r.saidas++
@@ -187,6 +222,7 @@ export async function exportarFrequenciaXlsx(
     'Dias trabalhados': r.diasTrabalhados,
     Entradas: r.entradas,
     Saídas: r.saidas,
+    Faltas: r.faltas,
     'Registros incompletos': r.incompletos,
     'Registros corrigidos/manuais': r.corrigidos,
     'Horas trabalhadas': formatarHoras(r.horasTrabalhadas),
@@ -198,6 +234,7 @@ export async function exportarFrequenciaXlsx(
     { wch: 16 }, // Dias trabalhados
     { wch: 10 }, // Entradas
     { wch: 10 }, // Saídas
+    { wch: 10 }, // Faltas
     { wch: 20 }, // Registros incompletos
     { wch: 24 }, // Registros corrigidos/manuais
     { wch: 16 }, // Horas trabalhadas

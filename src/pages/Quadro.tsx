@@ -26,6 +26,7 @@ export function QuadroPage() {
   const { data: usuarios = [], isLoading } = useQuery({
     queryKey: ['usuarios'],
     queryFn: listarUsuarios,
+    refetchInterval: 30_000, // acompanha quem bate o ponto
   })
   const { data: areas = [] } = useQuery({ queryKey: ['areas'], queryFn: listarAreas })
   const { data: funcoes = [] } = useQuery({ queryKey: ['funcoes'], queryFn: listarFuncoes })

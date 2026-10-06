@@ -2,6 +2,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { supabase, USE_MOCK } from '@/lib/supabase'
 import { disponibilidadePorHorario } from '@/lib/horarios'
+import { listarPresentesAgora } from '@/data/ponto'
 import * as mock from '@/data/mock'
 import type {
   AreaAtuacao,
@@ -204,10 +205,37 @@ function normalizarStatus(v: unknown): StatusDisponibilidade {
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 export async function listarUsuarios(): Promise<Usuario[]> {
-  if (USE_MOCK || !supabase) return mock.usuarios
+  if (USE_MOCK || !supabase) return aplicarPresenca(mock.usuarios)
   const r = await selecionarUsuarios((sel) => supabase!.from('usuarios').select(sel).order('nome'))
   if (r.error) throw r.error
-  return ((r.data ?? []) as unknown[]).map(mapUsuario)
+  return aplicarPresenca(((r.data ?? []) as unknown[]).map(mapUsuario))
+}
+
+/**
+ * Liga a disponibilidade ao PONTO: quem está no modo automático só aparece
+ * como "disponível" depois de bater a entrada (e volta a "ausente" na
+ * saída). O horário cadastrado continua sendo exibido, mas não decide mais.
+ * Estados definidos manualmente (Parcial, Home office…) seguem mandando.
+ * Se a consulta de presença falhar/não existir, mantém o cálculo pelo horário.
+ */
+async function aplicarPresenca(usuarios: Usuario[]): Promise<Usuario[]> {
+  let presentes: Set<string> | null = null
+  try {
+    presentes = await listarPresentesAgora()
+  } catch {
+    presentes = null
+  }
+  if (!presentes) return usuarios
+  const naPresenca = presentes
+  return usuarios.map((u) =>
+    u.disponibilidadeAutomatica === false
+      ? u
+      : {
+          ...u,
+          disponibilidade: naPresenca.has(u.id) ? 'disponivel' : 'ausente',
+          livreAte: naPresenca.has(u.id) ? u.livreAte : undefined,
+        },
+  )
 }
 
 // ============================================================

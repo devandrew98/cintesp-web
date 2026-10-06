@@ -302,7 +302,8 @@ export interface MensagemProjeto {
 // Ponto — registro de entrada/saída por QR Code
 // ============================================================
 
-export type TipoPonto = 'entrada' | 'saida'
+/** `falta` = ausência lançada pelo admin (não é uma batida de ponto). */
+export type TipoPonto = 'entrada' | 'saida' | 'falta'
 export type OrigemPonto = 'qrcode' | 'manual'
 
 export interface RegistroPonto {
