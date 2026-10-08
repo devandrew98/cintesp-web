@@ -308,6 +308,19 @@ export async function corrigirRegistroPonto(
   if (error) throw error
 }
 
+/** Exclui um registro de ponto (duplicado/engano). Exige motivo — fica em auditoria. */
+export async function excluirRegistroPonto(id: string, motivo: string): Promise<void> {
+  if (USE_MOCK || !supabase) {
+    const i = mockRegistros.findIndex((x) => x.id === id)
+    if (i < 0) throw new Error('Registro não encontrado.')
+    mockRegistros.splice(i, 1)
+    salvarRegistros()
+    return
+  }
+  const { error } = await supabase.rpc('ponto_excluir', { p_id: id, p_motivo: motivo })
+  if (error) throw error
+}
+
 /** Lança um registro retroativo (pesquisador esqueceu de bater o ponto). Exige motivo. */
 export async function lancarPontoManual(dados: {
   usuarioId: string
