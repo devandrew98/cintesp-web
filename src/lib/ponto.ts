@@ -208,7 +208,7 @@ export function formatarHoras(horas: number): string {
  */
 export async function exportarFrequenciaXlsx(
   resumo: ResumoFrequencia[],
-  opcoes: { mes: number; ano: number },
+  opcoes: { mes: number; ano: number; registros?: RegistroPonto[] },
 ): Promise<void> {
   const XLSX = await import('xlsx')
 
@@ -216,6 +216,20 @@ export async function exportarFrequenciaXlsx(
     month: 'long',
     year: 'numeric',
   })
+
+  // Observações: motivo de todo registro corrigido ou lançado manualmente (faltas inclusas).
+  const comObservacao = (opcoes.registros ?? [])
+    .filter((r) => r.editado || r.origem === 'manual')
+    .sort((a, b) => (a.usuarioNome ?? '').localeCompare(b.usuarioNome ?? '', 'pt-BR') || a.registradoEm.localeCompare(b.registradoEm))
+  const dataCurta = (r: RegistroPonto) => new Date(r.registradoEm).toLocaleDateString('pt-BR')
+  const horaDe = (r: RegistroPonto) => (r.tipo === 'falta' ? '—' : formatarHoraPonto(r.registradoEm))
+  const textoObs = (r: RegistroPonto) => `${dataCurta(r)} (${TIPO_PONTO_LABEL[r.tipo].toLowerCase()}): ${r.motivoEdicao ?? 'sem motivo informado'}`
+  const obsPorUsuario = new Map<string, string[]>()
+  for (const r of comObservacao) {
+    const lista = obsPorUsuario.get(r.usuarioId) ?? []
+    lista.push(textoObs(r))
+    obsPorUsuario.set(r.usuarioId, lista)
+  }
 
   const linhas = resumo.map((r) => ({
     Pesquisador: r.usuarioNome,
@@ -226,6 +240,7 @@ export async function exportarFrequenciaXlsx(
     'Registros incompletos': r.incompletos,
     'Registros corrigidos/manuais': r.corrigidos,
     'Horas trabalhadas': formatarHoras(r.horasTrabalhadas),
+    Observações: (obsPorUsuario.get(r.usuarioId) ?? []).join(' | '),
   }))
 
   const ws = XLSX.utils.json_to_sheet(linhas)
@@ -238,9 +253,28 @@ export async function exportarFrequenciaXlsx(
     { wch: 20 }, // Registros incompletos
     { wch: 24 }, // Registros corrigidos/manuais
     { wch: 16 }, // Horas trabalhadas
+    { wch: 70 }, // Observações
   ]
 
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Frequência')
+
+  // Segunda aba: um registro por linha, com o motivo e quem lançou/corrigiu.
+  const linhasObs = comObservacao.map((r) => ({
+    Pesquisador: r.usuarioNome ?? '',
+    Data: dataCurta(r),
+    Tipo: TIPO_PONTO_LABEL[r.tipo],
+    Horário: horaDe(r),
+    Origem: r.origem === 'manual' ? 'Lançamento manual' : 'Corrigido',
+    Observação: r.motivoEdicao ?? '',
+    'Lançado/corrigido por': r.criadoPorNome ?? '',
+  }))
+  const wsObs = XLSX.utils.json_to_sheet(
+    linhasObs.length > 0
+      ? linhasObs
+      : [{ Pesquisador: '', Data: '', Tipo: '', Horário: '', Origem: '', Observação: 'Nenhum registro corrigido ou lançado manualmente no período.', 'Lançado/corrigido por': '' }],
+  )
+  wsObs['!cols'] = [{ wch: 28 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 18 }, { wch: 60 }, { wch: 26 }]
+  XLSX.utils.book_append_sheet(wb, wsObs, 'Observações')
   XLSX.writeFile(wb, `frequencia-ponto-${nomeMes.replace(' ', '-')}.xlsx`)
 }

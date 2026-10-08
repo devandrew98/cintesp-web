@@ -56,7 +56,7 @@ export function RelatorioMensalModal({
     setErroExport(null)
     setExportando(true)
     try {
-      await exportarFrequenciaXlsx(resumo, { mes, ano })
+      await exportarFrequenciaXlsx(resumo, { mes, ano, registros })
     } catch (e) {
       setErroExport(mensagemErro(e))
     } finally {
