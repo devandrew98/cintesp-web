@@ -114,7 +114,7 @@ export function agruparPorDia(registros: RegistroPonto[]): DiaFrequencia[] {
         aberto = {
           usuarioId,
           usuarioNome: nome,
-          data: r.registradoEm.slice(0, 10),
+          data: localDia(r.registradoEm),
           entrada: r,
           incompleto: true,
           corrigido: r.editado,
@@ -130,7 +130,7 @@ export function agruparPorDia(registros: RegistroPonto[]): DiaFrequencia[] {
         dias.push({
           usuarioId,
           usuarioNome: nome,
-          data: r.registradoEm.slice(0, 10),
+          data: localDia(r.registradoEm),
           saida: r,
           incompleto: true,
           corrigido: r.editado,
@@ -141,6 +141,37 @@ export function agruparPorDia(registros: RegistroPonto[]): DiaFrequencia[] {
   }
 
   return dias.sort((a, b) => b.data.localeCompare(a.data) || a.usuarioNome.localeCompare(b.usuarioNome, 'pt-BR'))
+}
+
+/** Início (domingo 00:00, fuso local) da semana de `ref`. */
+export function inicioDaSemana(ref: Date = new Date()): Date {
+  const d = new Date(ref)
+  d.setHours(0, 0, 0, 0)
+  d.setDate(d.getDate() - d.getDay())
+  return d
+}
+
+/**
+ * Milissegundos trabalhados em um dia: entrada→saída. Se o dia ainda está
+ * "aberto" (entrada sem saída) e é hoje, conta até `agora` — o cronômetro corre.
+ * Dias passados sem saída, saídas órfãs e faltas contam 0.
+ */
+export function duracaoDiaMs(d: DiaFrequencia, agora: Date): number {
+  if (d.falta || !d.entrada) return 0
+  const inicio = new Date(d.entrada.registradoEm).getTime()
+  if (d.saida) return Math.max(new Date(d.saida.registradoEm).getTime() - inicio, 0)
+  if (d.data === localDia(agora.toISOString())) return Math.max(agora.getTime() - inicio, 0)
+  return 0
+}
+
+/** "05:32:10" a partir de milissegundos. */
+export function formatarCronometro(ms: number): string {
+  const total = Math.floor(Math.max(ms, 0) / 1000)
+  const h = Math.floor(total / 3600)
+  const m = Math.floor((total % 3600) / 60)
+  const sec = total % 60
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${p(h)}:${p(m)}:${p(sec)}`
 }
 
 /** Resumo mensal (ou de qualquer período) por pesquisador — base do relatório .xlsx. */

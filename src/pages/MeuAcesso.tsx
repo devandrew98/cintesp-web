@@ -1,9 +1,9 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Clock, History, Loader2, QrCode } from 'lucide-react'
+import { CalendarRange, Clock, History, Loader2, QrCode, Timer } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { listarRegistrosPonto } from '@/data/ponto'
-import { agruparPorDia } from '@/lib/ponto'
+import { agruparPorDia, duracaoDiaMs, formatarCronometro, inicioDaSemana, paraDateLocal } from '@/lib/ponto'
 import { usePermissoes } from '@/hooks/usePermissoes'
 
 /**
@@ -22,9 +22,26 @@ export function MeuAcessoPage() {
   })
 
   const dias = useMemo(() => agruparPorDia(registros), [registros])
-  const hojeISO = new Date().toISOString().slice(0, 10)
-  const hoje = dias.find((d) => d.data === hojeISO && !d.falta)
+  const [agora, setAgora] = useState(() => new Date())
+  const hojeISO = paraDateLocal(agora.toISOString())
+  const diasHoje = dias.filter((d) => d.data === hojeISO && !d.falta)
+  const hoje = diasHoje[diasHoje.length - 1]
   const historico = dias.filter((d) => d.data !== hojeISO || d.falta).slice(0, 30)
+
+  // Acesso aberto = entrada de hoje sem saída. Só então o cronômetro corre (1x por segundo).
+  const aberto = diasHoje.some((d) => d.entrada && !d.saida)
+  useEffect(() => {
+    if (!aberto) return
+    setAgora(new Date())
+    const t = setInterval(() => setAgora(new Date()), 1000)
+    return () => clearInterval(t)
+  }, [aberto])
+
+  const msHoje = diasHoje.reduce((t, d) => t + duracaoDiaMs(d, agora), 0)
+  const semanaDe = paraDateLocal(inicioDaSemana(agora).toISOString())
+  const msSemana = dias
+    .filter((d) => d.data >= semanaDe)
+    .reduce((t, d) => t + duracaoDiaMs(d, agora), 0)
 
   return (
     <div>
@@ -36,6 +53,23 @@ export function MeuAcessoPage() {
         </div>
       ) : (
         <div className="space-y-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Cronometro
+              icone={Timer}
+              rotulo="Horas de hoje"
+              ms={msHoje}
+              correndo={aberto}
+              dica={aberto ? 'Acesso aberto — contando' : 'Acesso fechado'}
+            />
+            <Cronometro
+              icone={CalendarRange}
+              rotulo="Horas da semana"
+              ms={msSemana}
+              correndo={aberto}
+              dica="Domingo a sábado"
+            />
+          </div>
+
           <div className="card p-5">
             <h2 className="mb-3 flex items-center gap-2 font-semibold text-slate-900 dark:text-white">
               <Clock className="h-4 w-4 text-slate-400" />
@@ -107,6 +141,36 @@ export function MeuAcessoPage() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function Cronometro({
+  icone: Icone,
+  rotulo,
+  ms,
+  correndo,
+  dica,
+}: {
+  icone: typeof Timer
+  rotulo: string
+  ms: number
+  correndo: boolean
+  dica: string
+}) {
+  return (
+    <div className="card p-5">
+      <p className="flex items-center gap-2 text-sm text-slate-500">
+        <Icone className="h-4 w-4 text-slate-400" />
+        {rotulo}
+      </p>
+      <p className="mt-2 font-mono text-3xl font-bold tabular-nums text-slate-900 dark:text-white">
+        {formatarCronometro(ms)}
+      </p>
+      <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-400">
+        {correndo && <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />}
+        {dica}
+      </p>
     </div>
   )
 }
