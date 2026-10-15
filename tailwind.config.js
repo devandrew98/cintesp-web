@@ -36,9 +36,30 @@ export default {
           '0%, 100%': { transform: 'translateY(0) rotate(-3deg)' },
           '50%': { transform: 'translateY(-9px) rotate(3deg)' },
         },
+        // Ranking: degrau do pódio subindo, linhas entrando, coroa balançando, brilho do 1º lugar.
+        sobePodio: {
+          '0%': { transform: 'translateY(60px)', opacity: '0' },
+          '100%': { transform: 'translateY(0)', opacity: '1' },
+        },
+        entraLinha: {
+          '0%': { transform: 'translateX(-16px)', opacity: '0' },
+          '100%': { transform: 'translateX(0)', opacity: '1' },
+        },
+        coroa: {
+          '0%, 100%': { transform: 'translateY(0) rotate(-6deg)' },
+          '50%': { transform: 'translateY(-5px) rotate(6deg)' },
+        },
+        brilho: {
+          '0%, 100%': { boxShadow: '0 0 0 0 rgba(250, 204, 21, 0.55)' },
+          '50%': { boxShadow: '0 0 0 14px rgba(250, 204, 21, 0)' },
+        },
       },
       animation: {
         flutua: 'flutua 2.8s ease-in-out infinite',
+        'sobe-podio': 'sobePodio 0.9s cubic-bezier(0.22, 1, 0.36, 1) both',
+        'entra-linha': 'entraLinha 0.5s ease-out both',
+        coroa: 'coroa 2.2s ease-in-out infinite',
+        brilho: 'brilho 2.4s ease-in-out infinite',
       },
     },
   },

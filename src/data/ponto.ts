@@ -385,3 +385,61 @@ export async function listarPresentesAgora(): Promise<Set<string> | null> {
   }
   return new Set((data ?? []).map((r: any) => (typeof r === 'string' ? r : r.ponto_presentes ?? r.usuario_id)))
 }
+
+// ============================================================
+// Ranking mensal — só posição/nome/foto (nunca horas)
+// ============================================================
+
+export interface PosicaoRanking {
+  posicao: number
+  usuarioId: string
+  nome: string
+  fotoUrl?: string
+}
+
+/**
+ * Ranking de horas do mês. No banco a conta é feita em `ponto_ranking_mensal`
+ * (SECURITY DEFINER) para que ninguém precise ler o ponto dos outros — e as
+ * horas nem saem de lá. Devolve o top 10 + a linha de quem chamou, se estiver fora dele.
+ */
+export async function listarRankingMensal(usuarioAtualId?: string): Promise<PosicaoRanking[]> {
+  if (USE_MOCK || !supabase) {
+    const usuarios = await listarUsuarios()
+    const agora = new Date()
+    const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1).toISOString()
+    const horas = new Map<string, number>()
+    const porUsuario = new Map<string, RegistroPonto[]>()
+    for (const r of mockRegistros) {
+      if (r.tipo === 'falta' || r.registradoEm < inicioMes) continue
+      porUsuario.set(r.usuarioId, [...(porUsuario.get(r.usuarioId) ?? []), r])
+    }
+    for (const [id, lista] of porUsuario) {
+      const ord = [...lista].sort((a, b) => a.registradoEm.localeCompare(b.registradoEm))
+      let total = 0
+      ord.forEach((r, i) => {
+        if (r.tipo !== 'entrada') return
+        const prox = ord[i + 1]
+        if (prox?.tipo === 'saida') total += new Date(prox.registradoEm).getTime() - new Date(r.registradoEm).getTime()
+        else if (!prox && new Date(r.registradoEm).toDateString() === agora.toDateString())
+          total += agora.getTime() - new Date(r.registradoEm).getTime()
+      })
+      if (total > 0) horas.set(id, total)
+    }
+    const todos = usuarios
+      .filter((u) => u.status === 'ativo' && horas.has(u.id))
+      .sort((a, b) => horas.get(b.id)! - horas.get(a.id)! || a.nome.localeCompare(b.nome, 'pt-BR'))
+      .map((u, i) => ({ posicao: i + 1, usuarioId: u.id, nome: u.nome, fotoUrl: u.fotoUrl }))
+    return todos.filter((p) => p.posicao <= 10 || p.usuarioId === usuarioAtualId)
+  }
+  const { data, error } = await supabase.rpc('ponto_ranking_mensal')
+  if (error) {
+    if (ehTabelaAusente(error)) return []
+    throw error
+  }
+  return (data ?? []).map((r: any) => ({
+    posicao: r.posicao,
+    usuarioId: r.usuario_id,
+    nome: r.nome,
+    fotoUrl: r.foto_url ?? undefined,
+  }))
+}
