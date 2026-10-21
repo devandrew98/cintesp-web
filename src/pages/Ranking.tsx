@@ -1,8 +1,9 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Crown, Flame, Loader2, Trophy } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Avatar } from '@/components/ui/Avatar'
-import { listarRankingMensal, type PosicaoRanking } from '@/data/ponto'
+import { listarRankingMensal, type GrupoRanking, type PosicaoRanking } from '@/data/ponto'
 import { usePermissoes } from '@/hooks/usePermissoes'
 import { cn } from '@/lib/utils'
 
@@ -31,9 +32,11 @@ const MESES = [
 export function RankingPage() {
   const { perfil } = usePermissoes()
 
+  const [grupo, setGrupo] = useState<GrupoRanking>('geral')
+
   const { data: ranking = [], isLoading } = useQuery({
-    queryKey: ['ranking-mensal', perfil?.id],
-    queryFn: () => listarRankingMensal(perfil?.id),
+    queryKey: ['ranking-mensal', grupo, perfil?.id],
+    queryFn: () => listarRankingMensal(grupo, perfil?.id),
     refetchInterval: 60_000, // vai se mexendo enquanto o pessoal bate o ponto
   })
 
@@ -52,6 +55,25 @@ export function RankingPage() {
         title="Ranking do mês"
         subtitle={`A disputa de ${MESES[agora.getMonth()]} tá rolando! Quanto mais tempo no laboratório, mais você sobe.`}
       />
+
+      {/* Geral x IC: disputa separada pra ficar justo */}
+      <div className="mb-4 inline-flex rounded-xl border border-slate-200 p-1 dark:border-slate-700">
+        {([
+          ['geral', 'Geral'],
+          ['ic', 'Pesquisadores IC'],
+        ] as [GrupoRanking, string][]).map(([g, rotulo]) => (
+          <button
+            key={g}
+            onClick={() => setGrupo(g)}
+            className={cn(
+              'rounded-lg px-4 py-1.5 text-sm font-medium transition-colors',
+              grupo === g ? 'bg-brand-600 text-white' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800',
+            )}
+          >
+            {rotulo}
+          </button>
+        ))}
+      </div>
 
       {/* Prazo */}
       <div
@@ -73,7 +95,7 @@ export function RankingPage() {
       ) : top10.length === 0 ? (
         <div className="card flex flex-col items-center gap-3 px-6 py-16 text-center">
           <Trophy className="h-10 w-10 text-slate-300" />
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Ninguém pontuou ainda</h2>
+          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Ninguém pontuou ainda{grupo === 'ic' ? ' entre os ICs' : ''}</h2>
           <p className="max-w-sm text-sm text-slate-500">
             Bate seu ponto no QR Code e seja o primeiro a aparecer no pódio deste mês!
           </p>

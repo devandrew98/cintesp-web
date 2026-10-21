@@ -1,22 +1,37 @@
 -- ============================================================
 -- CINTESP — Ranking mensal de horas (página /ranking)
 -- Rode depois de supabase-ponto.sql e supabase-ponto-falta-presenca.sql.
--- Idempotente.
+-- Idempotente. (v2: regras anti-inflação + ranking separado dos ICs)
 --
 -- Por que uma função e não ler ponto_registros direto: a RLS deixa cada
 -- pesquisador ver só o PRÓPRIO ponto. O ranking precisa comparar todo mundo,
 -- mas SEM expor horas nem horários — então a conta é feita aqui, no banco,
 -- e só devolve: posição, id, nome e foto. Horas nunca saem daqui.
 --
+-- Parâmetro p_grupo:
+--   'geral' → todos os pesquisadores liberados;
+--   'ic'    → só quem tem função "Pesquisador - IC" (inclui variações como
+--             "Pesquisador - IC - Fulana": nome começando com "Pesquisador - IC").
+--
+-- COMO AS HORAS SÃO CONTADAS (fuso de São Paulo, mês corrente):
+--   • cada ENTRADA é pareada com a SAÍDA seguinte — mas SÓ vale se a saída é
+--     do MESMO DIA da entrada. Quem esquece de bater a saída e bate no dia
+--     seguinte teria um par de 20h+ (a leitura seguinte vira "saída"): isso
+--     NÃO conta (esse foi o principal inflador);
+--   • cada par tem teto de 12h por dia (esquecimento/teste não vira "dia de 24h");
+--   • entrada de hoje ainda aberta conta até agora (também com teto de 12h);
+--     entrada antiga sem saída vale 0;
+--   • faltas são ignoradas; só pesquisadores ativos com acesso à plataforma
+--     (função com `ver_quadro` ou `gerenciar_tudo` — Participante fica de fora).
+--   • lançamentos manuais do admin CONTAM (o admin confirmou).
+--
 -- Devolve o TOP 10 + a linha de quem está chamando (se estiver fora do top 10,
 -- só para ele saber a própria posição).
---
--- Horas do mês (fuso de São Paulo): soma de cada ENTRADA até a SAÍDA seguinte.
--- Entrada de hoje ainda aberta conta até agora; entrada antiga sem saída vale 0.
--- Faltas são ignoradas. Só pesquisadores ativos.
 -- ============================================================
 
-create or replace function public.ponto_ranking_mensal()
+drop function if exists public.ponto_ranking_mensal();
+
+create or replace function public.ponto_ranking_mensal(p_grupo text default 'geral')
 returns table (posicao int, usuario_id uuid, nome text, foto_url text)
 language sql stable security definer set search_path = public as $$
   with mes as (
@@ -40,11 +55,16 @@ language sql stable security definer set search_path = public as $$
       g.usuario_id,
       sum(
         case
-          when g.prox_tipo = 'saida' then extract(epoch from (g.prox_em - g.registrado_em))
+          -- par entrada→saída: só no mesmo dia, com teto de 12h
+          when g.prox_tipo = 'saida'
+               and (g.prox_em at time zone 'America/Sao_Paulo')::date
+                   = (g.registrado_em at time zone 'America/Sao_Paulo')::date
+            then least(extract(epoch from (g.prox_em - g.registrado_em)), 12 * 3600)
+          -- entrada de hoje ainda aberta: conta até agora (teto de 12h)
           when g.prox_tipo is null
                and (g.registrado_em at time zone 'America/Sao_Paulo')::date
                    = (now() at time zone 'America/Sao_Paulo')::date
-            then extract(epoch from (now() - g.registrado_em))
+            then least(extract(epoch from (now() - g.registrado_em)), 12 * 3600)
           else 0
         end
       ) as segundos
@@ -62,7 +82,11 @@ language sql stable security definer set search_path = public as $$
       u.foto_url
     from horas h
     join public.usuarios u on u.id = h.usuario_id
-    where u.status = 'ativo' and h.segundos > 0
+    join public.funcoes f on f.id = u.funcao_id
+    where u.status = 'ativo'
+      and h.segundos > 0
+      and (f.permissoes && array['ver_quadro', 'gerenciar_tudo'])
+      and (p_grupo <> 'ic' or f.nome ilike 'Pesquisador - IC%')
   )
   select o.posicao, o.usuario_id, o.nome, o.foto_url
   from ordenado o
@@ -70,4 +94,4 @@ language sql stable security definer set search_path = public as $$
   order by o.posicao;
 $$;
 
-grant execute on function public.ponto_ranking_mensal() to authenticated;
+grant execute on function public.ponto_ranking_mensal(text) to authenticated;

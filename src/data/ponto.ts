@@ -402,7 +402,12 @@ export interface PosicaoRanking {
  * (SECURITY DEFINER) para que ninguém precise ler o ponto dos outros — e as
  * horas nem saem de lá. Devolve o top 10 + a linha de quem chamou, se estiver fora dele.
  */
-export async function listarRankingMensal(usuarioAtualId?: string): Promise<PosicaoRanking[]> {
+export type GrupoRanking = 'geral' | 'ic'
+
+export async function listarRankingMensal(
+  grupo: GrupoRanking,
+  usuarioAtualId?: string,
+): Promise<PosicaoRanking[]> {
   if (USE_MOCK || !supabase) {
     const usuarios = await listarUsuarios()
     const agora = new Date()
@@ -419,19 +424,26 @@ export async function listarRankingMensal(usuarioAtualId?: string): Promise<Posi
       ord.forEach((r, i) => {
         if (r.tipo !== 'entrada') return
         const prox = ord[i + 1]
-        if (prox?.tipo === 'saida') total += new Date(prox.registradoEm).getTime() - new Date(r.registradoEm).getTime()
-        else if (!prox && new Date(r.registradoEm).toDateString() === agora.toDateString())
-          total += agora.getTime() - new Date(r.registradoEm).getTime()
+        const ini = new Date(r.registradoEm)
+        // Mesma regra do banco: saída só vale no MESMO dia da entrada, e cada par tem teto de 12h.
+        if (prox?.tipo === 'saida') {
+          const fim = new Date(prox.registradoEm)
+          if (fim.toDateString() === ini.toDateString())
+            total += Math.min(fim.getTime() - ini.getTime(), 12 * 3_600_000)
+        } else if (!prox && ini.toDateString() === agora.toDateString()) {
+          total += Math.min(agora.getTime() - ini.getTime(), 12 * 3_600_000)
+        }
       })
       if (total > 0) horas.set(id, total)
     }
     const todos = usuarios
       .filter((u) => u.status === 'ativo' && horas.has(u.id))
+      .filter((u) => grupo === 'geral' || /^pesquisador - ic/i.test(u.funcao.nome))
       .sort((a, b) => horas.get(b.id)! - horas.get(a.id)! || a.nome.localeCompare(b.nome, 'pt-BR'))
       .map((u, i) => ({ posicao: i + 1, usuarioId: u.id, nome: u.nome, fotoUrl: u.fotoUrl }))
     return todos.filter((p) => p.posicao <= 10 || p.usuarioId === usuarioAtualId)
   }
-  const { data, error } = await supabase.rpc('ponto_ranking_mensal')
+  const { data, error } = await supabase.rpc('ponto_ranking_mensal', { p_grupo: grupo })
   if (error) {
     if (ehTabelaAusente(error)) return []
     throw error

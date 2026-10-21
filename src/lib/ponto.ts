@@ -151,6 +151,9 @@ export function inicioDaSemana(ref: Date = new Date()): Date {
   return d
 }
 
+/** Teto de um par entrada→saída. Bate com `ponto_ranking_mensal` (12h) — evita esquecimento inflar horas. */
+export const LIMITE_PAR_MS = 12 * 3_600_000
+
 /**
  * Milissegundos trabalhados em um dia: entrada→saída. Se o dia ainda está
  * "aberto" (entrada sem saída) e é hoje, conta até `agora` — o cronômetro corre.
@@ -159,8 +162,12 @@ export function inicioDaSemana(ref: Date = new Date()): Date {
 export function duracaoDiaMs(d: DiaFrequencia, agora: Date): number {
   if (d.falta || !d.entrada) return 0
   const inicio = new Date(d.entrada.registradoEm).getTime()
-  if (d.saida) return Math.max(new Date(d.saida.registradoEm).getTime() - inicio, 0)
-  if (d.data === localDia(agora.toISOString())) return Math.max(agora.getTime() - inicio, 0)
+  if (d.saida) {
+    // Saída em OUTRO dia = esqueceu de bater a saída (a leitura seguinte virou "saída"): não vale.
+    if (localDia(d.saida.registradoEm) !== d.data) return 0
+    return Math.min(Math.max(new Date(d.saida.registradoEm).getTime() - inicio, 0), LIMITE_PAR_MS)
+  }
+  if (d.data === localDia(agora.toISOString())) return Math.min(Math.max(agora.getTime() - inicio, 0), LIMITE_PAR_MS)
   return 0
 }
 
