@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Package,
   FileSpreadsheet,
+  FileSignature,
   HandCoins,
   Boxes,
   CheckCircle2,
@@ -21,6 +22,7 @@ import { Badge } from '@/components/ui/Badge'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { NovoItemModal } from '@/components/consignados/NovoItemModal'
 import { ImportarItensModal } from '@/components/consignados/ImportarItensModal'
+import { AbaAssinaturasAdmin } from '@/components/assinaturas/AbaAssinaturasAdmin'
 import { NovoConsignadoModal } from '@/components/consignados/NovoConsignadoModal'
 import { ConsignadoDetailModal } from '@/components/consignados/ConsignadoDetailModal'
 import {
@@ -42,7 +44,7 @@ import {
 } from '@/lib/consignados'
 import { formatDateOnlyBR, cn } from '@/lib/utils'
 
-type Aba = 'emprestimos' | 'patrimonio'
+type Aba = 'emprestimos' | 'patrimonio' | 'assinaturas'
 
 /**
  * "Administração > Consignados" — controle de patrimônio e empréstimos.
@@ -56,6 +58,7 @@ export function AdminConsignadosPage() {
 
   const [novoItem, setNovoItem] = useState(false)
   const [importarItens, setImportarItens] = useState(false)
+  const [novoDocumento, setNovoDocumento] = useState(false)
   const [editItem, setEditItem] = useState<ItemPatrimonio | null>(null)
   const [novoEmprestimo, setNovoEmprestimo] = useState(false)
   const [detalhe, setDetalhe] = useState<GrupoConsignado | null>(null)
@@ -144,6 +147,9 @@ export function AdminConsignadosPage() {
           <Button variant="secondary" icon={Package} onClick={() => setNovoItem(true)}>
             Novo item
           </Button>
+          <Button variant="secondary" icon={FileSignature} onClick={() => { setAba('assinaturas'); setNovoDocumento(true) }}>
+            Novo documento p/ assinar
+          </Button>
           <Button icon={HandCoins} onClick={() => setNovoEmprestimo(true)}>
             Novo empréstimo
           </Button>
@@ -179,7 +185,7 @@ export function AdminConsignadosPage() {
 
       {/* Abas internas */}
       <div className="mb-4 flex gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800/60 sm:w-fit">
-        {(['emprestimos', 'patrimonio'] as Aba[]).map((a) => (
+        {(['emprestimos', 'patrimonio', 'assinaturas'] as Aba[]).map((a) => (
           <button
             key={a}
             onClick={() => setAba(a)}
@@ -190,12 +196,13 @@ export function AdminConsignadosPage() {
                 : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300',
             )}
           >
-            {a === 'emprestimos' ? 'Empréstimos' : 'Patrimônio'}
+            {a === 'emprestimos' ? 'Empréstimos' : a === 'patrimonio' ? 'Patrimônio' : 'Assinaturas'}
           </button>
         ))}
       </div>
 
       {/* Busca + filtro */}
+      {aba !== 'assinaturas' && (
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_200px]">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -218,6 +225,16 @@ export function AdminConsignadosPage() {
           </Select>
         )}
       </div>
+      )}
+
+      {/* ---------- Aba Assinaturas ---------- */}
+      {aba === 'assinaturas' && (
+        <AbaAssinaturasAdmin
+          pesquisadores={usuarios}
+          novoAberto={novoDocumento}
+          onFecharNovo={() => setNovoDocumento(false)}
+        />
+      )}
 
       {/* ---------- Aba Empréstimos ---------- */}
       {aba === 'emprestimos' && (
