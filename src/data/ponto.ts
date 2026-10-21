@@ -395,6 +395,12 @@ export interface PosicaoRanking {
   usuarioId: string
   nome: string
   fotoUrl?: string
+  /** SÓ para administrador (diagnóstico): horas do mês em segundos. Nunca vem para os demais. */
+  horasSeg?: number
+  /** Admin: pares com a saída em outro dia (valem 0). */
+  ignorados?: number
+  /** Admin: pares cortados no teto de 12h. */
+  limitados?: number
 }
 
 /**
@@ -413,6 +419,7 @@ export async function listarRankingMensal(
     const agora = new Date()
     const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1).toISOString()
     const horas = new Map<string, number>()
+    const diag = new Map<string, { ignorados: number; limitados: number }>()
     const porUsuario = new Map<string, RegistroPonto[]>()
     for (const r of mockRegistros) {
       if (r.tipo === 'falta' || r.registradoEm < inicioMes) continue
@@ -421,6 +428,8 @@ export async function listarRankingMensal(
     for (const [id, lista] of porUsuario) {
       const ord = [...lista].sort((a, b) => a.registradoEm.localeCompare(b.registradoEm))
       let total = 0
+      let ignorados = 0
+      let limitados = 0
       ord.forEach((r, i) => {
         if (r.tipo !== 'entrada') return
         const prox = ord[i + 1]
@@ -428,19 +437,36 @@ export async function listarRankingMensal(
         // Mesma regra do banco: saída só vale no MESMO dia da entrada, e cada par tem teto de 12h.
         if (prox?.tipo === 'saida') {
           const fim = new Date(prox.registradoEm)
-          if (fim.toDateString() === ini.toDateString())
-            total += Math.min(fim.getTime() - ini.getTime(), 12 * 3_600_000)
+          if (fim.toDateString() === ini.toDateString()) {
+            const dur = fim.getTime() - ini.getTime()
+            if (dur > 12 * 3_600_000) limitados++
+            total += Math.min(dur, 12 * 3_600_000)
+          } else {
+            ignorados++
+          }
         } else if (!prox && ini.toDateString() === agora.toDateString()) {
-          total += Math.min(agora.getTime() - ini.getTime(), 12 * 3_600_000)
+          const dur = agora.getTime() - ini.getTime()
+          if (dur > 12 * 3_600_000) limitados++
+          total += Math.min(dur, 12 * 3_600_000)
         }
       })
       if (total > 0) horas.set(id, total)
+      diag.set(id, { ignorados, limitados })
     }
     const todos = usuarios
       .filter((u) => u.status === 'ativo' && horas.has(u.id))
       .filter((u) => grupo === 'geral' || /^pesquisador - ic/i.test(u.funcao.nome))
       .sort((a, b) => horas.get(b.id)! - horas.get(a.id)! || a.nome.localeCompare(b.nome, 'pt-BR'))
-      .map((u, i) => ({ posicao: i + 1, usuarioId: u.id, nome: u.nome, fotoUrl: u.fotoUrl }))
+      .map((u, i) => ({
+        posicao: i + 1,
+        usuarioId: u.id,
+        nome: u.nome,
+        fotoUrl: u.fotoUrl,
+        // Mock: quem usa é sempre o admin de desenvolvimento, então mostra o diagnóstico.
+        horasSeg: Math.round(horas.get(u.id)! / 1000),
+        ignorados: diag.get(u.id)?.ignorados ?? 0,
+        limitados: diag.get(u.id)?.limitados ?? 0,
+      }))
     return todos.filter((p) => p.posicao <= 10 || p.usuarioId === usuarioAtualId)
   }
   const { data, error } = await supabase.rpc('ponto_ranking_mensal', { p_grupo: grupo })
@@ -453,5 +479,9 @@ export async function listarRankingMensal(
     usuarioId: r.usuario_id,
     nome: r.nome,
     fotoUrl: r.foto_url ?? undefined,
+    // Só chegam preenchidos para administrador (a função devolve NULL para os demais).
+    horasSeg: r.horas_seg == null ? undefined : Number(r.horas_seg),
+    ignorados: r.ignorados ?? undefined,
+    limitados: r.limitados ?? undefined,
   }))
 }

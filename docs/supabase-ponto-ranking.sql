@@ -25,14 +25,24 @@
 --     (função com `ver_quadro` ou `gerenciar_tudo` — Participante fica de fora).
 --   • lançamentos manuais do admin CONTAM (o admin confirmou).
 --
+-- ADMIN: só quem é administrador recebe também as colunas de diagnóstico
+-- (horas_seg, ignorados, limitados) — para comparar e achar erros. Para os
+-- demais elas vêm NULL, então as horas continuam invisíveis.
+--   ignorados = pares cuja saída caiu em outro dia (valem 0);
+--   limitados = pares que passaram de 12h e foram cortados no teto.
+--
 -- Devolve o TOP 10 + a linha de quem está chamando (se estiver fora do top 10,
 -- só para ele saber a própria posição).
 -- ============================================================
 
 drop function if exists public.ponto_ranking_mensal();
+drop function if exists public.ponto_ranking_mensal(text);
 
 create or replace function public.ponto_ranking_mensal(p_grupo text default 'geral')
-returns table (posicao int, usuario_id uuid, nome text, foto_url text)
+returns table (
+  posicao int, usuario_id uuid, nome text, foto_url text,
+  horas_seg numeric, ignorados int, limitados int
+)
 language sql stable security definer set search_path = public as $$
   with mes as (
     select
@@ -67,7 +77,22 @@ language sql stable security definer set search_path = public as $$
             then least(extract(epoch from (now() - g.registrado_em)), 12 * 3600)
           else 0
         end
-      ) as segundos
+      ) as segundos,
+      count(*) filter (
+        where g.prox_tipo = 'saida'
+          and (g.prox_em at time zone 'America/Sao_Paulo')::date
+              <> (g.registrado_em at time zone 'America/Sao_Paulo')::date
+      )::int as ignorados,
+      count(*) filter (
+        where (g.prox_tipo = 'saida'
+               and (g.prox_em at time zone 'America/Sao_Paulo')::date
+                   = (g.registrado_em at time zone 'America/Sao_Paulo')::date
+               and extract(epoch from (g.prox_em - g.registrado_em)) > 12 * 3600)
+           or (g.prox_tipo is null
+               and (g.registrado_em at time zone 'America/Sao_Paulo')::date
+                   = (now() at time zone 'America/Sao_Paulo')::date
+               and extract(epoch from (now() - g.registrado_em)) > 12 * 3600)
+      )::int as limitados
     from regs g, mes
     where g.tipo = 'entrada'
       and (g.registrado_em at time zone 'America/Sao_Paulo') >= mes.inicio
@@ -79,7 +104,10 @@ language sql stable security definer set search_path = public as $$
       row_number() over (order by h.segundos desc, u.nome)::int as posicao,
       u.id as usuario_id,
       u.nome,
-      u.foto_url
+      u.foto_url,
+      case when public.is_admin() then h.segundos end as horas_seg,
+      case when public.is_admin() then h.ignorados end as ignorados,
+      case when public.is_admin() then h.limitados end as limitados
     from horas h
     join public.usuarios u on u.id = h.usuario_id
     join public.funcoes f on f.id = u.funcao_id
@@ -88,7 +116,7 @@ language sql stable security definer set search_path = public as $$
       and (f.permissoes && array['ver_quadro', 'gerenciar_tudo'])
       and (p_grupo <> 'ic' or f.nome ilike 'Pesquisador - IC%')
   )
-  select o.posicao, o.usuario_id, o.nome, o.foto_url
+  select o.posicao, o.usuario_id, o.nome, o.foto_url, o.horas_seg, o.ignorados, o.limitados
   from ordenado o
   where o.posicao <= 10 or o.usuario_id = auth.uid()
   order by o.posicao;

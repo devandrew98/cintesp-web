@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { Avatar } from '@/components/ui/Avatar'
 import { listarRankingMensal, type GrupoRanking, type PosicaoRanking } from '@/data/ponto'
 import { usePermissoes } from '@/hooks/usePermissoes'
+import { formatarHoras } from '@/lib/ponto'
 import { cn } from '@/lib/utils'
 
 /** Dias que faltam para o ranking fechar (último dia do mês conta como "hoje"). */
@@ -102,6 +103,11 @@ export function RankingPage() {
         </div>
       ) : (
         <>
+          {top10.some((p) => p.horasSeg != null) && (
+            <p className="mb-4 rounded-xl bg-violet-50 px-4 py-2 text-center text-xs font-medium text-violet-700 dark:bg-violet-500/10 dark:text-violet-300">
+              👀 Visão de administrador: as horas abaixo só aparecem pra você, ninguém mais vê.
+            </p>
+          )}
           {euNoTop && (
             <p className="mb-4 text-center text-sm font-medium text-brand-700 dark:text-brand-300">
               {mensagemPosicao(euNoTop.posicao)}
@@ -127,6 +133,7 @@ export function RankingPage() {
                     {p.nome}
                     {p.usuarioId === perfil?.id && <span className="ml-2 text-xs text-brand-600">(você)</span>}
                   </span>
+                  <DiagnosticoAdmin p={p} />
                 </li>
               ))}
             </ol>
@@ -208,9 +215,12 @@ function Podio({ podio, euId }: { podio: PosicaoRanking[]; euId?: string }) {
               <p className="mt-2 w-full max-w-[9rem] truncate text-center text-sm font-semibold text-slate-800 dark:text-slate-100">
                 {p.nome.split(' ')[0]}
               </p>
-              <p className="mb-2 hidden w-full max-w-[10rem] truncate text-center text-xs text-slate-400 sm:block">
+              <p className="hidden w-full max-w-[10rem] truncate text-center text-xs text-slate-400 sm:block">
                 {p.nome}
               </p>
+              <div className="mb-2 mt-1">
+                <DiagnosticoAdmin p={p} />
+              </div>
             </div>
             <div
               style={{ animationDelay: e.delay }}
@@ -226,5 +236,33 @@ function Podio({ podio, euId }: { podio: PosicaoRanking[]; euId?: string }) {
         )
       })}
     </div>
+  )
+}
+
+/** Só administrador recebe estes números do banco: horas do mês e pares descartados/cortados. */
+function DiagnosticoAdmin({ p }: { p: PosicaoRanking }) {
+  if (p.horasSeg == null) return null
+  return (
+    <span className="inline-flex flex-wrap items-center justify-center gap-1.5 text-xs">
+      <span className="rounded-full bg-violet-50 px-2 py-0.5 font-semibold text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">
+        {formatarHoras(p.horasSeg / 3600)}
+      </span>
+      {!!p.ignorados && (
+        <span
+          className="rounded-full bg-red-50 px-2 py-0.5 font-medium text-red-700 dark:bg-red-500/10 dark:text-red-300"
+          title="Entradas cuja saída caiu em outro dia (esqueceram de bater a saída) — não contam"
+        >
+          {p.ignorados} sem saída no dia
+        </span>
+      )}
+      {!!p.limitados && (
+        <span
+          className="rounded-full bg-amber-50 px-2 py-0.5 font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-300"
+          title="Dias que passaram de 12h e foram cortados no teto"
+        >
+          {p.limitados} cortado(s) em 12h
+        </span>
+      )}
+    </span>
   )
 }
