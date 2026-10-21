@@ -181,7 +181,8 @@ export async function obterStatusPorToken(token: string): Promise<StatusPontoTok
       .sort((a, b) => b.registradoEm.localeCompare(a.registradoEm))[0]
     return {
       nome: usuario.nome,
-      proximoTipo: ultimo?.tipo === 'entrada' ? 'saida' : 'entrada',
+      entradaAbertaHoje:
+        ultimo?.tipo === 'entrada' && new Date(ultimo.registradoEm).toDateString() === new Date().toDateString(),
       ultimoTipo: ultimo?.tipo,
       ultimoRegistradoEm: ultimo?.registradoEm,
     }
@@ -190,15 +191,16 @@ export async function obterStatusPorToken(token: string): Promise<StatusPontoTok
   if (error) throw error
   return {
     nome: data.nome,
-    proximoTipo: data.proximoTipo,
+    entradaAbertaHoje: Boolean(data.entradaAbertaHoje),
     ultimoTipo: data.ultimoTipo ?? undefined,
     ultimoRegistradoEm: data.ultimoRegistradoEm ?? undefined,
   }
 }
 
-/** Registra o ponto a partir do token lido no QR Code. Entrada/saída e horário ficam por conta do banco. */
+/** Registra o ponto a partir do token lido no QR Code. O pesquisador escolhe Entrada/Saída; o banco valida e carimba o horário. */
 export async function registrarPontoPorToken(
   token: string,
+  tipo: 'entrada' | 'saida',
   terminalId = 'AUTOATENDIMENTO',
 ): Promise<ResultadoPonto> {
   if (USE_MOCK || !supabase) {
@@ -216,7 +218,13 @@ export async function registrarPontoPorToken(
     if (ultimo && Date.now() - new Date(ultimo.registradoEm).getTime() < 60_000) {
       throw new Error('Registro muito recente — aguarde um instante e tente novamente.')
     }
-    const tipo: TipoPonto = ultimo?.tipo === 'entrada' ? 'saida' : 'entrada'
+    // Mesmas regras do banco: não duplica entrada aberta hoje; saída exige entrada aberta hoje.
+    const abertaHoje =
+      ultimo?.tipo === 'entrada' && new Date(ultimo.registradoEm).toDateString() === new Date().toDateString()
+    if (tipo === 'entrada' && abertaHoje)
+      throw new Error('Você já registrou a entrada de hoje. Registre a saída quando for embora.')
+    if (tipo === 'saida' && !abertaHoje)
+      throw new Error('Você não tem entrada aberta hoje. Registre a entrada primeiro.')
     const registradoEm = new Date().toISOString()
     const registro: RegistroPonto = {
       id: novoIdMock(),
@@ -237,6 +245,7 @@ export async function registrarPontoPorToken(
 
   const { data, error } = await supabase.rpc('ponto_registrar', {
     p_token: token.trim(),
+    p_tipo: tipo,
     p_terminal_id: terminalId,
   })
   if (error) throw error
@@ -444,11 +453,8 @@ export async function listarRankingMensal(
           } else {
             ignorados++
           }
-        } else if (!prox && ini.toDateString() === agora.toDateString()) {
-          const dur = agora.getTime() - ini.getTime()
-          if (dur > 12 * 3_600_000) limitados++
-          total += Math.min(dur, 12 * 3_600_000)
         }
+        // Entrada sem saída (inclusive a de hoje) vale 0 até a saída ser registrada.
       })
       if (total > 0) horas.set(id, total)
       diag.set(id, { ignorados, limitados })

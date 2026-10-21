@@ -119,6 +119,19 @@ export function agruparPorDia(registros: RegistroPonto[]): DiaFrequencia[] {
           incompleto: true,
           corrigido: r.editado,
         }
+      } else if (aberto && localDia(r.registradoEm) !== aberto.data) {
+        // Saída em OUTRO dia: não é o par daquela entrada (esqueceu de bater a saída).
+        // Cada um vira um registro incompleto para o admin corrigir — não some 24h de "trabalho".
+        dias.push(aberto)
+        aberto = null
+        dias.push({
+          usuarioId,
+          usuarioNome: nome,
+          data: localDia(r.registradoEm),
+          saida: r,
+          incompleto: true,
+          corrigido: r.editado,
+        })
       } else if (aberto) {
         aberto.saida = r
         aberto.incompleto = false
@@ -224,8 +237,9 @@ export function resumirFrequencia(dias: DiaFrequencia[]): ResumoFrequencia[] {
       r.incompletos++
     } else if (d.entrada && d.saida) {
       r.diasTrabalhados++
-      const horas = (new Date(d.saida.registradoEm).getTime() - new Date(d.entrada.registradoEm).getTime()) / 3_600_000
-      if (horas > 0) r.horasTrabalhadas += horas
+      // Mesma regra do ranking: par com saída no mesmo dia e teto de 12h.
+      const ms = new Date(d.saida.registradoEm).getTime() - new Date(d.entrada.registradoEm).getTime()
+      if (ms > 0) r.horasTrabalhadas += Math.min(ms, LIMITE_PAR_MS) / 3_600_000
     }
   }
   return [...porUsuario.values()].sort((a, b) => a.usuarioNome.localeCompare(b.usuarioNome, 'pt-BR'))

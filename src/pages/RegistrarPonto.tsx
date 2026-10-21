@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, XCircle, Loader2, QrCode } from 'lucide-react'
+import { CheckCircle2, XCircle, Loader2, LogIn, LogOut } from 'lucide-react'
 import { BrandLogo } from '@/components/layout/BrandLogo'
 import { obterStatusPorToken, registrarPontoPorToken } from '@/data/ponto'
 import { TIPO_PONTO_LABEL, formatarHoraPonto } from '@/lib/ponto'
 import { mensagemErro } from '@/lib/utils'
 import type { ResultadoPonto } from '@/types'
+
+type Escolha = 'entrada' | 'saida'
 
 /** Depois de quanto tempo a tela de sucesso volta a mostrar o botão (permite registrar de novo mais tarde). */
 const TEMPO_SUCESSO_MS = 5000
@@ -31,7 +33,7 @@ export function RegistrarPontoPage() {
   })
 
   const registrarMut = useMutation({
-    mutationFn: () => registrarPontoPorToken(token, 'AUTOATENDIMENTO-CELULAR'),
+    mutationFn: (tipo: Escolha) => registrarPontoPorToken(token, tipo, 'AUTOATENDIMENTO-CELULAR'),
     onSuccess: (r) => setResultado(r),
   })
 
@@ -93,20 +95,26 @@ export function RegistrarPontoPage() {
                 )}
               </div>
 
-              <button
-                onClick={() => registrarMut.mutate()}
-                disabled={registrarMut.isPending}
-                className="flex min-h-16 w-full items-center justify-center gap-2 rounded-2xl bg-brand-600 px-4 text-lg font-semibold text-white shadow-soft transition-colors hover:bg-brand-700 disabled:opacity-60"
-              >
-                {registrarMut.isPending ? (
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                ) : (
-                  <>
-                    <QrCode className="h-5 w-5" />
-                    Registrar meu acesso
-                  </>
-                )}
-              </button>
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-300">O que você quer registrar?</p>
+                <BotaoPonto
+                  tipo="entrada"
+                  desabilitado={registrarMut.isPending || statusQuery.data.entradaAbertaHoje}
+                  carregando={registrarMut.isPending && registrarMut.variables === 'entrada'}
+                  onClick={() => registrarMut.mutate('entrada')}
+                />
+                <BotaoPonto
+                  tipo="saida"
+                  desabilitado={registrarMut.isPending || !statusQuery.data.entradaAbertaHoje}
+                  carregando={registrarMut.isPending && registrarMut.variables === 'saida'}
+                  onClick={() => registrarMut.mutate('saida')}
+                />
+                <p className="text-xs text-slate-400">
+                  {statusQuery.data.entradaAbertaHoje
+                    ? 'Você já tem a entrada de hoje. Quando for embora, registre a saída.'
+                    : 'Ao chegar, registre a entrada. A saída libera depois disso.'}
+                </p>
+              </div>
 
               {registrarMut.isError && (
                 <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-300">
@@ -134,5 +142,38 @@ export function RegistrarPontoPage() {
         <p className="mt-4 text-xs text-slate-400">CINTESP.Br — Registro de Ponto</p>
       </div>
     </div>
+  )
+}
+
+function BotaoPonto({
+  tipo,
+  desabilitado,
+  carregando,
+  onClick,
+}: {
+  tipo: Escolha
+  desabilitado: boolean
+  carregando: boolean
+  onClick: () => void
+}) {
+  const entrada = tipo === 'entrada'
+  const Icone = entrada ? LogIn : LogOut
+  return (
+    <button
+      onClick={onClick}
+      disabled={desabilitado}
+      className={`flex min-h-16 w-full items-center justify-center gap-2 rounded-2xl px-4 text-lg font-semibold text-white shadow-soft transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+        entrada ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-amber-600 hover:bg-amber-700'
+      }`}
+    >
+      {carregando ? (
+        <Loader2 className="h-6 w-6 animate-spin" />
+      ) : (
+        <>
+          <Icone className="h-5 w-5" />
+          {entrada ? 'Entrada' : 'Saída'}
+        </>
+      )}
+    </button>
   )
 }

@@ -19,8 +19,8 @@
 --     seguinte teria um par de 20h+ (a leitura seguinte vira "saída"): isso
 --     NÃO conta (esse foi o principal inflador);
 --   • cada par tem teto de 12h por dia (esquecimento/teste não vira "dia de 24h");
---   • entrada de hoje ainda aberta conta até agora (também com teto de 12h);
---     entrada antiga sem saída vale 0;
+--   • entrada SEM saída (inclusive a de hoje, quem ainda está trabalhando) vale 0
+--     até a saída ser registrada — só pares fechados entram na conta;
 --   • faltas são ignoradas; só pesquisadores ativos com acesso à plataforma
 --     (função com `ver_quadro` ou `gerenciar_tudo` — Participante fica de fora).
 --   • lançamentos manuais do admin CONTAM (o admin confirmou).
@@ -70,11 +70,7 @@ language sql stable security definer set search_path = public as $$
                and (g.prox_em at time zone 'America/Sao_Paulo')::date
                    = (g.registrado_em at time zone 'America/Sao_Paulo')::date
             then least(extract(epoch from (g.prox_em - g.registrado_em)), 12 * 3600)
-          -- entrada de hoje ainda aberta: conta até agora (teto de 12h)
-          when g.prox_tipo is null
-               and (g.registrado_em at time zone 'America/Sao_Paulo')::date
-                   = (now() at time zone 'America/Sao_Paulo')::date
-            then least(extract(epoch from (now() - g.registrado_em)), 12 * 3600)
+          -- entrada ainda aberta (ex.: está trabalhando agora) NÃO conta até a saída
           else 0
         end
       ) as segundos,
@@ -88,10 +84,6 @@ language sql stable security definer set search_path = public as $$
                and (g.prox_em at time zone 'America/Sao_Paulo')::date
                    = (g.registrado_em at time zone 'America/Sao_Paulo')::date
                and extract(epoch from (g.prox_em - g.registrado_em)) > 12 * 3600)
-           or (g.prox_tipo is null
-               and (g.registrado_em at time zone 'America/Sao_Paulo')::date
-                   = (now() at time zone 'America/Sao_Paulo')::date
-               and extract(epoch from (now() - g.registrado_em)) > 12 * 3600)
       )::int as limitados
     from regs g, mes
     where g.tipo = 'entrada'

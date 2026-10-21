@@ -340,7 +340,8 @@ export interface StatusQrPesquisador {
 /** Devolvido por `ponto_status_token` — o que a página /ponto/:token mostra ANTES de confirmar. */
 export interface StatusPontoToken {
   nome: string
-  proximoTipo: TipoPonto
+  /** true quando há uma ENTRADA de hoje sem saída depois — habilita o botão "Saída". */
+  entradaAbertaHoje: boolean
   ultimoTipo?: TipoPonto
   ultimoRegistradoEm?: string
 }
