@@ -1,29 +1,40 @@
-import { useMemo, useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Headphones, Loader2, PlayCircle, Search, Clock, Paperclip } from 'lucide-react'
-import { PageHeader } from '@/components/ui/PageHeader'
-import { StatCard } from '@/components/ui/StatCard'
-import { Badge } from '@/components/ui/Badge'
-import { Input, Select } from '@/components/ui/Field'
-import { Avatar } from '@/components/ui/Avatar'
-import { listarChamados, aceitarChamado, atualizarStatusChamado } from '@/data/chamados'
-import { ChamadoDetailModal } from '@/components/chamados/ChamadoDetailModal'
+import { useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  Headphones,
+  Loader2,
+  PlayCircle,
+  Search,
+  Clock,
+  Paperclip,
+} from "lucide-react";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { StatCard } from "@/components/ui/StatCard";
+import { Badge } from "@/components/ui/Badge";
+import { Input, Select } from "@/components/ui/Field";
+import { Avatar } from "@/components/ui/Avatar";
+import {
+  listarChamados,
+  aceitarChamado,
+  atualizarStatusChamado,
+} from "@/data/chamados";
+import { ChamadoDetailModal } from "@/components/chamados/ChamadoDetailModal";
 import {
   SETORES,
   rotuloSetor,
   statusChamadoInfo,
   prioridadeChamadoInfo,
-} from '@/lib/chamados'
-import { formatDateBR } from '@/lib/utils'
-import type { Chamado, SetorChamado, StatusChamado } from '@/types'
+} from "@/lib/chamados";
+import { formatDateBR } from "@/lib/utils";
+import type { Chamado, SetorChamado, StatusChamado } from "@/types";
 
 const STATUS_OPCOES: StatusChamado[] = [
-  'aberto',
-  'em_andamento',
-  'aguardando_usuario',
-  'finalizado',
-  'cancelado',
-]
+  "aberto",
+  "em_andamento",
+  "aguardando_usuario",
+  "finalizado",
+  "cancelado",
+];
 
 /**
  * "Chamados" (Administração) — só administradores.
@@ -31,73 +42,97 @@ const STATUS_OPCOES: StatusChamado[] = [
  * as ações de aceitar (→ em andamento) e mudar o status.
  */
 export function ChamadosAdminPage() {
-  const qc = useQueryClient()
+  const qc = useQueryClient();
   const { data: lista = [], isLoading } = useQuery({
-    queryKey: ['chamados'],
+    queryKey: ["chamados"],
     queryFn: listarChamados,
-  })
+  });
 
-  const [busca, setBusca] = useState('')
-  const [status, setStatus] = useState<StatusChamado | 'todos'>('todos')
-  const [setor, setSetor] = useState<SetorChamado | 'todos'>('todos')
-  const [detalhe, setDetalhe] = useState<Chamado | null>(null)
+  const [busca, setBusca] = useState("");
+  const [status, setStatus] = useState<StatusChamado | "todos">("todos");
+  const [setor, setSetor] = useState<SetorChamado | "todos">("todos");
+  const [detalhe, setDetalhe] = useState<Chamado | null>(null);
 
   const invalidar = () => {
-    qc.invalidateQueries({ queryKey: ['chamados'] })
-    qc.invalidateQueries({ queryKey: ['meus-chamados'] })
-  }
-  const aceitar = useMutation({ mutationFn: aceitarChamado, onSuccess: invalidar })
+    qc.invalidateQueries({ queryKey: ["chamados"] });
+    qc.invalidateQueries({ queryKey: ["meus-chamados"] });
+  };
+  const aceitar = useMutation({
+    mutationFn: aceitarChamado,
+    onSuccess: invalidar,
+  });
   const mudarStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: StatusChamado }) =>
       atualizarStatusChamado(id, status),
     onSuccess: invalidar,
-  })
+  });
 
   const kpis = useMemo(
     () => ({
-      abertos: lista.filter((c) => c.status === 'aberto').length,
-      emAndamento: lista.filter((c) => c.status === 'em_andamento').length,
-      aguardando: lista.filter((c) => c.status === 'aguardando_usuario').length,
-      finalizados: lista.filter((c) => c.status === 'finalizado').length,
+      abertos: lista.filter((c) => c.status === "aberto").length,
+      emAndamento: lista.filter((c) => c.status === "em_andamento").length,
+      aguardando: lista.filter((c) => c.status === "aguardando_usuario").length,
+      finalizados: lista.filter((c) => c.status === "finalizado").length,
     }),
     [lista],
-  )
+  );
 
   const filtrados = useMemo(() => {
-    const q = busca.trim().toLowerCase()
+    const q = busca.trim().toLowerCase();
     return lista.filter((c) => {
-      if (status !== 'todos' && c.status !== status) return false
-      if (setor !== 'todos' && c.setor !== setor) return false
+      if (status !== "todos" && c.status !== status) return false;
+      if (setor !== "todos" && c.setor !== setor) return false;
       if (q) {
-        const alvo = `${c.titulo} ${c.descricao} ${c.solicitanteNome ?? ''}`.toLowerCase()
-        if (!alvo.includes(q)) return false
+        const alvo =
+          `${c.titulo} ${c.descricao} ${c.solicitanteNome ?? ""}`.toLowerCase();
+        if (!alvo.includes(q)) return false;
       }
-      return true
-    })
-  }, [lista, busca, status, setor])
+      return true;
+    });
+  }, [lista, busca, status, setor]);
 
   return (
     <div>
       <PageHeader
         title="Chamados"
-        subtitle="Acompanhe, aceite e resolva os chamados abertos pela equipe."
+        subtitle="Acompanhe, aceite e resolva chamados abertos pela equipe."
       />
 
       {/* Prazo de atendimento */}
       <div className="mb-6 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300">
         <Clock className="h-5 w-5 shrink-0" />
         <p>
-          <strong>Prazo de atendimento: 24 horas.</strong> Todo chamado deve ser respondido (aceito
-          ou atualizado) em até 24h após a abertura.
+          <strong>Prazo de atendimento: 24 horas.</strong> Todo chamado deve ser
+          respondido (aceito ou atualizado) em até 24h após a abertura.
         </p>
       </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard icon={Headphones} value={kpis.abertos} label="Abertos" accent="green" />
-        <StatCard icon={PlayCircle} value={kpis.emAndamento} label="Em andamento" accent="blue" />
-        <StatCard icon={Loader2} value={kpis.aguardando} label="Aguardando usuário" accent="amber" />
-        <StatCard icon={Headphones} value={kpis.finalizados} label="Finalizados" accent="violet" />
+        <StatCard
+          icon={Headphones}
+          value={kpis.abertos}
+          label="Abertos"
+          accent="green"
+        />
+        <StatCard
+          icon={PlayCircle}
+          value={kpis.emAndamento}
+          label="Em andamento"
+          accent="blue"
+        />
+        <StatCard
+          icon={Loader2}
+          value={kpis.aguardando}
+          label="Aguardando usuário"
+          accent="amber"
+        />
+        <StatCard
+          icon={Headphones}
+          value={kpis.finalizados}
+          label="Finalizados"
+          accent="violet"
+        />
       </div>
 
       {/* Filtros */}
@@ -111,7 +146,10 @@ export function ChamadosAdminPage() {
             className="pl-9"
           />
         </div>
-        <Select value={status} onChange={(e) => setStatus(e.target.value as StatusChamado | 'todos')}>
+        <Select
+          value={status}
+          onChange={(e) => setStatus(e.target.value as StatusChamado | "todos")}
+        >
           <option value="todos">Todos os status</option>
           {STATUS_OPCOES.map((s) => (
             <option key={s} value={s}>
@@ -119,7 +157,10 @@ export function ChamadosAdminPage() {
             </option>
           ))}
         </Select>
-        <Select value={setor} onChange={(e) => setSetor(e.target.value as SetorChamado | 'todos')}>
+        <Select
+          value={setor}
+          onChange={(e) => setSetor(e.target.value as SetorChamado | "todos")}
+        >
           <option value="todos">Todos os setores</option>
           {SETORES.map((s) => (
             <option key={s.value} value={s.value}>
@@ -142,8 +183,8 @@ export function ChamadosAdminPage() {
         ) : (
           <div className="card divide-y divide-slate-100 dark:divide-slate-800">
             {filtrados.map((c) => {
-              const st = statusChamadoInfo[c.status]
-              const pr = prioridadeChamadoInfo[c.prioridade]
+              const st = statusChamadoInfo[c.status];
+              const pr = prioridadeChamadoInfo[c.prioridade];
               return (
                 <div
                   key={c.id}
@@ -153,26 +194,36 @@ export function ChamadosAdminPage() {
                   {/* Título + descrição */}
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold text-slate-800 dark:text-slate-100">{c.titulo}</p>
+                      <p className="font-semibold text-slate-800 dark:text-slate-100">
+                        {c.titulo}
+                      </p>
                       <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-300">
                         {rotuloSetor(c.setor)}
-                        {c.categoria ? ` · ${c.categoria}` : ''}
+                        {c.categoria ? ` · ${c.categoria}` : ""}
                       </span>
-                      <Badge tone={pr.tone as 'slate' | 'blue' | 'amber' | 'red'}>{pr.label}</Badge>
+                      <Badge
+                        tone={pr.tone as "slate" | "blue" | "amber" | "red"}
+                      >
+                        {pr.label}
+                      </Badge>
                     </div>
-                    <p className="mt-0.5 line-clamp-1 text-sm text-slate-500">{c.descricao}</p>
+                    <p className="mt-0.5 line-clamp-1 text-sm text-slate-500">
+                      {c.descricao}
+                    </p>
                     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
                       <span className="inline-flex items-center gap-1.5">
                         <Avatar
-                          nome={c.solicitanteNome ?? '—'}
+                          nome={c.solicitanteNome ?? "—"}
                           fotoUrl={c.solicitanteFotoUrl}
                           size="sm"
                           className="h-5 w-5 text-[9px]"
                         />
-                        {c.solicitanteNome ?? '—'}
+                        {c.solicitanteNome ?? "—"}
                       </span>
                       <span>· {formatDateBR(c.criadoEm)}</span>
-                      {c.responsavelNome && <span>· Resp.: {c.responsavelNome}</span>}
+                      {c.responsavelNome && (
+                        <span>· Resp.: {c.responsavelNome}</span>
+                      )}
                       {c.anexoUrl && (
                         <a
                           href={c.anexoUrl}
@@ -192,10 +243,20 @@ export function ChamadosAdminPage() {
                     className="flex shrink-0 items-center gap-2"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <Badge tone={st.tone as 'green' | 'amber' | 'blue' | 'violet' | 'slate'} dot>
+                    <Badge
+                      tone={
+                        st.tone as
+                          | "green"
+                          | "amber"
+                          | "blue"
+                          | "violet"
+                          | "slate"
+                      }
+                      dot
+                    >
                       {st.label}
                     </Badge>
-                    {c.status === 'aberto' ? (
+                    {c.status === "aberto" ? (
                       <button
                         onClick={() => aceitar.mutate(c.id)}
                         disabled={aceitar.isPending}
@@ -207,7 +268,10 @@ export function ChamadosAdminPage() {
                       <Select
                         value={c.status}
                         onChange={(e) =>
-                          mudarStatus.mutate({ id: c.id, status: e.target.value as StatusChamado })
+                          mudarStatus.mutate({
+                            id: c.id,
+                            status: e.target.value as StatusChamado,
+                          })
                         }
                         className="h-9 w-44 text-sm"
                       >
@@ -220,7 +284,7 @@ export function ChamadosAdminPage() {
                     )}
                   </div>
                 </div>
-              )
+              );
             })}
           </div>
         )}
@@ -229,5 +293,5 @@ export function ChamadosAdminPage() {
       {/* Detalhe + conversa */}
       <ChamadoDetailModal chamado={detalhe} onClose={() => setDetalhe(null)} />
     </div>
-  )
+  );
 }
