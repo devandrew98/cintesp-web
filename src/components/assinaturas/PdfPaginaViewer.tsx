@@ -137,6 +137,7 @@ export function MolduraAssinatura({
   largura,
   proporcao,
   razao,
+  base,
   rotulo,
   cor,
 }: {
@@ -146,6 +147,8 @@ export function MolduraAssinatura({
   proporcao: number
   /** Razão altura/largura da página (vem do viewer). */
   razao: number
+  /** true = `y` é a base da moldura (ela fica em cima de uma linha). */
+  base?: boolean
   rotulo: string
   cor: 'azul' | 'ambar'
 }) {
@@ -158,7 +161,7 @@ export function MolduraAssinatura({
           ? 'border-blue-600 bg-blue-500/15 text-blue-700'
           : 'border-amber-500 bg-amber-400/20 text-amber-700'
       }`}
-      style={{ left: `${x * 100}%`, top: `${y * 100}%`, width: `${largura * 100}%`, height: `${alturaPct}%` }}
+      style={{ left: `${x * 100}%`, top: `${base ? y * 100 - alturaPct : y * 100}%`, width: `${largura * 100}%`, height: `${alturaPct}%` }}
     >
       {rotulo}
     </div>

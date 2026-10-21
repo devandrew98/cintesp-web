@@ -16,6 +16,8 @@ export interface PosicaoAssinatura {
   y: number
   /** Largura da assinatura, fração da largura da página. */
   largura: number
+  /** true = `y` é a BASE do carimbo (ele "senta" em cima de uma linha), não o topo. */
+  base?: boolean
 }
 
 /** Largura padrão de uma assinatura nova (30% da página). */
@@ -93,7 +95,8 @@ export async function carimbarAssinatura(
 
   // Mantém dentro da página, mesmo se a posição estiver na borda.
   const x = Math.min(Math.max(pos.x * W, 0), W - largura)
-  const topo = Math.min(Math.max(pos.y * H, 0), H - altura)
+  const topoBruto = pos.base ? pos.y * H - altura : pos.y * H
+  const topo = Math.min(Math.max(topoBruto, 0), H - altura)
   pagina.drawImage(png, { x, y: H - topo - altura, width: largura, height: altura })
 
   return doc.save()

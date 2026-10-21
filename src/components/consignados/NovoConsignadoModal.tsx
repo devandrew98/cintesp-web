@@ -1,11 +1,12 @@
 import { useMemo, useState, type FormEvent } from 'react'
-import { HandCoins, Check } from 'lucide-react'
+import { HandCoins, Check, FileSignature } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Field, Input, Select, Textarea } from '@/components/ui/Field'
 import { formatarCPF } from '@/lib/cpf'
 import { cn } from '@/lib/utils'
 import type { ItemPatrimonio, NovoConsignado } from '@/data/consignados'
+import type { DadosAssinatura } from '@/lib/assinaturaEmail'
 import type { Usuario } from '@/types'
 
 const hoje = () => new Date().toISOString().slice(0, 10)
@@ -18,13 +19,18 @@ export function NovoConsignadoModal({
   salvando,
   itensDisponiveis,
   pesquisadores,
+  minhaAssinatura,
+  onCriarMinhaAssinatura,
 }: {
   open: boolean
   onClose: () => void
-  onSalvar: (dados: NovoConsignado) => void
+  onSalvar: (dados: NovoConsignado, opcoes: { enviarParaAssinar: boolean }) => void
   salvando?: boolean
   itensDisponiveis: ItemPatrimonio[]
   pesquisadores: Usuario[]
+  /** Assinatura salva do administrador (null = ainda não criou). */
+  minhaAssinatura: DadosAssinatura | null
+  onCriarMinhaAssinatura: () => void
 }) {
   const [itemIds, setItemIds] = useState<string[]>([])
   const [pesquisadorId, setPesquisadorId] = useState('')
@@ -32,6 +38,9 @@ export function NovoConsignadoModal({
   const [dataEntrega, setDataEntrega] = useState('')
   const [local, setLocal] = useState('')
   const [observacoes, setObservacoes] = useState('')
+  // Já vem marcado: o caminho curto é gerar o termo e mandar pro pesquisador assinar no app.
+  const [enviarParaAssinar, setEnviarParaAssinar] = useState(true)
+  const vaiAssinar = enviarParaAssinar && Boolean(minhaAssinatura)
 
   const itensSelecionados = useMemo(
     () => itensDisponiveis.filter((i) => itemIds.includes(i.id)),
@@ -64,7 +73,7 @@ export function NovoConsignadoModal({
       dataEntregaPrevista: dataEntrega || undefined,
       local: local.trim() || localPadraoSugerido || undefined,
       observacoes: observacoes.trim() || undefined,
-    })
+    }, { enviarParaAssinar: vaiAssinar })
   }
 
   return (
@@ -80,7 +89,7 @@ export function NovoConsignadoModal({
           Novo empréstimo
         </span>
       }
-      subtitle="Consigne um ou mais itens a um pesquisador — todos ficam no mesmo protocolo. Depois é só imprimir o formulário para assinar."
+      subtitle="Consigne um ou mais itens a um pesquisador — todos ficam no mesmo protocolo. O termo já pode seguir direto para ele assinar no app."
       footer={
         <>
           <Button variant="secondary" type="button" onClick={onClose}>
@@ -93,7 +102,7 @@ export function NovoConsignadoModal({
           >
             {salvando
               ? 'Registrando…'
-              : `Registrar empréstimo${itemIds.length > 1 ? ` (${itemIds.length} itens)` : ''}`}
+              : `${vaiAssinar ? 'Registrar e enviar para assinar' : 'Registrar empréstimo'}${itemIds.length > 1 ? ` (${itemIds.length} itens)` : ''}`}
           </Button>
         </>
       }
@@ -187,6 +196,36 @@ export function NovoConsignadoModal({
             placeholder="Acessórios que acompanham, estado dos itens, etc."
           />
         </Field>
+
+        {/* Termo digital: gera o PDF do empréstimo, assina pelo admin e manda para o pesquisador. */}
+        <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+          <label className="flex cursor-pointer items-start gap-2.5 text-sm text-slate-700 dark:text-slate-200">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={enviarParaAssinar}
+              onChange={(e) => setEnviarParaAssinar(e.target.checked)}
+            />
+            <span>
+              <span className="flex items-center gap-1.5 font-medium">
+                <FileSignature className="h-4 w-4 text-brand-600" />
+                Enviar o termo para o pesquisador assinar no app
+              </span>
+              <span className="mt-0.5 block text-xs text-slate-400">
+                O termo é gerado com os dados acima, já sai com a sua assinatura e aparece só na conta de quem
+                recebe, em “Assinar documentos”.
+              </span>
+            </span>
+          </label>
+          {enviarParaAssinar && !minhaAssinatura && (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+              <span>Você ainda não criou a sua assinatura — sem ela o termo não pode ser enviado.</span>
+              <Button type="button" variant="secondary" onClick={onCriarMinhaAssinatura}>
+                Criar minha assinatura
+              </Button>
+            </div>
+          )}
+        </div>
       </form>
     </Modal>
   )

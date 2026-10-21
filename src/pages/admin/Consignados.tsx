@@ -23,6 +23,10 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { NovoItemModal } from '@/components/consignados/NovoItemModal'
 import { ImportarItensModal } from '@/components/consignados/ImportarItensModal'
 import { AbaAssinaturasAdmin } from '@/components/assinaturas/AbaAssinaturasAdmin'
+import { MinhaAssinaturaModal } from '@/components/assinaturas/MinhaAssinaturaModal'
+import { useMinhaAssinatura } from '@/components/assinaturas/useMinhaAssinatura'
+import { enviarTermoParaAssinatura } from '@/lib/termoAssinatura'
+import { usePermissoes } from '@/hooks/usePermissoes'
 import { NovoConsignadoModal } from '@/components/consignados/NovoConsignadoModal'
 import { ConsignadoDetailModal } from '@/components/consignados/ConsignadoDetailModal'
 import {
@@ -33,6 +37,7 @@ import {
   excluirItem,
   criarConsignado,
   type DadosItem,
+  type NovoConsignado,
   type ItemPatrimonio,
 } from '@/data/consignados'
 import { listarUsuarios } from '@/data/api'
@@ -42,7 +47,7 @@ import {
   agruparConsignadosPorProtocolo,
   type GrupoConsignado,
 } from '@/lib/consignados'
-import { formatDateOnlyBR, cn } from '@/lib/utils'
+import { formatDateOnlyBR, cn, mensagemErro } from '@/lib/utils'
 
 type Aba = 'emprestimos' | 'patrimonio' | 'assinaturas'
 
@@ -95,11 +100,45 @@ export function AdminConsignadosPage() {
     },
   })
   const excluirItemMut = useMutation({ mutationFn: excluirItem, onSuccess: invalidarItens })
+  const { perfil } = usePermissoes()
+  const { data: minhaAssinatura = null } = useMinhaAssinatura(perfil?.id)
+  const [editandoAssinatura, setEditandoAssinatura] = useState(false)
+  const [avisoTermo, setAvisoTermo] = useState<{ tipo: 'ok' | 'erro'; texto: string } | null>(null)
+
+  // Registra o empréstimo e, se marcado, já gera o termo e manda para o pesquisador assinar.
+  // Se o envio do termo falhar, o empréstimo continua registrado (é o que importa) e o aviso explica.
   const criarConsigMut = useMutation({
-    mutationFn: criarConsignado,
-    onSuccess: () => {
+    mutationFn: async ({ dados, enviarParaAssinar }: { dados: NovoConsignado; enviarParaAssinar: boolean }) => {
+      const protocolo = await criarConsignado(dados)
+      if (!enviarParaAssinar) return { termo: 'nao' as const }
+      try {
+        if (!minhaAssinatura || !perfil) throw new Error('Crie a sua assinatura primeiro.')
+        await enviarTermoParaAssinatura({
+          protocolo,
+          emprestimo: dados,
+          assinaturaAdmin: minhaAssinatura,
+          adminId: perfil.id,
+          adminNome: perfil.nome,
+        })
+        return { termo: 'enviado' as const, nome: dados.pesquisadorNome }
+      } catch (e) {
+        return { termo: 'falhou' as const, erro: mensagemErro(e) }
+      }
+    },
+    onSuccess: (r) => {
       invalidarConsig()
+      qc.invalidateQueries({ queryKey: ['assinatura-documentos'] })
       setNovoEmprestimo(false)
+      if (r.termo === 'enviado') {
+        setAvisoTermo({ tipo: 'ok', texto: `Empréstimo registrado e termo enviado para ${r.nome ?? 'o pesquisador'} assinar.` })
+      } else if (r.termo === 'falhou') {
+        setAvisoTermo({
+          tipo: 'erro',
+          texto: `Empréstimo registrado, mas o termo NÃO foi enviado: ${r.erro} Use "Novo documento p/ assinar" para reenviar.`,
+        })
+      } else {
+        setAvisoTermo(null)
+      }
     },
   })
 
@@ -180,6 +219,22 @@ export function AdminConsignadosPage() {
               no SQL Editor do Supabase.
             </p>
           </div>
+        </div>
+      )}
+
+      {avisoTermo && (
+        <div
+          className={cn(
+            'mb-4 flex items-start justify-between gap-3 rounded-xl px-4 py-3 text-sm',
+            avisoTermo.tipo === 'ok'
+              ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300'
+              : 'bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300',
+          )}
+        >
+          <span>{avisoTermo.texto}</span>
+          <button onClick={() => setAvisoTermo(null)} className="text-xs font-medium underline">
+            Fechar
+          </button>
         </div>
       )}
 
@@ -423,7 +478,19 @@ export function AdminConsignadosPage() {
           itensDisponiveis={itensDisponiveis}
           pesquisadores={usuarios}
           salvando={criarConsigMut.isPending}
-          onSalvar={(dados) => criarConsigMut.mutate(dados)}
+          onSalvar={(dados, opcoes) => criarConsigMut.mutate({ dados, enviarParaAssinar: opcoes.enviarParaAssinar })}
+          minhaAssinatura={minhaAssinatura}
+          onCriarMinhaAssinatura={() => setEditandoAssinatura(true)}
+        />
+      )}
+      {perfil && (
+        <MinhaAssinaturaModal
+          usuarioId={perfil.id}
+          inicial={minhaAssinatura}
+          nomePadrao={perfil.nome}
+          emailPadrao={perfil.email}
+          open={editandoAssinatura}
+          onClose={() => setEditandoAssinatura(false)}
         />
       )}
 

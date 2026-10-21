@@ -63,10 +63,29 @@ export interface DadosImpressaoConsignado {
   /** Editáveis pelo administrador antes de imprimir. */
   entreguePor: string
   recebidoPor: string
+  /** true = abre espaço acima das linhas para o carimbo da assinatura digital. */
+  assinaturaDigital?: boolean
 }
+
+/** Onde cada assinatura entra no PDF (frações da página; `y` é a BASE do carimbo, em cima da linha). */
+export interface PosicoesTermo {
+  pagina: number
+  emprestante: { x: number; y: number; largura: number }
+  pesquisador: { x: number; y: number; largura: number }
+}
+
+/** Espaço extra (pt) acima das linhas de assinatura quando o termo vai ser assinado digitalmente. */
+const ESPACO_ASSINATURA_DIGITAL = 62
 
 /** Monta o PDF completo (fundo timbrado + todos os dados do protocolo). */
 export async function gerarPdfConsignado(dados: DadosImpressaoConsignado): Promise<jsPDF> {
+  return (await montarPdfConsignado(dados)).doc
+}
+
+/** Igual a `gerarPdfConsignado`, mas também devolve onde as duas assinaturas devem entrar. */
+export async function montarPdfConsignado(
+  dados: DadosImpressaoConsignado,
+): Promise<{ doc: jsPDF; posicoes: PosicoesTermo }> {
   const papel = await carregarPapelTimbrado()
 
   const doc = new jsPDF({ unit: 'pt', format: 'a4' })
@@ -187,7 +206,7 @@ export async function gerarPdfConsignado(dados: DadosImpressaoConsignado): Promi
   y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 24
 
   // Garante que a declaração + assinaturas não fiquem cortadas no rodapé.
-  const alturaBlocoFinal = 150
+  const alturaBlocoFinal = 150 + (dados.assinaturaDigital ? ESPACO_ASSINATURA_DIGITAL : 0)
   if (y + alturaBlocoFinal > MARGEM.bottom) {
     doc.addPage()
     desenharFundo()
@@ -220,10 +239,16 @@ export async function gerarPdfConsignado(dados: DadosImpressaoConsignado): Promi
 
   // Assinaturas: "Entregue por (Administração)" e "Recebido por" — editáveis
   // pelo administrador antes de gerar o PDF.
-  y += 34
+  y += 34 + (dados.assinaturaDigital ? ESPACO_ASSINATURA_DIGITAL : 0)
   const assW = (contentW - 30) / 2
   const assCol1X = MARGEM.left
   const assCol2X = MARGEM.left + assW + 30
+
+  const posicoes: PosicoesTermo = {
+    pagina: doc.getNumberOfPages(),
+    emprestante: { x: assCol1X / pageW, y: (y - 3) / pageH, largura: assW / pageW },
+    pesquisador: { x: assCol2X / pageW, y: (y - 3) / pageH, largura: assW / pageW },
+  }
 
   doc.setDrawColor(148, 163, 184)
   doc.line(assCol1X, y, assCol1X + assW, y)
@@ -243,7 +268,7 @@ export async function gerarPdfConsignado(dados: DadosImpressaoConsignado): Promi
   doc.text(dados.entreguePor || '—', assCol1X + assW / 2, y, { align: 'center' })
   doc.text(dados.recebidoPor || '—', assCol2X + assW / 2, y, { align: 'center' })
 
-  return doc
+  return { doc, posicoes }
 }
 
 /**

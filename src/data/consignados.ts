@@ -248,7 +248,7 @@ export async function listarConsignados(): Promise<Consignado[]> {
  * "em uso". Todos os itens ficam sob o mesmo `protocolo`, para aparecerem
  * juntos no formulário impresso.
  */
-export async function criarConsignado(input: NovoConsignado): Promise<void> {
+export async function criarConsignado(input: NovoConsignado): Promise<string> {
   const protocolo = crypto.randomUUID()
 
   if (USE_MOCK || !supabase) {
@@ -272,7 +272,7 @@ export async function criarConsignado(input: NovoConsignado): Promise<void> {
       const mockIt = mockItens.find((x) => x.id === it.itemId)
       if (mockIt) mockIt.status = 'em_uso'
     })
-    return
+    return protocolo
   }
 
   const linhas = input.itens.map((it) => ({
@@ -295,6 +295,7 @@ export async function criarConsignado(input: NovoConsignado): Promise<void> {
   // Itens passam a "em uso".
   const itemIds = input.itens.map((it) => it.itemId)
   await supabase.from('patrimonio_itens').update({ status: 'em_uso' }).in('id', itemIds)
+  return protocolo
 }
 
 /** Registra a devolução de um grupo de empréstimos (mesmo protocolo): fecha e libera os itens. */
