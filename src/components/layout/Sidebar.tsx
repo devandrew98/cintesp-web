@@ -61,7 +61,9 @@ export function Sidebar() {
                 )}
 
                 <div className="flex flex-col gap-1">
-                  {section.items.map((item) => (
+                  {section.items
+                    .filter((item) => !item.permissao || pode(item.permissao))
+                    .map((item) => (
                     <NavLink
                       key={item.to}
                       to={item.to}

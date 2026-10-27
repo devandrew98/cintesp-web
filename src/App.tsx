@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Outlet, Navigate } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { RequireAuth } from '@/components/auth/RequireAuth'
@@ -10,6 +11,8 @@ import { RequirePermissao } from '@/components/auth/RequirePermissao'
 import { MeuAcessoPage } from '@/pages/MeuAcesso'
 import { RankingPage } from '@/pages/Ranking'
 import { AssinarDocumentosPage } from '@/pages/AssinarDocumentos'
+// Carregada sob demanda: traz PDF/Excel/imagem e não precisa pesar o bundle principal.
+const InventarioPage = lazy(() => import('@/pages/Inventario').then((m) => ({ default: m.InventarioPage })))
 import { AbrirChamadoPage } from '@/pages/AbrirChamado'
 import { ChamadosAdminPage } from '@/pages/admin/ChamadosAdmin'
 import { AdminConsignadosPage } from '@/pages/admin/Consignados'
@@ -106,6 +109,8 @@ export default function App() {
         <Route path="/admin/instituicoes" element={<RequireAdmin><AdminInstituicoesPage /></RequireAdmin>} />
         <Route path="/admin/configuracoes" element={<RequireAdmin><AdminConfiguracoesPage /></RequireAdmin>} />
         <Route path="/admin/ponto" element={<RequireAdmin><AdminPontoPage /></RequireAdmin>} />
+        <Route path="/admin/inventario" element={<RequireAdmin><Suspense fallback={<div className="py-16 text-center text-sm text-slate-400">Carregando…</div>}><InventarioPage /></Suspense></RequireAdmin>} />
+        <Route path="/inventario" element={<Navigate to="/admin/inventario" replace />} />
 
         <Route path="*" element={<Placeholder title="Página não encontrada" fase="—" descricao="O endereço acessado não existe." />} />
       </Route>

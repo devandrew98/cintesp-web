@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'node:path'
@@ -29,6 +29,8 @@ export default defineConfig({
         // config.js é gerado em runtime pelo container — não pode ser
         // pré-cacheado, senão o SW serviria a versão vazia do build.
         globIgnores: ['**/config.js'],
+        // O bundle principal já passa de 2 MiB (padrão do workbox); sem isso o build falha.
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         navigateFallbackDenylist: [/^\/config\.js$/],
       },
     }),
@@ -37,6 +39,10 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
+  },
+  test: {
+    environment: 'node',
+    include: ['src/**/*.test.ts'],
   },
   server: {
     port: 5180,

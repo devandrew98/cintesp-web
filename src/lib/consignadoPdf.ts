@@ -15,12 +15,12 @@ const PAPEL_TIMBRADO_URL = '/papel-timbrado.png'
 // partir do PAPEL TIMBRADO oficial (docs/o cabeçalho com ícones+logo termina
 // ~122pt; o rodapé com os logos dos parceiros começa ~756pt) para o texto
 // nunca sobrepor o timbre.
-const MARGEM = { top: 145, bottom: 745, left: 50, right: 546 }
+export const MARGEM = { top: 145, bottom: 745, left: 50, right: 546 }
 
 let papelTimbradoPromise: Promise<string> | null = null
 
 /** Busca o PAPEL TIMBRADO (public/papel-timbrado.png) e cacheia como data URL. */
-function carregarPapelTimbrado(): Promise<string> {
+export function carregarPapelTimbrado(): Promise<string> {
   if (!papelTimbradoPromise) {
     papelTimbradoPromise = fetch(PAPEL_TIMBRADO_URL)
       .then((r) => {

@@ -11,6 +11,7 @@ const abas = [
   { label: 'Pesquisadores', to: '/admin/pesquisadores' },
   { label: 'Registro de Ponto', to: '/admin/ponto' },
   { label: 'Consignados', to: '/admin/consignados' },
+  { label: 'Inventário', to: '/admin/inventario' },
   { label: 'Funções', to: '/admin/funcoes' },
   { label: 'Horários', to: '/admin/horarios' },
   { label: 'Áreas de Atuação', to: '/admin/areas' },

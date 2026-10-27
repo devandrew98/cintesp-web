@@ -18,6 +18,7 @@ import {
   Timer,
   Trophy,
   FileSignature,
+  ClipboardList,
   QrCode,
   MapPin,
   Building2,
@@ -30,6 +31,8 @@ export interface NavItem {
   to: string
   icon: LucideIcon
   badge?: number
+  /** Item visível só para quem tem esta permissão (o administrador sempre vê). */
+  permissao?: string
 }
 
 export interface NavSection {
@@ -82,6 +85,7 @@ export const navSections: NavSection[] = [
       { label: 'Pesquisadores', to: '/admin/pesquisadores', icon: UserCog },
       { label: 'Registro de Ponto', to: '/admin/ponto', icon: Timer },
       { label: 'Consignados', to: '/admin/consignados', icon: Boxes },
+      { label: 'Inventário Patrimonial', to: '/admin/inventario', icon: ClipboardList },
       { label: 'Funções', to: '/admin/funcoes', icon: Shield },
       { label: 'Horários', to: '/admin/horarios', icon: Clock },
       { label: 'Áreas de Atuação', to: '/admin/areas', icon: MapPin },
