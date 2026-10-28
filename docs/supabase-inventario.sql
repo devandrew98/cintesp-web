@@ -4,8 +4,8 @@
 --
 -- Quem acessa: SÓ o administrador (Administração > Inventário).
 --
--- Fotos: bucket PRIVADO `inventario` (URLs assinadas, nunca públicas),
--- só jpeg/png/webp, até 5 MB, no caminho <item-id>/<foto-id>.<ext>.
+-- Arquivos: bucket PRIVADO `inventario` (URLs assinadas, nunca públicas), até 10 MB,
+-- jpeg/png/webp (fotos) e pdf/xml (nota fiscal), no caminho <item-id>/<uuid>.<ext>.
 -- ============================================================
 
 -- ---------- Permissão: SÓ ADMINISTRADOR ----------
@@ -57,6 +57,9 @@ create table if not exists public.inventario_itens (
   id                uuid primary key default gen_random_uuid(),
   nome              text not null check (length(trim(nome)) > 0),
   numero_nota_fiscal text,
+  nota_fiscal_caminho text,   -- arquivo da nota anexada (PDF/XML/imagem) no bucket `inventario`
+  nota_fiscal_nome  text,     -- nome original do arquivo anexado
+  nota_fiscal_link  text check (nota_fiscal_link is null or nota_fiscal_link ~* '^https?://'),  -- link da nota no Drive (vai na planilha)
   data_emissao_nf   date,
   data_compra       date,
   numero_serie      text,
@@ -73,6 +76,19 @@ create table if not exists public.inventario_itens (
   criado_em         timestamptz not null default now(),
   atualizado_em     timestamptz not null default now()
 );
+
+-- Bancos criados antes das colunas da nota fiscal anexada:
+alter table public.inventario_itens
+  add column if not exists nota_fiscal_caminho text,
+  add column if not exists nota_fiscal_nome text,
+  add column if not exists nota_fiscal_link text;
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'inventario_itens_nota_fiscal_link_check') then
+    alter table public.inventario_itens
+      add constraint inventario_itens_nota_fiscal_link_check check (nota_fiscal_link is null or nota_fiscal_link ~* '^https?://');
+  end if;
+end $$;
 
 -- Bancos criados antes de existir a coluna `quantidade`:
 alter table public.inventario_itens
@@ -141,7 +157,8 @@ create policy "inventario_fotos: tudo" on public.inventario_fotos
 
 -- ---------- Bucket privado ----------
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('inventario', 'inventario', false, 5242880, array['image/jpeg', 'image/png', 'image/webp'])
+values ('inventario', 'inventario', false, 10485760,   -- 10 MB (fotos já saem reduzidas do app; notas em PDF/XML)
+        array['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'text/xml', 'application/xml'])
 on conflict (id) do update
   set public = false,
       file_size_limit = excluded.file_size_limit,
@@ -159,7 +176,7 @@ create policy "inventario_storage: enviar" on storage.objects
   with check (
     bucket_id = 'inventario'
     and public.pode_inventario()
-    and name ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|jpeg|png|webp)$'
+    and name ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|jpeg|png|webp|pdf|xml)$'
   );
 
 drop policy if exists "inventario_storage: apagar" on storage.objects;

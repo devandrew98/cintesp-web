@@ -29,6 +29,7 @@ import {
   listarInventario,
   substituirFotoPrincipal,
   urlsDasFotos,
+  urlsDasNotas,
 } from '@/data/inventario'
 import {
   fotoPrincipal,
@@ -127,7 +128,7 @@ export function InventarioPage() {
   })
 
   const excluirMut = useMutation({
-    mutationFn: (i: ItemInventario) => excluirItemInventario(i.id, i.fotos),
+    mutationFn: (i: ItemInventario) => excluirItemInventario(i.id, i.fotos, i.notaFiscalCaminho),
     onSuccess: () => {
       invalidar()
       setExcluir(null)
@@ -176,7 +177,10 @@ export function InventarioPage() {
     setAviso(null)
     setOcupado('exportar')
     try {
-      const { bytes, fotosEmbutidas } = await exportarInventarioXlsx(filtrados, baixarFoto)
+      // Link da nota na planilha: o do Drive (permanente) ou, na falta dele, um link temporário (7 dias) do arquivo anexado.
+      const semDrive = filtrados.filter((i) => !i.notaFiscalLink && i.notaFiscalCaminho).map((i) => i.notaFiscalCaminho!)
+      const linksNotas = await urlsDasNotas(semDrive, 7 * 24 * 3600).catch(() => new Map<string, string>())
+      const { bytes, fotosEmbutidas } = await exportarInventarioXlsx(filtrados, baixarFoto, linksNotas)
       baixarArquivo(bytes, `Inventario_Patrimonial_${new Date().toISOString().slice(0, 10)}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
       setAviso({ tipo: 'ok', texto: `Planilha exportada: ${filtrados.length} itens, ${fotosEmbutidas} foto(s) incorporada(s).` })
     } catch (e) {

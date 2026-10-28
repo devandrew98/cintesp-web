@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { FileText, Pencil } from 'lucide-react'
+import { ExternalLink, FileText, Paperclip, Pencil } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
-import { urlsDasFotos } from '@/data/inventario'
+import { urlsDasFotos, urlsDasNotas } from '@/data/inventario'
 import { mascararCNPJ } from '@/lib/cnpj'
 import { fotosFaltando, pendenciasOficio, quantidadeDe, STATUS_VISTORIA, fotoPrincipal, type ItemInventario } from '@/lib/inventario'
 import { dataBR } from '@/lib/oficioTombamento'
@@ -108,6 +108,32 @@ export function ItemInventarioDetalhe({
               </div>
             ))}
         </dl>
+
+        {(item.notaFiscalCaminho || item.notaFiscalLink) && (
+          <div className="flex flex-wrap gap-2">
+            {item.notaFiscalCaminho && (
+              <button
+                onClick={async () => {
+                  const url = (await urlsDasNotas([item.notaFiscalCaminho!]).catch(() => new Map<string, string>())).get(item.notaFiscalCaminho!)
+                  if (url) window.open(url, '_blank', 'noopener')
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                <Paperclip className="h-3.5 w-3.5" /> Abrir nota anexada{item.notaFiscalNome ? ` (${item.notaFiscalNome})` : ''}
+              </button>
+            )}
+            {item.notaFiscalLink && (
+              <a
+                href={item.notaFiscalLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                <ExternalLink className="h-3.5 w-3.5" /> Nota no Drive
+              </a>
+            )}
+          </div>
+        )}
 
         {faltamFotos > 0 && qtd > 1 && (
           <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">

@@ -38,10 +38,15 @@ export interface DadosItemInventario {
   localizacao?: string
   observacoes?: string
   statusVistoria: StatusVistoria
+  /** Link (https) da nota fiscal no Drive — vai numa coluna da planilha exportada. */
+  notaFiscalLink?: string
 }
 
 export interface ItemInventario extends DadosItemInventario {
   id: string
+  /** Arquivo da nota anexado (caminho no storage) e o nome original. */
+  notaFiscalCaminho?: string
+  notaFiscalNome?: string
   /** Título do projeto vinculado (vem do cadastro de projetos). */
   projetoNome?: string
   fotos: FotoInventario[]
@@ -85,8 +90,12 @@ export function fotoPrincipal(item: Pick<ItemInventario, 'fotos'>): FotoInventar
 // ---------- Validação ----------
 
 /** Erros que IMPEDEM salvar (o resto só vira pendência do ofício). */
-export function validarItem(d: Pick<DadosItemInventario, 'nome' | 'cnpj' | 'quantidade'>): Record<string, string> {
+export function validarItem(
+  d: Pick<DadosItemInventario, 'nome' | 'cnpj' | 'quantidade' | 'notaFiscalLink'>,
+): Record<string, string> {
   const erros: Record<string, string> = {}
+  if (d.notaFiscalLink?.trim() && !/^https?:\/\/\S+$/i.test(d.notaFiscalLink.trim()))
+    erros.notaFiscalLink = 'O link da nota deve começar com https:// (cole o link do Drive).'
   if (d.quantidade !== undefined && (!Number.isInteger(d.quantidade) || d.quantidade < 1 || d.quantidade > 9999))
     erros.quantidade = 'A quantidade deve ser um número inteiro de 1 a 9999.'
   if (!d.nome?.trim()) erros.nome = 'Informe o nome/descrição do item.'

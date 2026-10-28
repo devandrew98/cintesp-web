@@ -31,6 +31,7 @@ export type CampoInventario =
   | 'projetoNumero'
   | 'localizacao'
   | 'statusVistoria'
+  | 'notaFiscalLink'
   | 'observacoes'
 
 export const rotuloCampoInventario: Record<CampoInventario, string> = {
@@ -45,11 +46,14 @@ export const rotuloCampoInventario: Record<CampoInventario, string> = {
   projetoNumero: 'Nº do projeto',
   localizacao: 'Localização',
   statusVistoria: 'Status da vistoria',
+  notaFiscalLink: 'Link da nota fiscal',
   observacoes: 'Observações',
 }
 
 /** Nomes de coluna aceitos (normalizados), do mais ao menos específico. */
 const SINONIMOS: Record<CampoInventario, string[]> = {
+  // Antes dos demais: 'link da nota fiscal' também contém 'nota fiscal' e seria consumida como o NÚMERO da nota.
+  notaFiscalLink: ['link da nota fiscal', 'link da nota', 'link nota fiscal', 'link nf', 'link do drive', 'link drive'],
   nome: ['nome do item', 'nome item', 'descricao do item', 'item', 'material', 'equipamento', 'descricao', 'nome', 'produto', 'bem'],
   numeroNotaFiscal: ['numero doc fiscal', 'numero da nota fiscal', 'n da nota fiscal', 'nota fiscal', 'numero nf', 'n nf', 'nf', 'nota'],
   dataEmissaoNf: ['data de emissao da nf', 'data de emissao', 'emissao da nf', 'emissao', 'data da nota fiscal', 'data nf'],
@@ -161,6 +165,11 @@ export function montarItensImportados(
       observacoes: pega(l, 'observacoes') || undefined,
       statusVistoria: statusDeTexto(pega(l, 'statusVistoria')),
     }
+    const link = pega(l, 'notaFiscalLink')
+    if (link) {
+      if (/^https?:\/\/\S+$/i.test(link)) dados.notaFiscalLink = link
+      else avisos.push('link da nota ilegível (não importado)')
+    }
 
     let erro: string | undefined
     if (!dados.nome) erro = 'Sem nome do item'
@@ -189,6 +198,8 @@ const dataBRCurta = (iso?: string) => (iso ? iso.slice(0, 10).split('-').reverse
 export async function exportarInventarioXlsx(
   itens: ItemInventario[],
   baixarFotoBytes: (caminho: string) => Promise<{ bytes: ArrayBuffer; extensao: 'jpeg' | 'png' } | null>,
+  /** caminho do arquivo anexado → link temporário, usado quando o item não tem link do Drive. */
+  linksNotasAnexadas: Map<string, string> = new Map(),
 ): Promise<{ bytes: ArrayBuffer; fotosEmbutidas: number }> {
   const ExcelJS = (await import('exceljs')).default
   const wb = new ExcelJS.Workbook()
@@ -220,6 +231,7 @@ export async function exportarInventarioXlsx(
     { header: 'Observações', key: 'obs', width: 36 },
     { header: 'Cadastrado em', key: 'criado', width: 14 },
     { header: 'Atualizado em', key: 'atualizado', width: 14 },
+    { header: 'Nota fiscal (link)', key: 'notaLink', width: 26 },
   ]
   ws.getRow(1).font = { bold: true }
   ws.getRow(1).alignment = { vertical: 'middle' }
@@ -246,7 +258,18 @@ export async function exportarInventarioXlsx(
       obs: it.observacoes ?? '',
       criado: dataBRCurta(it.criadoEm),
       atualizado: dataBRCurta(it.atualizadoEm),
+      notaLink: '',
     })
+    // Coluna do link da nota: Drive (permanente) ou o arquivo anexado (link temporário). Sem nenhum dos dois, fica vazia.
+    const urlNota = it.notaFiscalLink ?? (it.notaFiscalCaminho ? linksNotasAnexadas.get(it.notaFiscalCaminho) : undefined)
+    if (urlNota) {
+      const celula = linha.getCell('notaLink')
+      celula.value = {
+        text: it.notaFiscalLink ? 'Abrir nota fiscal (Drive)' : 'Abrir nota fiscal (link temporário)',
+        hyperlink: urlNota,
+      }
+      celula.font = { color: { argb: 'FF1D4ED8' }, underline: true }
+    }
     linha.alignment = { vertical: 'middle', wrapText: true }
 
     // Principal primeiro, depois as demais, cada uma na sua coluna.

@@ -1,6 +1,7 @@
 import { supabase, USE_MOCK } from '@/lib/supabase'
 import { listarProjetos } from '@/data/projetos'
 import { reduzirImagem } from '@/lib/imagem'
+import { tipoDaNota, extensaoDaNota, validarArquivoNota } from '@/lib/notaFiscalArquivo'
 import {
   limparCnpj,
   quantidadeDe,
@@ -56,6 +57,9 @@ function mapItem(r: any, nomesProjetos: Map<string, string>): ItemInventario {
     id: r.id,
     nome: r.nome,
     numeroNotaFiscal: r.numero_nota_fiscal ?? undefined,
+    notaFiscalCaminho: r.nota_fiscal_caminho ?? undefined,
+    notaFiscalNome: r.nota_fiscal_nome ?? undefined,
+    notaFiscalLink: r.nota_fiscal_link ?? undefined,
     dataEmissaoNf: r.data_emissao_nf ?? undefined,
     dataCompra: r.data_compra ?? undefined,
     numeroSerie: r.numero_serie ?? undefined,
@@ -79,6 +83,7 @@ function paraLinha(d: DadosItemInventario) {
   return {
     nome: d.nome.trim(),
     numero_nota_fiscal: txt(d.numeroNotaFiscal),
+    nota_fiscal_link: txt(d.notaFiscalLink),
     data_emissao_nf: d.dataEmissaoNf || null,
     data_compra: d.dataCompra || null,
     numero_serie: txt(d.numeroSerie),
@@ -194,21 +199,102 @@ export async function atualizarStatusVistoria(id: string, status: StatusVistoria
   if (error) throw erroAmigavel(error)
 }
 
-/** Apaga o item e TODAS as fotos dele (arquivos primeiro, para não sobrar imagem órfã). Só admin (RLS). */
-export async function excluirItemInventario(id: string, fotos: FotoInventario[]): Promise<void> {
+/** Apaga o item, as fotos e a nota anexada (sem deixar arquivo órfão). Só admin (RLS). */
+export async function excluirItemInventario(
+  id: string,
+  fotos: FotoInventario[],
+  notaCaminho?: string,
+): Promise<void> {
   if (USE_MOCK || !supabase) {
     const i = mockItens.findIndex((x) => x.id === id)
     if (i >= 0) mockItens.splice(i, 1)
     fotos.forEach((f) => mockBlobs.delete(f.caminho))
+    if (notaCaminho) mockBlobs.delete(notaCaminho)
     return
   }
   // Primeiro confirma que o item pode ser apagado (RLS: só admin) ANTES de apagar arquivos.
   const { error } = await supabase.from('inventario_itens').delete().eq('id', id)
   if (error) throw erroAmigavel(error)
-  if (fotos.length > 0) {
-    const { error: eArq } = await supabase.storage.from(BUCKET).remove(fotos.map((f) => f.caminho))
+  const arquivos = [...fotos.map((f) => f.caminho), ...(notaCaminho ? [notaCaminho] : [])]
+  if (arquivos.length > 0) {
+    const { error: eArq } = await supabase.storage.from(BUCKET).remove(arquivos)
     if (eArq) console.warn('[inventario] item apagado, mas alguns arquivos de foto não foram removidos:', eArq.message)
   }
+}
+
+// ---------------- nota fiscal anexada ----------------
+
+/**
+ * Anexa (ou substitui) o arquivo da nota fiscal do item. O arquivo antigo, se houver, é apagado
+ * DEPOIS de o novo estar gravado — nunca fica item apontando para arquivo inexistente nem arquivo órfão.
+ */
+export async function anexarNotaFiscal(
+  itemId: string,
+  arquivo: File,
+  caminhoAnterior?: string,
+): Promise<{ caminho: string; nome: string }> {
+  const problema = validarArquivoNota(arquivo)
+  if (problema) throw new Error(problema)
+  const caminho = `${itemId}/${crypto.randomUUID()}.${extensaoDaNota(arquivo.name)}`
+  const nome = arquivo.name
+
+  if (USE_MOCK || !supabase) {
+    const item = mockItens.find((x) => x.id === itemId)
+    if (!item) throw new Error('Salve o item antes de anexar a nota.')
+    mockBlobs.set(caminho, URL.createObjectURL(arquivo))
+    if (caminhoAnterior) mockBlobs.delete(caminhoAnterior)
+    item.notaFiscalCaminho = caminho
+    item.notaFiscalNome = nome
+    return { caminho, nome }
+  }
+
+  const { error: eUp } = await supabase.storage.from(BUCKET).upload(caminho, arquivo, { contentType: tipoDaNota(nome) })
+  if (eUp) throw erroAmigavel(eUp)
+  const { error } = await supabase
+    .from('inventario_itens')
+    .update({ nota_fiscal_caminho: caminho, nota_fiscal_nome: nome })
+    .eq('id', itemId)
+  if (error) {
+    await supabase.storage.from(BUCKET).remove([caminho])
+    throw erroAmigavel(error)
+  }
+  if (caminhoAnterior) await supabase.storage.from(BUCKET).remove([caminhoAnterior])
+  return { caminho, nome }
+}
+
+export async function removerNotaFiscal(itemId: string, caminho: string): Promise<void> {
+  if (USE_MOCK || !supabase) {
+    const item = mockItens.find((x) => x.id === itemId)
+    if (item) {
+      item.notaFiscalCaminho = undefined
+      item.notaFiscalNome = undefined
+    }
+    mockBlobs.delete(caminho)
+    return
+  }
+  const { error } = await supabase
+    .from('inventario_itens')
+    .update({ nota_fiscal_caminho: null, nota_fiscal_nome: null })
+    .eq('id', itemId)
+  if (error) throw erroAmigavel(error)
+  await supabase.storage.from(BUCKET).remove([caminho])
+}
+
+/** URLs assinadas das notas anexadas, por caminho (`validadeS`: 1 h para abrir na tela; mais longa para a planilha). */
+export async function urlsDasNotas(caminhos: string[], validadeS = URL_VALIDADE_S): Promise<Map<string, string>> {
+  const mapa = new Map<string, string>()
+  if (caminhos.length === 0) return mapa
+  if (USE_MOCK || !supabase) {
+    for (const c of caminhos) {
+      const u = mockBlobs.get(c)
+      if (u) mapa.set(c, u)
+    }
+    return mapa
+  }
+  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrls(caminhos, validadeS)
+  if (error) throw erroAmigavel(error)
+  for (const r of data ?? []) if (r.path && r.signedUrl) mapa.set(r.path, r.signedUrl)
+  return mapa
 }
 
 // ---------------- fotos ----------------

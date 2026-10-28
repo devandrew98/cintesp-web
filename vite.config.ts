@@ -43,6 +43,9 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts'],
+    // A 1ª carga dos módulos (jspdf, exceljs…) pode demorar em máquina fria.
+    hookTimeout: 30_000,
+    testTimeout: 30_000,
   },
   server: {
     port: 5180,

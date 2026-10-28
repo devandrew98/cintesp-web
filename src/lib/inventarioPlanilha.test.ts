@@ -63,6 +63,48 @@ describe('exportação .xlsx', () => {
   })
 })
 
+describe('link da nota fiscal na planilha', () => {
+  it('exporta o link do Drive como hiperlink; sem Drive, usa o link do arquivo anexado; sem nenhum, deixa vazio', async () => {
+    const itens = [
+      item({ id: 'a', nome: 'Com Drive', notaFiscalLink: 'https://drive.google.com/file/d/AAA/view', notaFiscalCaminho: 'a/x.pdf' }),
+      item({ id: 'b', nome: 'Só anexo', notaFiscalCaminho: 'b/y.pdf' }),
+      item({ id: 'c', nome: 'Sem nota' }),
+    ]
+    const links = new Map([
+      ['a/x.pdf', 'https://storage.exemplo/a-assinado'],
+      ['b/y.pdf', 'https://storage.exemplo/b-assinado'],
+    ])
+    const { bytes } = await exportarInventarioXlsx(itens, async () => null, links)
+    const wb = new ExcelJS.Workbook()
+    await wb.xlsx.load(bytes)
+    const ws = wb.getWorksheet('Inventário')!
+    const col = ws.getRow(1).values as unknown[]
+    const idx = col.indexOf('Nota fiscal (link)')
+    expect(idx).toBeGreaterThan(0)
+    const celula = (linha: number) => ws.getRow(linha).getCell(idx).value as { text?: string; hyperlink?: string } | string | null
+    expect(celula(2)).toMatchObject({ hyperlink: 'https://drive.google.com/file/d/AAA/view', text: expect.stringContaining('Drive') })
+    expect(celula(3)).toMatchObject({ hyperlink: 'https://storage.exemplo/b-assinado' }) // Drive tem prioridade sobre o anexo
+    expect(celula(4) === '' || celula(4) === null).toBe(true)
+  })
+
+  it('importa o link da nota (só http/https) a partir de uma coluna da planilha', () => {
+    const mapa = mapearColunasInventario(['Item', 'Link da Nota Fiscal'])
+    expect(mapa.notaFiscalLink).toBe('Link da Nota Fiscal')
+    const r = montarItensImportados(
+      [
+        { Item: 'A', 'Link da Nota Fiscal': 'https://drive.google.com/x' },
+        { Item: 'B', 'Link da Nota Fiscal': 'meu arquivo.pdf' },
+      ],
+      [2, 3],
+      mapa,
+      [],
+    )
+    expect(r[0].dados.notaFiscalLink).toBe('https://drive.google.com/x')
+    expect(r[1].dados.notaFiscalLink).toBeUndefined()
+    expect(r[1].avisos).toContain('link da nota ilegível (não importado)')
+  })
+})
+
 describe('quantidade', () => {
   it('exporta uma foto por unidade, cada uma em sua coluna, e a quantidade', async () => {
     const itens = [

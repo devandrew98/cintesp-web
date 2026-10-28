@@ -82,4 +82,40 @@ describe('inventário — dados e fotos (mock)', () => {
     expect((await d.listarInventario()).some((i) => i.id === id)).toBe(false)
     expect((await d.urlsDasFotos([f.caminho])).size).toBe(0)
   })
+
+  it('nota fiscal: anexa, troca (apagando a antiga) e remove, persistindo nas leituras seguintes', async () => {
+    const id = await d.criarItemInventario({ nome: 'Servidor', statusVistoria: 'pendente' })
+    const nf = (nome: string) => new File([new Uint8Array(500)], nome, { type: 'application/pdf' })
+
+    const a1 = await d.anexarNotaFiscal(id, nf('nf-1.pdf'))
+    let item = (await d.listarInventario()).find((i) => i.id === id)!
+    expect(item).toMatchObject({ notaFiscalCaminho: a1.caminho, notaFiscalNome: 'nf-1.pdf' })
+    expect(a1.caminho).toMatch(new RegExp(`^${id}/[0-9a-f-]{36}\.pdf$`))
+    expect((await d.urlsDasNotas([a1.caminho])).size).toBe(1)
+
+    const a2 = await d.anexarNotaFiscal(id, nf('nf-2.pdf'), a1.caminho)
+    item = (await d.listarInventario()).find((i) => i.id === id)!
+    expect(item.notaFiscalNome).toBe('nf-2.pdf')
+    expect((await d.urlsDasNotas([a1.caminho])).size).toBe(0) // a antiga não ficou órfã
+
+    await d.removerNotaFiscal(id, a2.caminho)
+    item = (await d.listarInventario()).find((i) => i.id === id)!
+    expect(item.notaFiscalCaminho).toBeUndefined()
+    expect((await d.urlsDasNotas([a2.caminho])).size).toBe(0)
+  })
+
+  it('nota fiscal: recusa formato inválido e link do Drive que não é http(s)', async () => {
+    const id = await d.criarItemInventario({ nome: 'Switch', statusVistoria: 'pendente' })
+    await expect(d.anexarNotaFiscal(id, new File(['x'], 'nf.docx', { type: 'application/msword' }))).rejects.toThrow(/PDF, XML/)
+    await expect(d.criarItemInventario({ nome: 'X', notaFiscalLink: 'drive.google.com/abc', statusVistoria: 'pendente' })).rejects.toThrow(/https/)
+    const ok = await d.criarItemInventario({ nome: 'Y', notaFiscalLink: 'https://drive.google.com/file/d/abc/view', statusVistoria: 'pendente' })
+    expect((await d.listarInventario()).find((i) => i.id === ok)?.notaFiscalLink).toBe('https://drive.google.com/file/d/abc/view')
+  })
+
+  it('excluir o item apaga também a nota anexada', async () => {
+    const id = await d.criarItemInventario({ nome: 'Nobreak', statusVistoria: 'pendente' })
+    const nota = await d.anexarNotaFiscal(id, new File([new Uint8Array(9)], 'nf.pdf', { type: 'application/pdf' }))
+    await d.excluirItemInventario(id, [], nota.caminho)
+    expect((await d.urlsDasNotas([nota.caminho])).size).toBe(0)
+  })
 })

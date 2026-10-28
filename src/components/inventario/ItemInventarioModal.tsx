@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, Camera, ImagePlus, Star, Trash2 } from 'lucide-react'
+import { AlertTriangle, Camera, ExternalLink, FileText, ImagePlus, Paperclip, Star, Trash2 } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Field, Input, Select, Textarea } from '@/components/ui/Field'
@@ -10,8 +10,13 @@ import {
   criarItemInventario,
   definirFotoPrincipal,
   removerFoto,
+  anexarNotaFiscal,
+  removerNotaFiscal,
   urlsDasFotos,
+  urlsDasNotas,
 } from '@/data/inventario'
+import { lerDadosDaNota, validarArquivoNota, type DadosDaNota } from '@/lib/notaFiscalArquivo'
+import { dataBR } from '@/lib/oficioTombamento'
 import { listarProjetos } from '@/data/projetos'
 import { mascararCNPJ } from '@/lib/cnpj'
 import {
@@ -73,6 +78,11 @@ export function ItemInventarioModal({
   const [tentou, setTentou] = useState(false)
   const [erroFoto, setErroFoto] = useState<string | null>(null)
   const [ocupadoFoto, setOcupadoFoto] = useState(false)
+  const notaRef = useRef<HTMLInputElement>(null)
+  const [notaNova, setNotaNova] = useState<File | null>(null) // anexada agora, sobe ao salvar
+  const [removerNota, setRemoverNota] = useState(false)
+  const [lendoNota, setLendoNota] = useState(false)
+  const [resultadoNota, setResultadoNota] = useState<{ tipo: 'ok' | 'aviso' | 'erro'; texto: string } | null>(null)
 
   const idItem = item?.id ?? criadoId ?? novoId.current
   const editando = Boolean(item) || Boolean(criadoId)
@@ -85,6 +95,9 @@ export function ItemInventarioModal({
     setTentou(false)
     setErroFoto(null)
     setCriadoId(null)
+    setNotaNova(null)
+    setRemoverNota(false)
+    setResultadoNota(null)
     if (!item) novoId.current = crypto.randomUUID()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, item?.id])
@@ -149,16 +162,89 @@ export function ItemInventarioModal({
     }
   }
 
+  /** Anexa a nota (PDF/XML/imagem), lê os dados dela e preenche o formulário com o que for encontrado. */
+  async function receberNota(arquivo: File | undefined) {
+    if (!arquivo) return
+    const problema = validarArquivoNota(arquivo)
+    if (problema) {
+      setResultadoNota({ tipo: 'erro', texto: problema })
+      return
+    }
+    setNotaNova(arquivo)
+    setRemoverNota(false)
+    setResultadoNota(null)
+    setLendoNota(true)
+    const dados: DadosDaNota | null = await lerDadosDaNota(arquivo)
+    setLendoNota(false)
+    if (!dados) {
+      setResultadoNota({
+        tipo: 'aviso',
+        texto: 'Nota anexada, mas não consegui ler os dados dela (imagem, PDF escaneado ou arquivo que não é NF-e). Preencha os campos à mão.',
+      })
+      return
+    }
+    const preenchidos: string[] = []
+    const faltaram: string[] = []
+    const patch: Partial<DadosItemInventario> = {}
+    const pegar = <K extends keyof DadosItemInventario>(chave: K, valor: DadosItemInventario[K] | undefined, rotulo: string) => {
+      if (valor) {
+        patch[chave] = valor
+        preenchidos.push(rotulo)
+      } else faltaram.push(rotulo)
+    }
+    pegar('numeroNotaFiscal', dados.numero, 'nº da nota')
+    pegar('dataEmissaoNf', dados.emissao, 'emissão')
+    pegar('fornecedor', dados.fornecedor, 'fornecedor')
+    pegar('cnpj', dados.cnpj, 'CNPJ')
+    // A nota não traz "data da compra": usa a emissão, sem sobrescrever o que já foi digitado.
+    if (dados.emissao && !form.dataCompra) patch.dataCompra = dados.emissao
+    setForm((f) => ({ ...f, ...patch }))
+    setResultadoNota({
+      tipo: faltaram.length === 0 ? 'ok' : 'aviso',
+      texto:
+        `Li a nota (${dados.origem === 'xml' ? 'XML' : 'PDF'})${dados.numero ? ` nº ${dados.numero}` : ''}${dados.emissao ? `, emitida em ${dataBR(dados.emissao)}` : ''}. ` +
+        `Preenchi: ${preenchidos.join(', ') || 'nada'}.` +
+        (faltaram.length > 0 ? ` Não encontrei: ${faltaram.join(', ')} — complete à mão.` : '') +
+        (patch.dataCompra ? ' A “data da compra” recebeu a data de emissão; ajuste se for diferente.' : '') +
+        (dados.destinatario ? ` Destinatário: ${dados.destinatario}.` : '') +
+        ' Confira os valores antes de salvar.',
+    })
+  }
+
+  async function abrirNotaAnexada() {
+    const caminho = item?.notaFiscalCaminho
+    if (!caminho) return
+    try {
+      const url = (await urlsDasNotas([caminho])).get(caminho)
+      if (url) window.open(url, '_blank', 'noopener')
+    } catch (e) {
+      setResultadoNota({ tipo: 'erro', texto: mensagemErro(e) })
+    }
+  }
+
   const salvarMut = useMutation({
     mutationFn: async () => {
       if (editando) {
         await atualizarItemInventario(idItem, form)
-        return { id: idItem, falhasFoto: 0 }
+      } else {
+        await criarItemInventario(form, idItem)
+        setCriadoId(idItem) // a partir daqui, salvar de novo ATUALIZA (nunca duplica)
       }
-      await criarItemInventario(form, idItem)
-      setCriadoId(idItem) // a partir daqui, salvar de novo ATUALIZA (nunca duplica)
       let falhas = 0
-      for (let i = 0; i < staged.length; i++) {
+      // Nota fiscal anexada: item já está salvo; falha aqui NÃO desfaz nada, só avisa.
+      try {
+        if (notaNova) {
+          await anexarNotaFiscal(idItem, notaNova, item?.notaFiscalCaminho)
+          setNotaNova(null)
+        } else if (removerNota && item?.notaFiscalCaminho) {
+          await removerNotaFiscal(idItem, item.notaFiscalCaminho)
+          setRemoverNota(false)
+        }
+      } catch (e) {
+        falhas++
+        setResultadoNota({ tipo: 'erro', texto: `O item foi salvo, mas a nota não subiu: ${mensagemErro(e)}` })
+      }
+      for (let i = 0; !editando && i < staged.length; i++) {
         try {
           await adicionarFoto(idItem, staged[i].arquivo, i === 0)
         } catch (e) {
@@ -375,6 +461,74 @@ export function ItemInventarioModal({
         <Field label="Observação" hint="Estado do item, onde foi achado, o que falta conferir…">
           <Textarea value={form.observacoes ?? ''} onChange={(e) => atualizar({ observacoes: e.target.value })} />
         </Field>
+
+        {/* ---------- Nota fiscal anexada ---------- */}
+        <section className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+          <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+            <FileText className="h-4 w-4 text-slate-400" /> Nota fiscal
+          </h3>
+          <input
+            ref={notaRef}
+            type="file"
+            accept=".pdf,.xml,image/jpeg,image/png"
+            className="hidden"
+            onChange={(e) => {
+              void receberNota(e.target.files?.[0])
+              e.target.value = ''
+            }}
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" variant="secondary" icon={Paperclip} onClick={() => notaRef.current?.click()} disabled={lendoNota}>
+              {lendoNota ? 'Lendo a nota…' : notaNova || (item?.notaFiscalNome && !removerNota) ? 'Trocar nota fiscal' : 'Anexar nota fiscal'}
+            </Button>
+            {notaNova ? (
+              <span className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300">
+                {notaNova.name} <span className="text-xs text-slate-400">(sobe ao salvar)</span>
+                <button type="button" title="Descartar" onClick={() => { setNotaNova(null); setResultadoNota(null) }} className="rounded p-1 text-slate-400 hover:text-red-500">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </span>
+            ) : item?.notaFiscalNome && !removerNota ? (
+              <span className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300">
+                {item.notaFiscalNome}
+                <button type="button" title="Abrir nota anexada" onClick={abrirNotaAnexada} className="rounded p-1 text-slate-400 hover:text-brand-600">
+                  <ExternalLink className="h-4 w-4" />
+                </button>
+                <button type="button" title="Remover nota anexada" onClick={() => setRemoverNota(true)} className="rounded p-1 text-slate-400 hover:text-red-500">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </span>
+            ) : removerNota ? (
+              <span className="text-sm text-amber-600">A nota será removida ao salvar.</span>
+            ) : null}
+          </div>
+          <p className="mt-1 text-xs text-slate-400">
+            PDF ou XML da NF-e: o app lê o arquivo e preenche nota, emissão, fornecedor e CNPJ. Imagem ou PDF escaneado é só anexado.
+          </p>
+          {resultadoNota && (
+            <p
+              className={`mt-2 rounded-lg px-3 py-2 text-sm ${
+                resultadoNota.tipo === 'ok'
+                  ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300'
+                  : resultadoNota.tipo === 'aviso'
+                    ? 'bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300'
+                    : 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-300'
+              }`}
+            >
+              {resultadoNota.texto}
+            </p>
+          )}
+          <Field label="Link da nota no Drive" hint="Cole o link do arquivo no Drive — ele vai na coluna “Nota fiscal (link)” da planilha exportada.">
+            <Input
+              type="url"
+              value={form.notaFiscalLink ?? ''}
+              onChange={(e) => atualizar({ notaFiscalLink: e.target.value })}
+              placeholder="https://drive.google.com/…"
+              className={campoErro('notaFiscalLink')}
+            />
+            {erros.notaFiscalLink && form.notaFiscalLink && <p className="mt-1 text-xs text-red-500">{erros.notaFiscalLink}</p>}
+          </Field>
+        </section>
 
         {/* ---------- Dados fiscais ---------- */}
         <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
