@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ExternalLink, FileText, Paperclip, Pencil } from 'lucide-react'
+import { ExternalLink, FileText, Paperclip, Pencil, Search } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { urlsDasFotos, urlsDasNotas } from '@/data/inventario'
+import { linkBuscaProduto } from '@/lib/buscaProduto'
 import { mascararCNPJ } from '@/lib/cnpj'
 import { fotosFaltando, pendenciasOficio, quantidadeDe, STATUS_VISTORIA, fotoPrincipal, type ItemInventario } from '@/lib/inventario'
 import { dataBR } from '@/lib/oficioTombamento'
@@ -63,6 +64,9 @@ export function ItemInventarioDetalhe({
       subtitle={st.label}
       footer={
         <>
+          <Button variant="secondary" icon={Search} onClick={() => window.open(linkBuscaProduto(item.nome), '_blank', 'noopener')}>
+            Buscar produto
+          </Button>
           <Button variant="secondary" icon={Pencil} onClick={() => onEditar(item)}>
             Editar
           </Button>

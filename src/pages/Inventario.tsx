@@ -21,6 +21,7 @@ import { Input, Select } from '@/components/ui/Field'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { ItemInventarioModal } from '@/components/inventario/ItemInventarioModal'
 import { ItemInventarioDetalhe } from '@/components/inventario/ItemInventarioDetalhe'
+import { linkBuscaProduto } from '@/lib/buscaProduto'
 import { ImportarInventarioModal } from '@/components/inventario/ImportarInventarioModal'
 import {
   atualizarStatusVistoria,
@@ -385,6 +386,7 @@ export function InventarioPage() {
                         camRef.current?.click()
                       }}
                     />
+                    <BotaoIcone titulo="Buscar produto (Google Imagens)" icone={Search} onClick={() => window.open(linkBuscaProduto(i.nome), '_blank', 'noopener')} />
                     <BotaoIcone titulo="Gerar ofício" icone={FileText} disabled={trabalhando} onClick={() => gerarOficio(i)} />
                     <BotaoIcone titulo="Excluir" icone={Trash2} perigo onClick={() => setExcluir(i)} />
                   </div>
