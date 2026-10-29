@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 import { InstallPrompt } from '@/components/pwa/InstallPrompt'
+import { PullToRefresh } from '@/components/pwa/PullToRefresh'
 import { useRealtime } from '@/hooks/useRealtime'
 
 export function AppLayout() {
@@ -19,6 +20,8 @@ export function AppLayout() {
       </div>
       {/* Banner de instalação do PWA (aparece só quando instalável) */}
       <InstallPrompt />
+      {/* Puxar para atualizar (só no app instalado) */}
+      <PullToRefresh />
     </div>
   )
 }
