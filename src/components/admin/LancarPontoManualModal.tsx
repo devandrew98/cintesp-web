@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { CalendarPlus } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
@@ -17,16 +17,28 @@ export function LancarPontoManualModal({
   usuarios,
   open,
   onClose,
+  preenchido,
 }: {
   usuarios: { id: string; nome: string }[]
   open: boolean
   onClose: () => void
+  /** Abre já com pesquisador, tipo e dia escolhidos (atalho "+" de uma linha incompleta). */
+  preenchido?: { usuarioId: string; tipo: 'entrada' | 'saida'; data: string } | null
 }) {
   const qc = useQueryClient()
   const [usuarioId, setUsuarioId] = useState('')
   const [tipo, setTipo] = useState<TipoPonto>('entrada')
   const [horario, setHorario] = useState('')
   const [motivo, setMotivo] = useState('')
+
+  // Horário sugerido (editável) para o dia da linha; o motivo continua obrigatório.
+  useEffect(() => {
+    if (!open || !preenchido) return
+    setUsuarioId(preenchido.usuarioId)
+    setTipo(preenchido.tipo)
+    setHorario(`${preenchido.data}T${preenchido.tipo === 'entrada' ? '08:00' : '17:00'}`)
+    setMotivo('')
+  }, [open, preenchido])
 
   const ehFalta = tipo === 'falta'
 

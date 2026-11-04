@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { CalendarPlus, FileSpreadsheet, Pencil, Trash2, UserCheck, UserX, Users2 } from 'lucide-react'
+import { CalendarPlus, FileSpreadsheet, Pencil, Plus, Trash2, UserCheck, UserX, Users2 } from 'lucide-react'
 import { AdminShell } from '@/components/admin/AdminShell'
 import { Button } from '@/components/ui/Button'
 import { Select, Input } from '@/components/ui/Field'
@@ -61,6 +61,7 @@ export function AdminPontoPage() {
   const [corrigindo, setCorrigindo] = useState<RegistroPonto | null>(null)
   const [excluindo, setExcluindo] = useState<RegistroPonto | null>(null)
   const [lancarAberto, setLancarAberto] = useState(false)
+  const [preenchido, setPreenchido] = useState<{ usuarioId: string; tipo: 'entrada' | 'saida'; data: string } | null>(null)
   const [relatorioAberto, setRelatorioAberto] = useState(false)
 
   const { data: usuarios = [] } = useQuery({ queryKey: ['usuarios'], queryFn: listarUsuarios })
@@ -175,7 +176,11 @@ export function AdminPontoPage() {
                   </td>
                 </tr>
               ) : (
-                dias.map((d) => <LinhaDia key={`${d.usuarioId}-${d.data}-${d.entrada?.id}-${d.saida?.id}-${d.falta?.id}`} dia={d} onCorrigir={setCorrigindo} onExcluir={setExcluindo} />)
+                dias.map((d) => <LinhaDia key={`${d.usuarioId}-${d.data}-${d.entrada?.id}-${d.saida?.id}-${d.falta?.id}`} dia={d} onCorrigir={setCorrigindo} onExcluir={setExcluindo}
+                  onAdicionar={(tipo) => {
+                    setPreenchido({ usuarioId: d.usuarioId, tipo, data: d.data })
+                    setLancarAberto(true)
+                  }} />)
               )}
             </tbody>
           </table>
@@ -193,7 +198,11 @@ export function AdminPontoPage() {
       <LancarPontoManualModal
         usuarios={usuarios.map((u) => ({ id: u.id, nome: u.nome }))}
         open={lancarAberto}
-        onClose={() => setLancarAberto(false)}
+        preenchido={preenchido}
+        onClose={() => {
+          setLancarAberto(false)
+          setPreenchido(null)
+        }}
       />
       <RelatorioMensalModal
         usuarios={usuarios.map((u) => ({ id: u.id, nome: u.nome }))}
@@ -209,11 +218,23 @@ function LinhaDia({
   dia,
   onCorrigir,
   onExcluir,
+  onAdicionar,
 }: {
   dia: DiaFrequencia
   onCorrigir: (r: RegistroPonto) => void
   onExcluir: (r: RegistroPonto) => void
+  onAdicionar: (tipo: 'entrada' | 'saida') => void
 }) {
+  const botaoAdicionar = (tipo: 'entrada' | 'saida') =>
+    !dia.falta && (
+      <button
+        onClick={() => onAdicionar(tipo)}
+        className="rounded p-1 text-slate-300 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-500/10"
+        title={`Adicionar ${tipo === 'entrada' ? 'entrada' : 'saída'}`}
+      >
+        <Plus className="h-3.5 w-3.5" />
+      </button>
+    )
   return (
     <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/60">
       <td className="px-4 py-3">
@@ -230,6 +251,7 @@ function LinhaDia({
           <span className="text-slate-700 dark:text-slate-200">
             {dia.entrada ? new Date(dia.entrada.registradoEm).toLocaleTimeString('pt-BR') : '—'}
           </span>
+          {!dia.entrada && botaoAdicionar('entrada')}
           {dia.entrada && (
             <button
               onClick={() => onCorrigir(dia.entrada!)}
@@ -255,6 +277,7 @@ function LinhaDia({
           <span className="text-slate-700 dark:text-slate-200">
             {dia.saida ? new Date(dia.saida.registradoEm).toLocaleTimeString('pt-BR') : '—'}
           </span>
+          {!dia.saida && botaoAdicionar('saida')}
           {dia.saida && (
             <button
               onClick={() => onCorrigir(dia.saida!)}
