@@ -422,16 +422,20 @@ export type GrupoRanking = 'geral' | 'ic'
 export async function listarRankingMensal(
   grupo: GrupoRanking,
   usuarioAtualId?: string,
+  /** Mês consultado (1-12); sem ele, o mês corrente. */
+  mes?: { ano: number; mes: number },
 ): Promise<PosicaoRanking[]> {
   if (USE_MOCK || !supabase) {
     const usuarios = await listarUsuarios()
     const agora = new Date()
-    const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1).toISOString()
+    const alvo = mes ?? { ano: agora.getFullYear(), mes: agora.getMonth() + 1 }
+    const inicioMes = new Date(alvo.ano, alvo.mes - 1, 1).toISOString()
+    const fimMes = new Date(alvo.ano, alvo.mes, 1).toISOString()
     const horas = new Map<string, number>()
     const diag = new Map<string, { ignorados: number; limitados: number }>()
     const porUsuario = new Map<string, RegistroPonto[]>()
     for (const r of mockRegistros) {
-      if (r.tipo === 'falta' || r.registradoEm < inicioMes) continue
+      if (r.tipo === 'falta' || r.registradoEm < inicioMes || r.registradoEm >= fimMes) continue
       porUsuario.set(r.usuarioId, [...(porUsuario.get(r.usuarioId) ?? []), r])
     }
     for (const [id, lista] of porUsuario) {
@@ -473,9 +477,12 @@ export async function listarRankingMensal(
         ignorados: diag.get(u.id)?.ignorados ?? 0,
         limitados: diag.get(u.id)?.limitados ?? 0,
       }))
-    return todos.filter((p) => p.posicao <= 10 || p.usuarioId === usuarioAtualId)
+    return todos // mock: sempre admin, que recebe a lista completa (como no banco)
   }
-  const { data, error } = await supabase.rpc('ponto_ranking_mensal', { p_grupo: grupo })
+  const { data, error } = await supabase.rpc('ponto_ranking_mensal', {
+    p_grupo: grupo,
+    p_mes: mes ? `${mes.ano}-${String(mes.mes).padStart(2, '0')}-01` : null,
+  })
   if (error) {
     if (ehTabelaAusente(error)) return []
     throw error

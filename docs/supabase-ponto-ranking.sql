@@ -1,12 +1,15 @@
 -- ============================================================
 -- CINTESP — Ranking mensal de horas (página /ranking)
 -- Rode depois de supabase-ponto.sql e supabase-ponto-falta-presenca.sql.
--- Idempotente. (v2: regras anti-inflação + ranking separado dos ICs)
+-- Idempotente. (v2: regras anti-inflação + ranking separado dos ICs;
+-- v3: escolha do mês — p_mes — e o admin recebe a lista completa para exportar)
 --
 -- Por que uma função e não ler ponto_registros direto: a RLS deixa cada
 -- pesquisador ver só o PRÓPRIO ponto. O ranking precisa comparar todo mundo,
 -- mas SEM expor horas nem horários — então a conta é feita aqui, no banco,
 -- e só devolve: posição, id, nome e foto. Horas nunca saem daqui.
+--
+-- Parâmetro p_mes: qualquer data do mês desejado (ex.: '2026-09-01'); NULL = mês corrente.
 --
 -- Parâmetro p_grupo:
 --   'geral' → todos os pesquisadores liberados;
@@ -32,13 +35,15 @@
 --   limitados = pares que passaram de 12h e foram cortados no teto.
 --
 -- Devolve o TOP 10 + a linha de quem está chamando (se estiver fora do top 10,
--- só para ele saber a própria posição).
+-- só para ele saber a própria posição). O ADMINISTRADOR recebe a lista completa
+-- (é o que alimenta a exportação do mês).
 -- ============================================================
 
 drop function if exists public.ponto_ranking_mensal();
 drop function if exists public.ponto_ranking_mensal(text);
+drop function if exists public.ponto_ranking_mensal(text, date);
 
-create or replace function public.ponto_ranking_mensal(p_grupo text default 'geral')
+create or replace function public.ponto_ranking_mensal(p_grupo text default 'geral', p_mes date default null)
 returns table (
   posicao int, usuario_id uuid, nome text, foto_url text,
   horas_seg numeric, ignorados int, limitados int
@@ -46,8 +51,8 @@ returns table (
 language sql stable security definer set search_path = public as $$
   with mes as (
     select
-      date_trunc('month', now() at time zone 'America/Sao_Paulo') as inicio,
-      date_trunc('month', now() at time zone 'America/Sao_Paulo') + interval '1 month' as fim
+      date_trunc('month', coalesce(p_mes::timestamp, now() at time zone 'America/Sao_Paulo')) as inicio,
+      date_trunc('month', coalesce(p_mes::timestamp, now() at time zone 'America/Sao_Paulo')) + interval '1 month' as fim
   ),
   regs as (
     select
@@ -110,8 +115,8 @@ language sql stable security definer set search_path = public as $$
   )
   select o.posicao, o.usuario_id, o.nome, o.foto_url, o.horas_seg, o.ignorados, o.limitados
   from ordenado o
-  where o.posicao <= 10 or o.usuario_id = auth.uid()
+  where o.posicao <= 10 or o.usuario_id = auth.uid() or public.is_admin()
   order by o.posicao;
 $$;
 
-grant execute on function public.ponto_ranking_mensal(text) to authenticated;
+grant execute on function public.ponto_ranking_mensal(text, date) to authenticated;

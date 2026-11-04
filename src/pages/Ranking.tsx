@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Crown, Flame, Loader2, Trophy } from 'lucide-react'
+import { Crown, Download, Flame, Loader2, Trophy } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
 import { listarRankingMensal, type GrupoRanking, type PosicaoRanking } from '@/data/ponto'
 import { usePermissoes } from '@/hooks/usePermissoes'
-import { formatarHoras } from '@/lib/ponto'
+import { SeletorMes, NOMES_MESES, ehMesAtual, mesAtual, type MesAno } from '@/components/ui/SeletorMes'
+import { exportarRankingXlsx, formatarHoras } from '@/lib/ponto'
 import { cn } from '@/lib/utils'
 
 /** Dias que faltam para o ranking fechar (último dia do mês conta como "hoje"). */
@@ -34,11 +36,13 @@ export function RankingPage() {
   const { perfil } = usePermissoes()
 
   const [grupo, setGrupo] = useState<GrupoRanking>('geral')
+  const [mesEscolhido, setMesEscolhido] = useState<MesAno>(mesAtual())
+  const atual = ehMesAtual(mesEscolhido)
 
   const { data: ranking = [], isLoading } = useQuery({
-    queryKey: ['ranking-mensal', grupo, perfil?.id],
-    queryFn: () => listarRankingMensal(grupo, perfil?.id),
-    refetchInterval: 60_000, // vai se mexendo enquanto o pessoal bate o ponto
+    queryKey: ['ranking-mensal', grupo, perfil?.id, mesEscolhido.ano, mesEscolhido.mes],
+    queryFn: () => listarRankingMensal(grupo, perfil?.id, mesEscolhido),
+    refetchInterval: atual ? 60_000 : false, // mês corrente vai se mexendo; mês fechado não muda
   })
 
   const top10 = ranking.filter((p) => p.posicao <= 10)
@@ -47,18 +51,38 @@ export function RankingPage() {
   const euFora = ranking.find((p) => p.posicao > 10 && p.usuarioId === perfil?.id)
   const euNoTop = top10.find((p) => p.usuarioId === perfil?.id)
 
-  const agora = new Date()
-  const dias = diasParaEncerrar(agora)
+  const dias = diasParaEncerrar(new Date())
+  const rotuloMes = `${NOMES_MESES[mesEscolhido.mes - 1]} ${mesEscolhido.ano}`
+  const ehAdmin = ranking.some((p) => p.horasSeg != null) // só o banco devolve horas, e só para admin
 
   return (
     <div>
       <PageHeader
         title="Ranking do mês"
-        subtitle={`A disputa de ${MESES[agora.getMonth()]} tá rolando! Quanto mais tempo no laboratório, mais você sobe.`}
+        subtitle={
+          atual
+            ? `A disputa de ${MESES[mesEscolhido.mes - 1]} tá rolando! Quanto mais tempo no laboratório, mais você sobe.`
+            : `Como terminou o ranking de ${MESES[mesEscolhido.mes - 1]} de ${mesEscolhido.ano}.`
+        }
+        actions={
+          ehAdmin ? (
+            <Button
+              variant="secondary"
+              icon={Download}
+              onClick={() =>
+                exportarRankingXlsx(ranking, { rotuloMes, grupo: grupo === 'ic' ? 'ic' : 'geral' })
+              }
+            >
+              Baixar {rotuloMes}
+            </Button>
+          ) : undefined
+        }
       />
 
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+      <SeletorMes valor={mesEscolhido} onChange={setMesEscolhido} />
       {/* Geral x IC: disputa separada pra ficar justo */}
-      <div className="mb-4 inline-flex rounded-xl border border-slate-200 p-1 dark:border-slate-700">
+      <div className="inline-flex rounded-xl border border-slate-200 p-1 dark:border-slate-700">
         {([
           ['geral', 'Geral'],
           ['ic', 'Pesquisadores IC'],
@@ -75,8 +99,10 @@ export function RankingPage() {
           </button>
         ))}
       </div>
+      </div>
 
-      {/* Prazo */}
+      {/* Prazo (só no mês corrente) */}
+      {atual ? (
       <div
         className={cn(
           'mb-6 flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-medium',
@@ -88,6 +114,12 @@ export function RankingPage() {
         <Flame className={cn('h-5 w-5 shrink-0', dias <= 3 && 'animate-pulse')} />
         {textoPrazo(dias)}
       </div>
+      ) : (
+        <div className="mb-6 flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300">
+          <Trophy className="h-5 w-5 shrink-0" />
+          Ranking de {rotuloMes} — fechado.
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex justify-center py-16">
@@ -96,9 +128,11 @@ export function RankingPage() {
       ) : top10.length === 0 ? (
         <div className="card flex flex-col items-center gap-3 px-6 py-16 text-center">
           <Trophy className="h-10 w-10 text-slate-300" />
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Ninguém pontuou ainda{grupo === 'ic' ? ' entre os ICs' : ''}</h2>
+          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+            {atual ? 'Ninguém pontuou ainda' : 'Ninguém pontuou nesse mês'}{grupo === 'ic' ? ' entre os ICs' : ''}
+          </h2>
           <p className="max-w-sm text-sm text-slate-500">
-            Bate seu ponto no QR Code e seja o primeiro a aparecer no pódio deste mês!
+            {atual ? 'Bate seu ponto no QR Code e seja o primeiro a aparecer no pódio deste mês!' : 'Não há registros de ponto fechados em ' + rotuloMes + '.'}
           </p>
         </div>
       ) : (

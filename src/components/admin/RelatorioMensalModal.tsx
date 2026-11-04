@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { FileSpreadsheet, Loader2 } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
@@ -26,15 +26,25 @@ export function RelatorioMensalModal({
   usuarios,
   open,
   onClose,
+  inicial,
 }: {
   usuarios: { id: string; nome: string }[]
   open: boolean
   onClose: () => void
+  /** Mês que abre selecionado (padrão: o atual). */
+  inicial?: { ano: number; mes: number }
 }) {
   const agora = new Date()
-  const [ano, setAno] = useState(agora.getFullYear())
-  const [mes, setMes] = useState(agora.getMonth() + 1) // 1-12
+  const [ano, setAno] = useState(inicial?.ano ?? agora.getFullYear())
+  const [mes, setMes] = useState(inicial?.mes ?? agora.getMonth() + 1) // 1-12
   const [usuarioId, setUsuarioId] = useState('')
+  // Reabrir o relatório já no mês que está na tela.
+  useEffect(() => {
+    if (open && inicial) {
+      setAno(inicial.ano)
+      setMes(inicial.mes)
+    }
+  }, [open, inicial?.ano, inicial?.mes]) // eslint-disable-line react-hooks/exhaustive-deps
   const [exportando, setExportando] = useState(false)
   const [erroExport, setErroExport] = useState<string | null>(null)
 
@@ -64,7 +74,7 @@ export function RelatorioMensalModal({
     }
   }
 
-  const anos = Array.from({ length: 5 }, (_, i) => agora.getFullYear() - i)
+  const anos = Array.from({ length: 9 }, (_, i) => agora.getFullYear() - i)
 
   return (
     <Modal

@@ -330,3 +330,25 @@ export async function exportarFrequenciaXlsx(
   XLSX.utils.book_append_sheet(wb, wsObs, 'Observações')
   XLSX.writeFile(wb, `frequencia-ponto-${nomeMes.replace(' ', '-')}.xlsx`)
 }
+
+/** Ranking do mês em .xlsx (só administrador chama: tem as horas). */
+export async function exportarRankingXlsx(
+  linhas: { posicao: number; nome: string; horasSeg?: number; ignorados?: number; limitados?: number }[],
+  { rotuloMes, grupo }: { rotuloMes: string; grupo: string },
+): Promise<void> {
+  const XLSX = await import('xlsx')
+  const ws = XLSX.utils.json_to_sheet(
+    linhas.map((l) => ({
+      'Posição': l.posicao,
+      Nome: l.nome,
+      'Horas': l.horasSeg == null ? '' : formatarHoras(l.horasSeg / 3600),
+      'Horas (decimal)': l.horasSeg == null ? '' : Math.round((l.horasSeg / 3600) * 100) / 100,
+      'Pares sem saída no dia': l.ignorados ?? 0,
+      'Dias cortados em 12h': l.limitados ?? 0,
+    })),
+  )
+  ws['!cols'] = [{ wch: 9 }, { wch: 36 }, { wch: 10 }, { wch: 15 }, { wch: 22 }, { wch: 20 }]
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Ranking')
+  XLSX.writeFile(wb, `ranking-${grupo}-${rotuloMes.replace(/\s+/g, '-').toLowerCase()}.xlsx`)
+}

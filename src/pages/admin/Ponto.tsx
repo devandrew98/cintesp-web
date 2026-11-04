@@ -9,6 +9,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { CorrigirPontoModal } from '@/components/admin/CorrigirPontoModal'
 import { ExcluirPontoModal } from '@/components/admin/ExcluirPontoModal'
 import { LancarPontoManualModal } from '@/components/admin/LancarPontoManualModal'
+import { SeletorMes, mesAtual, type MesAno } from '@/components/ui/SeletorMes'
 import { RelatorioMensalModal } from '@/components/admin/RelatorioMensalModal'
 import { listarRegistrosPonto } from '@/data/ponto'
 import { listarUsuarios } from '@/data/api'
@@ -22,7 +23,7 @@ function inicioDoDia(d: Date): Date {
   c.setHours(0, 0, 0, 0)
   return c
 }
-function limiteDataPorAba(aba: Aba): { de: string; ate: string } {
+function limiteDataPorAba(aba: Aba, mesEscolhido: MesAno): { de: string; ate: string } {
   // O fim é o do período (não "agora"), para que faltas lançadas para dias
   // futuros do período — ou hoje à tarde — também apareçam.
   const hoje = inicioDoDia(new Date())
@@ -38,8 +39,8 @@ function limiteDataPorAba(aba: Aba): { de: string; ate: string } {
     fimSemana.setDate(inicioSemana.getDate() + 7)
     return { de: inicioSemana.toISOString(), ate: fimSemana.toISOString() }
   }
-  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
-  const fimMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1)
+  const inicioMes = new Date(mesEscolhido.ano, mesEscolhido.mes - 1, 1)
+  const fimMes = new Date(mesEscolhido.ano, mesEscolhido.mes, 1)
   return { de: inicioMes.toISOString(), ate: fimMes.toISOString() }
 }
 
@@ -54,6 +55,7 @@ function limiteDataPorAba(aba: Aba): { de: string; ate: string } {
  */
 export function AdminPontoPage() {
   const [aba, setAba] = useState<Aba>('hoje')
+  const [mesEscolhido, setMesEscolhido] = useState<MesAno>(mesAtual())
   const [usuarioFiltro, setUsuarioFiltro] = useState('')
   const [busca, setBusca] = useState('')
   const [corrigindo, setCorrigindo] = useState<RegistroPonto | null>(null)
@@ -63,7 +65,7 @@ export function AdminPontoPage() {
 
   const { data: usuarios = [] } = useQuery({ queryKey: ['usuarios'], queryFn: listarUsuarios })
 
-  const periodo = useMemo(() => limiteDataPorAba(aba), [aba])
+  const periodo = useMemo(() => limiteDataPorAba(aba, mesEscolhido), [aba, mesEscolhido])
   const filtro = useMemo(
     () => ({ usuarioId: usuarioFiltro || undefined, de: periodo.de, ate: periodo.ate }),
     [usuarioFiltro, periodo],
@@ -130,6 +132,7 @@ export function AdminPontoPage() {
             </button>
           ))}
         </div>
+        {aba === 'mes' && <SeletorMes valor={mesEscolhido} onChange={setMesEscolhido} />}
         <div className="flex-1 min-w-[200px]">
           <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar pesquisador…" />
         </div>
@@ -195,6 +198,7 @@ export function AdminPontoPage() {
       <RelatorioMensalModal
         usuarios={usuarios.map((u) => ({ id: u.id, nome: u.nome }))}
         open={relatorioAberto}
+        inicial={mesEscolhido}
         onClose={() => setRelatorioAberto(false)}
       />
     </AdminShell>
