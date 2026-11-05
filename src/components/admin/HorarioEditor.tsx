@@ -3,7 +3,7 @@ import { Check, Save } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { opcoesHorario, ordemDias, rotuloDia } from '@/lib/horarios'
 import { cn } from '@/lib/utils'
-import type { BlocoHorario, HorarioDia } from '@/types'
+import type { BlocoHorario, HorarioDia, LocalTurno } from '@/types'
 
 /**
  * Editor de "Horários de Disponibilidade" (aba Horários do detalhe do usuário).
@@ -153,6 +153,7 @@ export function HorarioEditor({
               onToggle={(ativo) => atualizarBloco(h.dia, 'manha', { ativo })}
               onInicio={(inicio) => atualizarBloco(h.dia, 'manha', { inicio })}
               onFim={(fim) => atualizarBloco(h.dia, 'manha', { fim })}
+              onLocal={(local) => atualizarBloco(h.dia, 'manha', { local })}
             />
 
             <BlocoTurno
@@ -162,6 +163,7 @@ export function HorarioEditor({
               onToggle={(ativo) => atualizarBloco(h.dia, 'tarde', { ativo })}
               onInicio={(inicio) => atualizarBloco(h.dia, 'tarde', { inicio })}
               onFim={(fim) => atualizarBloco(h.dia, 'tarde', { fim })}
+              onLocal={(local) => atualizarBloco(h.dia, 'tarde', { local })}
             />
 
             <input
@@ -190,6 +192,7 @@ function BlocoTurno({
   onToggle,
   onInicio,
   onFim,
+  onLocal,
 }: {
   turno: 'manha' | 'tarde'
   bloco: BlocoHorario
@@ -197,9 +200,11 @@ function BlocoTurno({
   onToggle: (ativo: boolean) => void
   onInicio: (v: string) => void
   onFim: (v: string) => void
+  onLocal: (v: LocalTurno) => void
 }) {
   const desabilitado = !editando || !bloco.ativo
   return (
+    <div className="space-y-1.5">
     <div className="flex items-center gap-2">
       <input
         type="checkbox"
@@ -234,6 +239,25 @@ function BlocoTurno({
           </option>
         ))}
       </select>
+    </div>
+      {/* Onde a pessoa estará neste turno: Arena (presencial) ou Home-Office */}
+      <div className="flex items-center gap-2 pl-6">
+        <select
+          value={bloco.local ?? 'arena'}
+          disabled={desabilitado}
+          onChange={(e) => onLocal(e.target.value as LocalTurno)}
+          aria-label={`Local do turno da ${turno === 'manha' ? 'manhã' : 'tarde'}`}
+          className={cn(
+            'rounded-lg border px-2 py-1 text-xs font-medium disabled:opacity-50',
+            bloco.local === 'home_office'
+              ? 'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-500/30 dark:bg-violet-500/10 dark:text-violet-300'
+              : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300',
+          )}
+        >
+          <option value="arena">Na Arena</option>
+          <option value="home_office">Home-Office</option>
+        </select>
+      </div>
     </div>
   )
 }

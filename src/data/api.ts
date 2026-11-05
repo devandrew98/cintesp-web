@@ -75,13 +75,17 @@ const USUARIO_SELECT = `
   instituicao:instituicoes(id, nome, sigla),
   areas:usuario_areas(area:areas_atuacao(id, nome, cor)),
   disp:disponibilidade(status, livre_ate, automatico),
-  horarios(dia, manha_ativo, manha_inicio, manha_fim, tarde_ativo, tarde_inicio, tarde_fim, observacao)
+  horarios(dia, manha_ativo, manha_inicio, manha_fim, tarde_ativo, tarde_inicio, tarde_fim, observacao, manha_local, tarde_local)
 `
+
+// Sem as colunas de local (Arena × Home-office): plano B enquanto a migração
+// `docs/supabase-agenda-equipe.sql` não foi rodada. Todo turno vira "Arena".
+const USUARIO_SELECT_SEM_LOCAL = USUARIO_SELECT.replace(', manha_local, tarde_local)', ')')
 
 // Mesmo select, mas SEM a coluna `automatico` — usado como plano B quando a
 // migração `docs/supabase-status-disponibilidade.sql` ainda não foi rodada.
 // Sem `automatico`, todo mundo cai no modo automático (padrão seguro).
-const USUARIO_SELECT_COMPAT = USUARIO_SELECT.replace(', automatico)', ')')
+const USUARIO_SELECT_COMPAT = USUARIO_SELECT_SEM_LOCAL.replace(', automatico)', ')')
 
 // Plano C (mínimo): SÓ colunas garantidas + a FUNÇÃO (que decide admin/permissões).
 // Se qualquer migração de coluna estiver pendente (cpf, whatsapp, etc.), ainda
@@ -128,7 +132,7 @@ async function selecionarUsuarios(
 ): Promise<{ data: any; error: any }> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let ultimo: { data: any; error: any } = { data: null, error: null }
-  for (const sel of [USUARIO_SELECT, USUARIO_SELECT_COMPAT, USUARIO_SELECT_MIN]) {
+  for (const sel of [USUARIO_SELECT, USUARIO_SELECT_SEM_LOCAL, USUARIO_SELECT_COMPAT, USUARIO_SELECT_MIN]) {
     ultimo = await construir(sel)
     if (!ultimo.error) return ultimo
     if (!ehColunaInexistente(ultimo.error)) return ultimo // erro real → propaga
@@ -228,7 +232,8 @@ async function aplicarPresenca(usuarios: Usuario[]): Promise<Usuario[]> {
   if (!presentes) return usuarios
   const naPresenca = presentes
   return usuarios.map((u) =>
-    u.disponibilidadeAutomatica === false
+    // Manual manda; e quem está em turno de home-office não bate ponto na Arena.
+    u.disponibilidadeAutomatica === false || u.disponibilidade === 'home_office'
       ? u
       : {
           ...u,
@@ -450,11 +455,13 @@ function mapHorario(r: any): HorarioDia {
       ativo: r.manha_ativo ?? false,
       inicio: hhmm(r.manha_inicio) ?? '09:00',
       fim: hhmm(r.manha_fim) ?? '12:00',
+      local: r.manha_local === 'home_office' ? 'home_office' : 'arena',
     },
     tarde: {
       ativo: r.tarde_ativo ?? false,
       inicio: hhmm(r.tarde_inicio) ?? '13:30',
       fim: hhmm(r.tarde_fim) ?? '17:30',
+      local: r.tarde_local === 'home_office' ? 'home_office' : 'arena',
     },
     observacao: r.observacao ?? '',
   }
@@ -506,8 +513,15 @@ export async function salvarHorarios(usuarioId: string, horarios: HorarioDia[]):
     tarde_inicio: h.tarde.inicio,
     tarde_fim: h.tarde.fim,
     observacao: h.observacao || null,
+    manha_local: h.manha.local ?? 'arena',
+    tarde_local: h.tarde.local ?? 'arena',
   }))
-  const { error } = await supabase.from('horarios').upsert(rows, { onConflict: 'usuario_id,dia' })
+  let { error } = await supabase.from('horarios').upsert(rows, { onConflict: 'usuario_id,dia' })
+  // Migração do home-office ainda não rodada: salva o resto sem as colunas de local.
+  if (error && ehColunaInexistente(error)) {
+    const semLocal = rows.map(({ manha_local: _m, tarde_local: _t, ...resto }) => resto)
+    ;({ error } = await supabase.from('horarios').upsert(semLocal, { onConflict: 'usuario_id,dia' }))
+  }
   if (error) throw error
 }
 

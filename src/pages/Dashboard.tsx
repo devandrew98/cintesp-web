@@ -19,9 +19,9 @@ import { StatCard } from "@/components/ui/StatCard";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { PersonRow } from "@/components/ui/PersonRow";
 import { Avatar } from "@/components/ui/Avatar";
-import { Badge } from "@/components/ui/Badge";
+import { ProgramacaoResumo, useEventosHoje } from "@/components/agenda/Programacao";
 import { AniversarioModal, type AniversarianteSelecionado } from "@/components/dashboard/AniversarioModal";
-import { listarUsuarios, listarMudancas, listarAvisos } from "@/data/api";
+import { listarUsuarios, listarAvisos } from "@/data/api";
 import { usePermissoes } from "@/hooks/usePermissoes";
 
 function saudacao() {
@@ -55,10 +55,7 @@ export function DashboardPage() {
     queryFn: listarUsuarios,
     refetchInterval: 30_000, // acompanha quem bate o ponto
   });
-  const { data: mudancas = [] } = useQuery({
-    queryKey: ["mudancas"],
-    queryFn: listarMudancas,
-  });
+  const eventosHoje = useEventosHoje();
   const { data: avisos = [] } = useQuery({
     queryKey: ["avisos"],
     queryFn: listarAvisos,
@@ -69,6 +66,7 @@ export function DashboardPage() {
   const emAtendimento = ativos.filter(
     (u) => u.disponibilidade === "parcial" || u.disponibilidade === "home_office",
   );
+  const homeOffice = ativos.filter((u) => u.disponibilidade === "home_office");
   const ausentes = ativos.filter((u) => u.disponibilidade === "ausente");
 
   const total = ativos.length;
@@ -130,9 +128,9 @@ export function DashboardPage() {
         />
         <StatCard
           icon={CalendarClock}
-          value={mudancas.length}
-          label="Mudanças hoje"
-          hint="de turnos"
+          value={eventosHoje}
+          label="Eventos hoje"
+          hint="na programação"
           accent="violet"
         />
       </div>
@@ -307,9 +305,12 @@ export function DashboardPage() {
           }
         >
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
-            {emAtendimento.slice(0, 5).map((u) => (
-              <PersonRow key={u.id} usuario={u} compactStatus />
+            {homeOffice.slice(0, 5).map((u) => (
+              <PersonRow key={u.id} usuario={u} showLivreAte />
             ))}
+            {homeOffice.length === 0 && (
+              <p className="px-2 py-6 text-center text-sm text-slate-400">Ninguém em home-office agora.</p>
+            )}
           </div>
         </SectionCard>
 
@@ -373,42 +374,9 @@ export function DashboardPage() {
         </SectionCard>
       </div>
 
-      {/* Mudanças + Avisos */}
+      {/* Programação + Avisos */}
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <SectionCard
-          title={
-            <span className="flex items-center gap-2">
-              <CalendarClock className="h-4 w-4 text-slate-500" />
-              Próximas mudanças de turno
-            </span>
-          }
-          action={
-            <Link
-              to="/agenda"
-              className="text-sm font-medium text-brand-600 hover:underline"
-            >
-              Ver todas
-            </Link>
-          }
-          bodyClassName="p-2"
-        >
-          <div className="divide-y divide-slate-100 dark:divide-slate-800">
-            {mudancas.map((m) => (
-              <div key={m.id} className="flex items-center gap-3 px-3 py-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-500 dark:bg-slate-800">
-                  <Clock3 className="h-4 w-4" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-slate-700 dark:text-slate-200">
-                    {m.descricao}
-                  </p>
-                  <p className="text-xs text-slate-400">{m.quando}</p>
-                </div>
-                <Badge tone="slate">{m.tag}</Badge>
-              </div>
-            ))}
-          </div>
-        </SectionCard>
+        <ProgramacaoResumo />
 
         <SectionCard
           title={

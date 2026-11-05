@@ -107,7 +107,8 @@ const DIA_DA_SEMANA: DiaSemana[] = [
 /**
  * Descobre a situação do pesquisador AGORA, olhando só o horário cadastrado.
  *
- * Dentro de um turno ligado (manhã ou tarde) → `disponivel`.
+ * Dentro de um turno ligado (manhã ou tarde) → `disponivel` (na Arena) ou
+ * `home_office` (se o turno foi marcado como home-office).
  * Fora disso (inclusive fim de semana e intervalo de almoço) → `ausente`.
  *
  * É isso que faz o quadro se atualizar sozinho ao longo do dia, sem ninguém
@@ -119,7 +120,7 @@ const DIA_DA_SEMANA: DiaSemana[] = [
 export function disponibilidadePorHorario(
   horarios: HorarioDia[] | undefined,
   agora: Date = new Date(),
-): { status: 'disponivel' | 'ausente'; livreAte?: string } {
+): { status: 'disponivel' | 'home_office' | 'ausente'; livreAte?: string } {
   if (!horarios || horarios.length === 0) return { status: 'ausente' }
 
   const doDia = horarios.find((h) => h.dia === DIA_DA_SEMANA[agora.getDay()])
@@ -133,7 +134,7 @@ export function disponibilidadePorHorario(
     const inicio = paraMinutos(bloco.inicio)
     const fim = paraMinutos(bloco.fim)
     if (minutosAgora >= inicio && minutosAgora < fim) {
-      return { status: 'disponivel', livreAte: bloco.fim }
+      return { status: bloco.local === 'home_office' ? 'home_office' : 'disponivel', livreAte: bloco.fim }
     }
   }
 

@@ -457,7 +457,7 @@ export const horarioPadrao: HorarioDia[] = [
   },
   {
     dia: "sexta",
-    manha: { ativo: true, inicio: "09:00", fim: "12:00" },
+    manha: { ativo: true, inicio: "09:00", fim: "12:00", local: "home_office" },
     tarde: { ativo: false, inicio: "13:30", fim: "17:30" },
     observacao: "Home office (manhã)",
   },

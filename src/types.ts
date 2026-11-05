@@ -66,10 +66,15 @@ export interface Usuario {
   disponibilidadeAutomatica?: boolean
 }
 
+/** Onde a pessoa estará no turno: presencial na Arena ou em home-office. */
+export type LocalTurno = 'arena' | 'home_office'
+
 export interface BlocoHorario {
   ativo: boolean
   inicio: string // "09:00"
   fim: string // "12:00"
+  /** Ausente = 'arena' (dados antigos). */
+  local?: LocalTurno
 }
 
 export interface HorarioDia {
