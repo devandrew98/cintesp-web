@@ -8,7 +8,7 @@ import { BrandLogo } from "./BrandLogo";
 
 export function Sidebar() {
   const { sidebarOpen, setSidebarOpen } = useUI();
-  const { ehAdmin, podeUsarPlataforma, pode } = usePermissoes();
+  const { ehAdmin, ehAvaliador, podeUsarPlataforma, pode } = usePermissoes();
 
   // Esconde as seções conforme o papel:
   // • somenteAdmin    → só administradores;
@@ -17,6 +17,7 @@ export function Sidebar() {
   const secoesVisiveis = navSections.filter(
     (s) =>
       (!s.somenteAdmin || ehAdmin) &&
+      (!s.somenteAvaliador || ehAvaliador) &&
       (!s.somenteLiberado || podeUsarPlataforma) &&
       (!s.permissao || pode(s.permissao)),
   );

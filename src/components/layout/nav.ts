@@ -20,6 +20,7 @@ import {
   FileSignature,
   ClipboardList,
   QrCode,
+  CalendarCheck,
   MapPin,
   Building2,
   Settings,
@@ -42,6 +43,8 @@ export interface NavSection {
   somenteAdmin?: boolean
   /** Seção visível só para quem tem esta permissão (o administrador sempre vê). */
   permissao?: string
+  /** Seção visível só para o "Pesquisador Avaliador" (admin não vê só por ser admin). */
+  somenteAvaliador?: boolean
   /** Seção visível só para contas liberadas (esconde de quem é Participante). */
   somenteLiberado?: boolean
 }
@@ -71,6 +74,11 @@ export const navSections: NavSection[] = [
     // Busca de pesquisador + QR de acesso: administrador ou perfil de registro de ponto.
     permissao: 'registrar_ponto',
     items: [{ label: 'QR de Acesso', to: '/qr-acesso', icon: QrCode }],
+  },
+  {
+    // Agendamento de avaliações: só a tag "Pesquisador Avaliador".
+    somenteAvaliador: true,
+    items: [{ label: 'Agendamentos', to: '/agendamentos', icon: CalendarCheck }],
   },
   {
     // Disponível para TODOS os usuários logados (inclusive Participante).

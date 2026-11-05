@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { perfilAtual } from '@/data/api'
+import { USE_MOCK } from '@/lib/supabase'
 
 /**
  * Permissões do usuário logado.
@@ -43,8 +44,17 @@ export function usePermissoes() {
    */
   const podeUsarPlataforma = ehAdmin || permissoes.includes('ver_quadro')
 
+  /**
+   * "Pesquisador Avaliador": função com esse nome ou permissão `avaliar_agendamentos`.
+   * O administrador NÃO entra por ser admin (são dados de saúde); o banco aplica a mesma regra
+   * (`pode_avaliar()`). Em modo mock (sem banco) fica liberado só para poder testar a tela.
+   */
+  const ehAvaliador =
+    USE_MOCK || permissoes.includes('avaliar_agendamentos') || /^pesquisador avaliador/i.test(perfil?.funcao?.nome ?? '')
+
   return {
     perfil: perfil ?? null,
+    ehAvaliador,
     permissoes,
     ehAdmin,
     pode,

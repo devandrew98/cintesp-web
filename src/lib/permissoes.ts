@@ -20,6 +20,12 @@ export const PERMISSOES: PermissaoDef[] = [
   { id: 'publicar_avisos', label: 'Publicar avisos', descricao: 'Criar e publicar avisos para a equipe.' },
   { id: 'abrir_chamado', label: 'Abrir chamado', descricao: 'Abrir chamados de suporte (todos os usuários já podem).' },
   {
+    id: 'avaliar_agendamentos',
+    label: 'Avaliador (agendamentos)',
+    descricao:
+      'Vê as solicitações de agendamento de avaliações, a agenda e os prontuários. A função "Pesquisador Avaliador" já tem isto automaticamente.',
+  },
+  {
     id: 'registrar_ponto',
     label: 'Terminal de ponto',
     descricao:

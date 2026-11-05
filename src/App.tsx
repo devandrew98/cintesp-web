@@ -10,6 +10,9 @@ import { QrAcessoPage } from '@/pages/QrAcesso'
 import { RequirePermissao } from '@/components/auth/RequirePermissao'
 import { MeuAcessoPage } from '@/pages/MeuAcesso'
 import { RankingPage } from '@/pages/Ranking'
+import { AgendamentoPage } from '@/pages/Agendamento'
+import { AgendamentosAvaliadorPage } from '@/pages/AgendamentosAvaliador'
+import { RequireAvaliador } from '@/components/auth/RequireAvaliador'
 import { AssinarDocumentosPage } from '@/pages/AssinarDocumentos'
 // Carregada sob demanda: traz PDF/Excel/imagem e não precisa pesar o bundle principal.
 const InventarioPage = lazy(() => import('@/pages/Inventario').then((m) => ({ default: m.InventarioPage })))
@@ -49,6 +52,10 @@ export default function App() {
           pesquisador lê o QR com a câmera, geralmente sem sessão no app.
           A autorização é só o token (ver docs/supabase-ponto-autoatendimento.sql). */}
       <Route path="/ponto/:token" element={<RegistrarPontoPage />} />
+
+      {/* Formulário de agendamento de avaliações: PÚBLICO (sem login). Os dados vão por funções
+          que validam tudo no servidor (ver docs/supabase-agendamentos.sql). */}
+      <Route path="/agendamento" element={<AgendamentoPage />} />
 
       {/* Terminal de ponto (kiosk): exige login, mas SEM o menu/sidebar do app. */}
       <Route
@@ -91,6 +98,7 @@ export default function App() {
           <Route path="/ranking" element={<RankingPage />} />
           <Route path="/assinar-documentos" element={<AssinarDocumentosPage />} />
           <Route path="/qr-acesso" element={<RequirePermissao permissao="registrar_ponto"><QrAcessoPage /></RequirePermissao>} />
+          <Route path="/agendamentos" element={<RequireAvaliador><AgendamentosAvaliadorPage /></RequireAvaliador>} />
           <Route path="/busca" element={<BuscaPage />} />
           <Route path="/relatorios" element={<RelatoriosPage />} />
           <Route path="/assinatura-email" element={<AssinaturaEmailPage />} />
