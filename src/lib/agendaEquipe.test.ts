@@ -3,6 +3,7 @@ import {
   ocorrenciasDoDia,
   ocorrenciasNoPeriodo,
   rotuloQuando,
+  euParticipo,
   rotuloRepeticao,
   validarEventoEquipe,
   type EventoEquipe,
@@ -14,6 +15,8 @@ const ev = (p: Partial<EventoEquipe> = {}): EventoEquipe => ({
   data: '2026-11-12', // quinta-feira
   diaInteiro: true,
   repeticao: 'nunca',
+  paraTodos: true,
+  participantes: [],
   ...p,
 })
 
@@ -66,6 +69,15 @@ describe('ocorrenciasNoPeriodo', () => {
   })
 })
 
+describe('euParticipo', () => {
+  it('todos, lista e ninguém', () => {
+    expect(euParticipo(ev(), 'u1')).toBe(true)
+    expect(euParticipo(ev({ paraTodos: false, participantes: ['u1'] }), 'u1')).toBe(true)
+    expect(euParticipo(ev({ paraTodos: false, participantes: ['u1'] }), 'u2')).toBe(false)
+    expect(euParticipo(ev(), undefined)).toBe(false)
+  })
+})
+
 describe('rótulos', () => {
   it('repetição', () => {
     expect(rotuloRepeticao('nunca', '2026-11-12')).toBe('Não se repete')
@@ -82,12 +94,16 @@ describe('rótulos', () => {
 })
 
 describe('validarEventoEquipe', () => {
-  const base = { titulo: 'X', data: '2026-11-12', diaInteiro: true, repeticao: 'nunca' as const }
+  const base = { titulo: 'X', data: '2026-11-12', diaInteiro: true, repeticao: 'nunca' as const, paraTodos: true, participantes: [] as string[] }
   it('aceita o básico', () => expect(validarEventoEquipe(base)).toBeNull())
   it('exige título', () => expect(validarEventoEquipe({ ...base, titulo: ' ' })).toMatch(/título/))
   it('fim antes do início', () => {
     expect(validarEventoEquipe({ ...base, dataFim: '2026-11-10' })).toMatch(/data final/)
     expect(validarEventoEquipe({ ...base, diaInteiro: false, horaInicio: '10:00', horaFim: '09:00' })).toMatch(/fim/)
+  })
+  it('participantes: ou todos, ou pelo menos um', () => {
+    expect(validarEventoEquipe({ ...base, paraTodos: false })).toMatch(/Selecione/)
+    expect(validarEventoEquipe({ ...base, paraTodos: false, participantes: ['u1'] })).toBeNull()
   })
   it('link precisa ser http(s)', () => {
     expect(validarEventoEquipe({ ...base, linkVideo: 'meet.google.com/abc' })).toMatch(/http/)

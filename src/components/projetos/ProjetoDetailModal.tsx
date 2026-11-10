@@ -27,6 +27,7 @@ import {
   type ConteudoProjeto,
 } from "@/data/projetos";
 import {
+  ehDonoProjeto,
   STATUS_PROJETO,
   statusProjetoInfo,
   TRL_INFO,
@@ -55,7 +56,7 @@ function quando(iso: string): string {
 
 /**
  * Detalhe do projeto: informações editáveis (por campo, conforme permissão),
- * equipe (admin) e o chat privado (admin + vinculados).
+ * equipe (admin/dono) e o chat privado (admin + vinculados).
  */
 export function ProjetoDetailModal({
   projeto,
@@ -75,19 +76,21 @@ export function ProjetoDetailModal({
   const fimRef = useRef<HTMLDivElement>(null);
   const inputArquivoRef = useRef<HTMLInputElement>(null);
 
-  const souResponsavel = Boolean(
-    projeto && perfil?.id === projeto.responsavelId,
+  // Dono = quem criou o projeto ou o responsável indicado. Só eles (e o admin) editam.
+  const souDono = Boolean(projeto && ehDonoProjeto(projeto, perfil?.id));
+  const souCriador = Boolean(
+    projeto && perfil?.id && projeto.criadoPorId === perfil.id,
   );
   const souMembro = Boolean(
     projeto &&
     perfil?.id &&
     projeto.pesquisadores.some((v) => v.usuarioId === perfil.id),
   );
-  const podeConteudoTotal = ehAdmin || souResponsavel;
+  const podeConteudoTotal = ehAdmin || souDono;
 
   const podeVerProjeto = true;
 
-  const podeVerChat = ehAdmin || souMembro;
+  const podeVerChat = ehAdmin || souMembro || souDono;
   function podeEditarCampo(campo: CampoEditavelProjeto): boolean {
     if (podeConteudoTotal) return true;
     return souMembro && (projeto?.camposEditaveisMembros ?? []).includes(campo);
@@ -141,7 +144,7 @@ export function ProjetoDetailModal({
     salvarConteudo.mutate(patch);
   }
 
-  // ---------- Equipe (admin) ----------
+  // ---------- Equipe (admin/dono) ----------
   const [editandoEquipe, setEditandoEquipe] = useState(false);
   const [responsavelId, setResponsavelId] = useState(
     projeto?.responsavelId ?? "",
@@ -268,7 +271,7 @@ export function ProjetoDetailModal({
               )}
             </span>
           ))}
-          {ehAdmin && (
+          {podeConteudoTotal && (
             <button
               type="button"
               onClick={() => setEditandoEquipe((v) => !v)}
@@ -279,7 +282,7 @@ export function ProjetoDetailModal({
           )}
         </div>
 
-        {/* Edição de equipe (admin) */}
+        {/* Edição de equipe (admin/dono) */}
         {editandoEquipe && (
           <div className="space-y-4 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
             <EquipeCamposForm
@@ -480,7 +483,7 @@ export function ProjetoDetailModal({
           </div>
         )}
 
-        {ehAdmin && (
+        {(ehAdmin || souCriador) && (
           <div className="border-t border-slate-100 pt-4 dark:border-slate-800">
             <Button variant="danger" icon={Trash2} onClick={onExcluir}>
               Excluir projeto

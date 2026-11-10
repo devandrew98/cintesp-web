@@ -8,26 +8,29 @@ import { EquipeCamposForm } from './EquipeCamposForm'
 import type { DadosProjeto } from '@/data/projetos'
 import type { CampoEditavelProjeto, StatusProjeto, Usuario } from '@/types'
 
-/** Modal (admin) para criar um projeto: dados básicos + equipe + permissões dos membros. */
+/** Modal para criar um projeto (qualquer pesquisador): dados básicos + equipe + permissões dos membros. */
 export function ProjetoFormModal({
   open,
   onClose,
   onSalvar,
   salvando,
   pesquisadores,
+  responsavelPadraoId = '',
 }: {
   open: boolean
   onClose: () => void
   onSalvar: (dados: DadosProjeto) => void
   salvando?: boolean
   pesquisadores: Usuario[]
+  /** Quem já vem marcado como responsável (normalmente quem está criando). */
+  responsavelPadraoId?: string
 }) {
   const [titulo, setTitulo] = useState('')
   const [descricao, setDescricao] = useState('')
   const [status, setStatus] = useState<StatusProjeto>('planejamento')
   const [dataInicio, setDataInicio] = useState('')
   const [dataFimPrevista, setDataFimPrevista] = useState('')
-  const [responsavelId, setResponsavelId] = useState('')
+  const [responsavelId, setResponsavelId] = useState(responsavelPadraoId)
   const [membrosIds, setMembrosIds] = useState<string[]>([])
   const [camposLiberados, setCamposLiberados] = useState<CampoEditavelProjeto[]>(['trl', 'progresso'])
 
@@ -66,7 +69,7 @@ export function ProjetoFormModal({
           Novo projeto
         </span>
       }
-      subtitle="Defina o responsável, a equipe vinculada e o que os demais membros podem editar."
+      subtitle="Você será o dono do projeto: só você, o responsável e o administrador poderão editá-lo."
       footer={
         <>
           <Button variant="secondary" type="button" onClick={onClose}>

@@ -27,7 +27,15 @@ export interface EventoEquipe {
   repeticao: Repeticao
   /** Última data em que a repetição vale (inclusive). Ausente = para sempre. */
   repeteAte?: string
+  /** true = todos os pesquisadores participam. */
+  paraTodos: boolean
+  /** Ids dos pesquisadores escolhidos (vale quando `paraTodos` é false). */
+  participantes: string[]
 }
+
+/** O pesquisador participa do evento? (todos, ou está na lista) */
+export const euParticipo = (e: Pick<EventoEquipe, 'paraTodos' | 'participantes'>, usuarioId?: string): boolean =>
+  Boolean(usuarioId) && (e.paraTodos || e.participantes.includes(usuarioId!))
 
 /** Uma ocorrência concreta de um evento (o evento repetido gera várias). */
 export interface Ocorrencia {
@@ -160,6 +168,7 @@ export function validarEventoEquipe(e: Omit<EventoEquipe, 'id'>): string | null 
     const mesmoDia = !e.dataFim || e.dataFim === e.data
     if (mesmoDia && e.horaFim <= e.horaInicio) return 'O horário de fim precisa ser depois do início.'
   }
+  if (!e.paraTodos && e.participantes.length === 0) return 'Selecione ao menos um pesquisador ou marque "Todos".'
   if (e.repeteAte && e.repeteAte < e.data) return 'A repetição não pode terminar antes do primeiro dia.'
   if (e.linkVideo?.trim() && !/^https?:\/\//i.test(e.linkVideo.trim())) return 'O link da videoconferência deve começar com http:// ou https://.'
   return null

@@ -284,6 +284,8 @@ export interface Projeto {
   /** Quais campos de CONTEÚDO os membros (não-responsáveis) podem editar. */
   camposEditaveisMembros: CampoEditavelProjeto[]
   criadoPorNome?: string
+  /** Quem criou o projeto (dono: edita equipe e conteúdo). */
+  criadoPorId?: string
   criadoEm: string
   atualizadoEm?: string
 }

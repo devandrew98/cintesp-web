@@ -39,6 +39,8 @@ function mapEvento(r: any): EventoEquipe {
     horaFim: hhmm(r.hora_fim),
     repeticao: r.repeticao ?? 'nunca',
     repeteAte: r.repete_ate ?? undefined,
+    paraTodos: r.para_todos ?? true,
+    participantes: r.participantes ?? [],
   }
 }
 
@@ -54,16 +56,22 @@ const paraLinha = (d: DadosEventoEquipe) => ({
   hora_fim: d.diaInteiro ? null : d.horaFim,
   repeticao: d.repeticao,
   repete_ate: d.repeticao === 'nunca' ? null : d.repeteAte || null,
+  para_todos: d.paraTodos,
+  participantes: d.paraTodos ? [] : d.participantes,
 })
+
+/** Banco ainda sem as colunas de participantes (migração pendente): grava sem elas. */
+const semParticipantes = ({ para_todos: _a, participantes: _b, ...resto }: ReturnType<typeof paraLinha>) => resto
+const colunaAusente = (e: any) => /para_todos|participantes|PGRST204|42703|schema cache/i.test(String(e?.message ?? '') + String(e?.code ?? ''))
 
 // ----- Mock -----
 const uid = () => crypto.randomUUID()
 const hoje = hojeISO()
 const mockEventos: EventoEquipe[] = [
-  { id: uid(), titulo: 'Reunião geral da equipe', descricao: 'Alinhamento mensal dos projetos.', local: 'Sala de reuniões', linkVideo: 'https://meet.google.com/abc-defg-hij', data: somarDias(hoje, 1), diaInteiro: false, horaInicio: '14:00', horaFim: '15:30', repeticao: 'semanal' },
-  { id: uid(), titulo: 'Workshop: Inteligência Artificial em TA', local: 'Arena Sabiazinho', data: somarDias(hoje, 3), dataFim: somarDias(hoje, 4), diaInteiro: true, repeticao: 'nunca' },
-  { id: uid(), titulo: 'Manutenção dos equipamentos', data: hoje, diaInteiro: false, horaInicio: '16:00', horaFim: '17:00', repeticao: 'nunca' },
-  { id: uid(), titulo: 'Aniversário do CINTESP', data: somarDias(hoje, 20), diaInteiro: true, repeticao: 'anual' },
+  { id: uid(), titulo: 'Reunião geral da equipe', descricao: 'Alinhamento mensal dos projetos.', local: 'Sala de reuniões', linkVideo: 'https://meet.google.com/abc-defg-hij', data: somarDias(hoje, 1), diaInteiro: false, horaInicio: '14:00', horaFim: '15:30', repeticao: 'semanal', paraTodos: true, participantes: [] },
+  { id: uid(), titulo: 'Workshop: Inteligência Artificial em TA', local: 'Arena Sabiazinho', data: somarDias(hoje, 3), dataFim: somarDias(hoje, 4), diaInteiro: true, repeticao: 'nunca', paraTodos: true, participantes: [] },
+  { id: uid(), titulo: 'Manutenção dos equipamentos', data: hoje, diaInteiro: false, horaInicio: '16:00', horaFim: '17:00', repeticao: 'nunca', paraTodos: true, participantes: [] },
+  { id: uid(), titulo: 'Aniversário do CINTESP', data: somarDias(hoje, 20), diaInteiro: true, repeticao: 'anual', paraTodos: true, participantes: [] },
 ]
 
 // ----- API -----
@@ -89,7 +97,9 @@ export async function criarEventoEquipe(d: DadosEventoEquipe): Promise<void> {
     return
   }
   const { data: auth } = await supabase.auth.getUser()
-  const { error } = await supabase.from('agenda_eventos').insert({ ...paraLinha(d), criado_por: auth.user?.id ?? null })
+  const linha = { ...paraLinha(d), criado_por: auth.user?.id ?? null }
+  let { error } = await supabase.from('agenda_eventos').insert(linha)
+  if (error && colunaAusente(error)) ({ error } = await supabase.from('agenda_eventos').insert({ ...semParticipantes(paraLinha(d)), criado_por: linha.criado_por }))
   if (error) throw erroAmigavel(error)
 }
 
@@ -100,7 +110,8 @@ export async function atualizarEventoEquipe(id: string, d: DadosEventoEquipe): P
     if (i >= 0) mockEventos[i] = { id, ...d, titulo: d.titulo.trim() }
     return
   }
-  const { error } = await supabase.from('agenda_eventos').update(paraLinha(d)).eq('id', id)
+  let { error } = await supabase.from('agenda_eventos').update(paraLinha(d)).eq('id', id)
+  if (error && colunaAusente(error)) ({ error } = await supabase.from('agenda_eventos').update(semParticipantes(paraLinha(d))).eq('id', id))
   if (error) throw erroAmigavel(error)
 }
 

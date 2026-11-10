@@ -1,4 +1,6 @@
-import { CalendarDays, Clock3, ExternalLink, MapPin, Repeat, Video } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { CalendarDays, Clock3, ExternalLink, MapPin, Repeat, Users, Video } from 'lucide-react'
+import { listarUsuarios } from '@/data/api'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { rotuloQuando, rotuloRepeticao, type Ocorrencia } from '@/lib/agendaEquipe'
@@ -16,6 +18,8 @@ export function DetalheEventoModal({
   onEditar?: () => void
 }) {
   const e = ocorrencia?.evento
+  const { data: usuarios = [] } = useQuery({ queryKey: ['usuarios'], queryFn: listarUsuarios, enabled: Boolean(e && !e.paraTodos) })
+  const nomes = e && !e.paraTodos ? e.participantes.map((id) => usuarios.find((u) => u.id === id)?.nome).filter(Boolean) : []
   return (
     <Modal
       open={Boolean(ocorrencia)}
@@ -39,6 +43,7 @@ export function DetalheEventoModal({
           </Linha>
           <Linha icon={Clock3}>{rotuloQuando(ocorrencia)}</Linha>
           {e.repeticao !== 'nunca' && <Linha icon={Repeat}>{rotuloRepeticao(e.repeticao, e.data)}</Linha>}
+          <Linha icon={Users}>{e.paraTodos ? 'Todos os pesquisadores' : nomes.length ? nomes.join(', ') : `${e.participantes.length} pesquisador(es)`}</Linha>
           {e.local && <Linha icon={MapPin}>{e.local}</Linha>}
           {e.linkVideo && (
             <Linha icon={Video}>

@@ -1,4 +1,11 @@
-import type { CampoEditavelProjeto, StatusProjeto, TRL } from '@/types'
+import type { CampoEditavelProjeto, Projeto, StatusProjeto, TRL } from '@/types'
+
+/**
+ * Quem edita um projeto por completo: quem o criou e o responsável indicado
+ * (o administrador também, mas isso é checado à parte). Todos os demais só veem.
+ */
+export const ehDonoProjeto = (p: Pick<Projeto, 'criadoPorId' | 'responsavelId'>, usuarioId?: string): boolean =>
+  Boolean(usuarioId) && (p.criadoPorId === usuarioId || p.responsavelId === usuarioId)
 
 type Tone = 'green' | 'amber' | 'red' | 'blue' | 'violet' | 'slate'
 

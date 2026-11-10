@@ -3,6 +3,7 @@ import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 import { InstallPrompt } from '@/components/pwa/InstallPrompt'
 import { PullToRefresh } from '@/components/pwa/PullToRefresh'
+import { AvisosAoEntrar } from './AvisosAoEntrar'
 import { useRealtime } from '@/hooks/useRealtime'
 
 export function AppLayout() {
@@ -22,6 +23,8 @@ export function AppLayout() {
       <InstallPrompt />
       {/* Puxar para atualizar (só no app instalado) */}
       <PullToRefresh />
+      {/* Popups ao entrar: acesso esquecido aberto + compromissos de hoje */}
+      <AvisosAoEntrar />
     </div>
   )
 }

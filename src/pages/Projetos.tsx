@@ -27,7 +27,7 @@ import type { Projeto, StatusProjeto } from "@/types";
 
 export function ProjetosPage() {
   const qc = useQueryClient();
-  const { ehAdmin } = usePermissoes();
+  const { perfil } = usePermissoes();
 
   const { data: lista = [], isLoading } = useQuery({
     queryKey: ["projetos"],
@@ -91,11 +91,7 @@ export function ProjetosPage() {
     <div>
       <PageHeader
         title="Projetos"
-        subtitle={
-          ehAdmin
-            ? "Todos os projetos de pesquisa."
-            : "Todos os projetos de pesquisa."
-        }
+        subtitle="Todos os projetos de pesquisa. Você edita os seus; os demais, só consulta."
         actions={
           <>
             <div className="relative hidden sm:block">
@@ -114,11 +110,9 @@ export function ProjetosPage() {
             >
               Filtros
             </Button>
-            {ehAdmin && (
-              <Button icon={Plus} onClick={() => setModalNovo(true)}>
-                Novo projeto
-              </Button>
-            )}
+            <Button icon={Plus} onClick={() => setModalNovo(true)}>
+              Novo projeto
+            </Button>
           </>
         }
       />
@@ -158,7 +152,7 @@ export function ProjetosPage() {
             {kpis.total}
           </p>
           <p className="text-sm text-slate-500">
-            {ehAdmin ? "Projetos no total" : "Meus projetos"}
+            Projetos no total
           </p>
         </div>
         <div className="card p-4">
@@ -184,9 +178,7 @@ export function ProjetosPage() {
           <FolderOpen className="h-8 w-8 text-slate-300" />
           <p className="text-sm text-slate-500">
             {lista.length === 0
-              ? ehAdmin
-                ? "Nenhum projeto cadastrado ainda."
-                : "Você ainda não está vinculado a nenhum projeto."
+              ? "Nenhum projeto cadastrado ainda. Crie o primeiro!"
               : "Nenhum projeto encontrado para os filtros selecionados."}
           </p>
         </div>
@@ -204,6 +196,7 @@ export function ProjetosPage() {
           onClose={() => setModalNovo(false)}
           salvando={criar.isPending}
           pesquisadores={usuarios}
+          responsavelPadraoId={perfil?.id}
           onSalvar={(dados) => criar.mutate(dados)}
         />
       )}

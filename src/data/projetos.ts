@@ -12,12 +12,11 @@ import type {
  * Camada de dados de PROJETOS (equipe, TRL/progresso, chat privado).
  *
  * Leitura:
- * - admin vê todos;
- * - pesquisadores liberados veem todos os projetos.
+ * - todos os pesquisadores liberados veem todos os projetos.
  *
  * Escrita:
- * - estrutura/equipe: somente admin;
- * - conteúdo: admin ou responsável;
+ * - qualquer pesquisador liberado cria projetos (e vira o dono);
+ * - estrutura/equipe e conteúdo: admin, criador ou responsável;
  * - campos liberados: membros vinculados, conforme configuração do projeto;
  * - chat: admin ou pesquisadores vinculados.
  *
@@ -86,7 +85,8 @@ function mapProjeto(r: any): Projeto {
     responsavelFotoUrl: r.responsavel?.foto_url ?? undefined,
     pesquisadores,
     camposEditaveisMembros: r.campos_editaveis_membros ?? [],
-    criadoPorNome: r.criado_por?.nome ?? undefined,
+    criadoPorNome: r.criador?.nome ?? undefined,
+    criadoPorId: typeof r.criado_por === "string" ? r.criado_por : undefined,
     criadoEm: r.created_at,
     atualizadoEm: r.updated_at ?? undefined,
   };
@@ -224,7 +224,7 @@ export async function listarProjetos(): Promise<Projeto[]> {
   const { data, error } = await supabase
     .from("projetos")
     .select(
-      `*, responsavel:responsavel_id (nome, foto_url), criado_por:criado_por (nome),
+      `*, responsavel:responsavel_id (nome, foto_url), criador:criado_por (nome),
        pesquisadores:projeto_pesquisadores (usuario_id, papel, usuario:usuario_id (nome, foto_url))`,
     )
     .order("created_at", { ascending: false });
@@ -238,7 +238,7 @@ export async function listarProjetos(): Promise<Projeto[]> {
 }
 
 // ============================================================
-// Escrita — estrutura (admin only)
+// Escrita — estrutura (admin, criador ou responsável)
 // ============================================================
 
 export async function criarProjeto(input: DadosProjeto): Promise<Projeto> {
@@ -273,6 +273,7 @@ export async function criarProjeto(input: DadosProjeto): Promise<Projeto> {
       pesquisadores: [responsavel, ...membros],
       camposEditaveisMembros: input.camposEditaveisMembros,
       criadoPorNome: perfil?.nome,
+      criadoPorId: perfil?.id,
       criadoEm: new Date().toISOString(),
     };
     mockProjetos.unshift(projeto);
@@ -309,7 +310,7 @@ export async function criarProjeto(input: DadosProjeto): Promise<Projeto> {
   return lista.find((p) => p.id === data.id)!;
 }
 
-/** Atualiza estrutura (responsável, vínculos, campos liberados) — admin only, garantido pelo RLS. */
+/** Atualiza estrutura (responsável, vínculos, campos liberados) — admin/criador/responsável, garantido pelo RLS. */
 export async function atualizarEstruturaProjeto(
   id: string,
   input: Pick<

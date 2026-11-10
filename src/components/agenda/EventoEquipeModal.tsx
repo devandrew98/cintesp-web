@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { CalendarPlus, Trash2 } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { CalendarPlus, Check, Trash2 } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Field, Input, Select, Textarea } from '@/components/ui/Field'
+import { listarUsuarios } from '@/data/api'
+import { cn } from '@/lib/utils'
 import { atualizarEventoEquipe, criarEventoEquipe, removerEventoEquipe } from '@/data/agendaEquipe'
 import { REPETICOES, rotuloRepeticao, type EventoEquipe, type Repeticao } from '@/lib/agendaEquipe'
 import { hojeISO } from '@/lib/agendamento'
@@ -38,6 +40,8 @@ export function EventoEquipeModal({
   const [local, setLocal] = useState('')
   const [linkVideo, setLinkVideo] = useState('')
   const [descricao, setDescricao] = useState('')
+  const [paraTodos, setParaTodos] = useState(true)
+  const [participantes, setParticipantes] = useState<string[]>([])
   const [erro, setErro] = useState<string | null>(null)
   const [confirmaExcluir, setConfirmaExcluir] = useState(false)
 
@@ -55,9 +59,15 @@ export function EventoEquipeModal({
     setLocal(evento?.local ?? '')
     setLinkVideo(evento?.linkVideo ?? '')
     setDescricao(evento?.descricao ?? '')
+    setParaTodos(evento?.paraTodos ?? true)
+    setParticipantes(evento?.participantes ?? [])
     setErro(null)
     setConfirmaExcluir(false)
   }, [open, evento, dataInicial])
+
+  const { data: usuarios = [] } = useQuery({ queryKey: ['usuarios'], queryFn: listarUsuarios, enabled: open })
+  const ativos = usuarios.filter((u) => u.status === 'ativo')
+  const alternar = (id: string) => setParticipantes((a) => (a.includes(id) ? a.filter((x) => x !== id) : [...a, id]))
 
   const depois = () => {
     qc.invalidateQueries({ queryKey: ['agenda-equipe'] })
@@ -78,6 +88,8 @@ export function EventoEquipeModal({
         local,
         linkVideo,
         descricao,
+        paraTodos,
+        participantes: paraTodos ? [] : participantes,
       }
       return evento ? atualizarEventoEquipe(evento.id, dados) : criarEventoEquipe(dados)
     },
@@ -178,6 +190,63 @@ export function EventoEquipeModal({
             </Field>
           )}
         </div>
+
+        <Field label="Quem participa" hint="Quem for selecionado recebe um aviso (popup) ao entrar no sistema no dia do evento.">
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-2">
+              {[
+                { v: true, t: 'Todos os pesquisadores' },
+                { v: false, t: 'Selecionar pesquisadores' },
+              ].map((o) => (
+                <button
+                  key={String(o.v)}
+                  type="button"
+                  onClick={() => setParaTodos(o.v)}
+                  className={cn(
+                    'rounded-full px-3 py-1.5 text-sm font-medium transition-colors',
+                    paraTodos === o.v
+                      ? 'bg-brand-600 text-white'
+                      : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-700',
+                  )}
+                >
+                  {o.t}
+                </button>
+              ))}
+            </div>
+            {!paraTodos && (
+              <div className="max-h-48 space-y-1 overflow-y-auto rounded-xl border border-slate-200 p-2 dark:border-slate-700">
+                {ativos.length === 0 && <p className="px-2 py-2 text-xs text-slate-400">Carregando pesquisadores…</p>}
+                {ativos.map((u) => {
+                  const marcado = participantes.includes(u.id)
+                  return (
+                    <button
+                      key={u.id}
+                      type="button"
+                      onClick={() => alternar(u.id)}
+                      className={cn(
+                        'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors',
+                        marcado
+                          ? 'bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300'
+                          : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800/60',
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'flex h-4 w-4 shrink-0 items-center justify-center rounded border',
+                          marcado ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 dark:border-slate-600',
+                        )}
+                      >
+                        {marcado && <Check className="h-3 w-3" />}
+                      </span>
+                      {u.nome}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+            {!paraTodos && <p className="text-xs text-slate-400">{participantes.length} selecionado(s)</p>}
+          </div>
+        </Field>
 
         <Field label="Local (opcional)">
           <Input value={local} onChange={(e) => setLocal(e.target.value)} placeholder="Ex.: Arena Sabiazinho" />

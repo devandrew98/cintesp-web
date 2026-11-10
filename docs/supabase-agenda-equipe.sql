@@ -84,3 +84,10 @@ end $$;
 
 -- Força o PostgREST a enxergar as colunas/tabela novas.
 notify pgrst, 'reload schema';
+
+-- ---------- 3) Participantes do evento (aviso/popup ao pesquisador) ----------
+-- para_todos = true  → todos os pesquisadores participam.
+-- para_todos = false → só os ids listados em `participantes`.
+alter table public.agenda_eventos add column if not exists para_todos boolean not null default true;
+alter table public.agenda_eventos add column if not exists participantes uuid[] not null default '{}';
+notify pgrst, 'reload schema';

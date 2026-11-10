@@ -8,7 +8,7 @@ import type { CampoEditavelProjeto, Usuario } from '@/types'
 /**
  * Bloco reutilizável: responsável + pesquisadores vinculados + campos que os
  * demais vinculados podem editar. Usado na criação (ProjetoFormModal) e na
- * edição de equipe (ProjetoDetailModal, só admin).
+ * edição de equipe (ProjetoDetailModal, só admin/criador).
  */
 export function EquipeCamposForm({
   pesquisadores,
@@ -47,7 +47,7 @@ export function EquipeCamposForm({
 
       <Field
         label={`Pesquisadores vinculados${membrosIds.length > 0 ? ` — ${membrosIds.length} selecionado(s)` : ''}`}
-        hint="Além do responsável. Só quem está vinculado vê o projeto e participa do chat."
+        hint="Além do responsável. Todos veem o projeto; só quem está vinculado participa do chat."
       >
         {!responsavelId ? (
           <p className="text-xs text-slate-400">Escolha o responsável primeiro.</p>
@@ -87,7 +87,7 @@ export function EquipeCamposForm({
 
       <Field
         label="Campos que os demais vinculados podem editar"
-        hint="O responsável e o admin sempre podem editar tudo. Título, status e datas ficam sempre restritos a eles."
+        hint="O criador, o responsável e o admin sempre podem editar tudo. Título, status e datas ficam restritos a eles."
       >
         <div className="flex flex-wrap gap-2">
           {CAMPOS_EDITAVEIS_PROJETO.map((c) => {
