@@ -9,6 +9,7 @@ import { RegistrarPontoPage } from '@/pages/RegistrarPonto'
 import { QrAcessoPage } from '@/pages/QrAcesso'
 import { RequirePermissao } from '@/components/auth/RequirePermissao'
 import { MeuAcessoPage } from '@/pages/MeuAcesso'
+import { RegistrosPage } from '@/pages/Registros'
 import { RankingPage } from '@/pages/Ranking'
 import { AgendamentoPage } from '@/pages/Agendamento'
 import { AgendamentosAvaliadorPage } from '@/pages/AgendamentosAvaliador'
@@ -94,6 +95,7 @@ export default function App() {
           <Route path="/avisos" element={<AvisosPage />} />
           <Route path="/documentos" element={<DocumentosPage />} />
           <Route path="/projetos" element={<ProjetosPage />} />
+          <Route path="/registros" element={<RegistrosPage />} />
           <Route path="/meu-acesso" element={<MeuAcessoPage />} />
           <Route path="/ranking" element={<RankingPage />} />
           <Route path="/assinar-documentos" element={<AssinarDocumentosPage />} />

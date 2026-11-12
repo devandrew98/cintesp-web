@@ -23,6 +23,7 @@ import {
   CalendarCheck,
   MapPin,
   Building2,
+  Handshake,
   Settings,
   type LucideIcon,
 } from 'lucide-react'
@@ -62,6 +63,7 @@ export const navSections: NavSection[] = [
       { label: 'Avisos', to: '/avisos', icon: Megaphone },
       { label: 'Documentos', to: '/documentos', icon: FolderOpen },
       { label: 'Projetos', to: '/projetos', icon: FolderKanban },
+      { label: 'Visitas e Eventos', to: '/registros', icon: Handshake },
       { label: 'Meu Acesso', to: '/meu-acesso', icon: Timer },
       { label: 'Ranking', to: '/ranking', icon: Trophy },
       { label: 'Assinar documentos', to: '/assinar-documentos', icon: FileSignature },

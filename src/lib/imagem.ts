@@ -26,3 +26,37 @@ export async function reduzirImagem(arquivo: File, maxLado = 1600, qualidade = 0
     bitmap.close()
   }
 }
+
+/** Foto reduzida (JPEG) com as dimensões, pronta para entrar em um relatório PDF/Word. */
+export interface ImagemRelatorio {
+  bytes: Uint8Array
+  largura: number
+  altura: number
+}
+
+/** Reduz uma imagem para caber em `maxLado` px (relatórios ficam leves). Devolve null se não der para ler. */
+export async function miniaturaJpeg(dados: Blob, maxLado = 900, qualidade = 0.8): Promise<ImagemRelatorio | null> {
+  try {
+    const bitmap = await createImageBitmap(dados, { imageOrientation: 'from-image' })
+    try {
+      const escala = Math.min(1, maxLado / Math.max(bitmap.width, bitmap.height))
+      const largura = Math.max(1, Math.round(bitmap.width * escala))
+      const altura = Math.max(1, Math.round(bitmap.height * escala))
+      const canvas = document.createElement('canvas')
+      canvas.width = largura
+      canvas.height = altura
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return null
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, largura, altura)
+      ctx.drawImage(bitmap, 0, 0, largura, altura)
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', qualidade))
+      if (!blob) return null
+      return { bytes: new Uint8Array(await blob.arrayBuffer()), largura, altura }
+    } finally {
+      bitmap.close()
+    }
+  } catch {
+    return null
+  }
+}
