@@ -286,6 +286,8 @@ export interface Projeto {
   criadoPorNome?: string
   /** Quem criou o projeto (dono: edita equipe e conteúdo). */
   criadoPorId?: string
+  /** Foto de capa (banner da página do projeto). */
+  capaUrl?: string
   criadoEm: string
   atualizadoEm?: string
 }

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   FolderKanban,
@@ -14,11 +15,9 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input, Select } from "@/components/ui/Field";
 import { Avatar } from "@/components/ui/Avatar";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ProgressoBar } from "@/components/projetos/ProgressoBar";
 import { ProjetoFormModal } from "@/components/projetos/ProjetoFormModal";
-import { ProjetoDetailModal } from "@/components/projetos/ProjetoDetailModal";
-import { listarProjetos, criarProjeto, excluirProjeto } from "@/data/projetos";
+import { listarProjetos, criarProjeto } from "@/data/projetos";
 import { listarUsuarios } from "@/data/api";
 import { STATUS_PROJETO, statusProjetoInfo, rotuloTRL } from "@/lib/projetos";
 import { usePermissoes } from "@/hooks/usePermissoes";
@@ -44,24 +43,15 @@ export function ProjetosPage() {
   );
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
 
+  const navigate = useNavigate();
   const [modalNovo, setModalNovo] = useState(false);
-  const [detalhe, setDetalhe] = useState<Projeto | null>(null);
-  const [aExcluir, setAExcluir] = useState<Projeto | null>(null);
 
-  const invalidar = () => qc.invalidateQueries({ queryKey: ["projetos"] });
   const criar = useMutation({
     mutationFn: criarProjeto,
-    onSuccess: () => {
-      invalidar();
+    onSuccess: (novo) => {
+      qc.invalidateQueries({ queryKey: ["projetos"] });
       setModalNovo(false);
-    },
-  });
-  const remover = useMutation({
-    mutationFn: excluirProjeto,
-    onSuccess: () => {
-      invalidar();
-      setAExcluir(null);
-      setDetalhe(null);
+      navigate(`/projetos/${novo.id}`);
     },
   });
 
@@ -77,6 +67,16 @@ export function ProjetosPage() {
       })
       .sort((a, b) => +new Date(b.criadoEm) - +new Date(a.criadoEm));
   }, [lista, busca, statusFiltro]);
+
+  // "Seus projetos": os que você criou, é responsável ou está vinculado.
+  const meuId = perfil?.id;
+  const ehMeu = (p: Projeto) =>
+    Boolean(meuId) &&
+    (p.criadoPorId === meuId ||
+      p.responsavelId === meuId ||
+      p.pesquisadores.some((v) => v.usuarioId === meuId));
+  const seus = useMemo(() => filtrados.filter(ehMeu), [filtrados, meuId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const outros = useMemo(() => filtrados.filter((p) => !ehMeu(p)), [filtrados, meuId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const kpis = useMemo(
     () => ({
@@ -183,10 +183,19 @@ export function ProjetosPage() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {filtrados.map((p) => (
-            <ProjetoCard key={p.id} projeto={p} onAbrir={() => setDetalhe(p)} />
-          ))}
+        <div className="space-y-8">
+          <SecaoProjetos
+            titulo="Seus projetos"
+            subtitulo="Os que você criou ou em que participa."
+            projetos={seus}
+            vazio="Você ainda não criou nem participa de nenhum projeto."
+          />
+          <SecaoProjetos
+            titulo="Outros projetos"
+            subtitulo="Projetos de outros pesquisadores — você pode consultar."
+            projetos={outros}
+            vazio="Não há outros projetos."
+          />
         </div>
       )}
 
@@ -201,41 +210,62 @@ export function ProjetosPage() {
         />
       )}
 
-      <ProjetoDetailModal
-        key={detalhe?.id}
-        projeto={detalhe}
-        onClose={() => setDetalhe(null)}
-        usuarios={usuarios}
-        onExcluir={() => detalhe && setAExcluir(detalhe)}
-      />
-
-      <ConfirmDialog
-        open={Boolean(aExcluir)}
-        onClose={() => setAExcluir(null)}
-        onConfirm={() => aExcluir && remover.mutate(aExcluir.id)}
-        title="Excluir projeto"
-        message={`Tem certeza que deseja excluir "${aExcluir?.titulo}"? O chat e o histórico serão perdidos. Esta ação não pode ser desfeita.`}
-        confirmLabel="Excluir"
-        variant="danger"
-      />
     </div>
   );
 }
 
-function ProjetoCard({
-  projeto,
-  onAbrir,
+function SecaoProjetos({
+  titulo,
+  subtitulo,
+  projetos,
+  vazio,
 }: {
-  projeto: Projeto;
-  onAbrir: () => void;
+  titulo: string;
+  subtitulo: string;
+  projetos: Projeto[];
+  vazio: string;
 }) {
+  return (
+    <section>
+      <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+          {titulo}{" "}
+          <span className="text-sm font-medium text-slate-400">
+            ({projetos.length})
+          </span>
+        </h2>
+        <p className="text-sm text-slate-400">{subtitulo}</p>
+      </div>
+      {projetos.length === 0 ? (
+        <p className="card px-4 py-8 text-center text-sm text-slate-400">
+          {vazio}
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {projetos.map((p) => (
+            <ProjetoCard key={p.id} projeto={p} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ProjetoCard({ projeto }: { projeto: Projeto }) {
   const st = statusProjetoInfo[projeto.status];
   return (
-    <button
-      type="button"
-      onClick={onAbrir}
-      className="card flex flex-col gap-3 p-4 text-left transition-colors hover:border-brand-200 dark:hover:border-brand-500/30"
+    <Link
+      to={`/projetos/${projeto.id}`}
+      className="card flex flex-col gap-3 overflow-hidden p-4 text-left transition-colors hover:border-brand-200 dark:hover:border-brand-500/30"
     >
+      {projeto.capaUrl && (
+        <img
+          src={projeto.capaUrl}
+          alt=""
+          loading="lazy"
+          className="-mx-4 -mt-4 mb-1 h-28 w-[calc(100%+2rem)] max-w-none object-cover"
+        />
+      )}
       <div className="flex items-start justify-between gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">
           <FolderKanban className="h-5 w-5" />
@@ -288,6 +318,6 @@ function ProjetoCard({
           {formatDateOnlyBR(projeto.dataFimPrevista)}
         </p>
       )}
-    </button>
+    </Link>
   );
 }

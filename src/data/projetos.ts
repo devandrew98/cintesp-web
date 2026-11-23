@@ -1,5 +1,6 @@
 import { supabase, USE_MOCK } from "@/lib/supabase";
 import { perfilAtual, listarUsuarios } from "@/data/api";
+import { reduzirImagem } from "@/lib/imagem";
 import type {
   CampoEditavelProjeto,
   MensagemProjeto,
@@ -87,6 +88,7 @@ function mapProjeto(r: any): Projeto {
     camposEditaveisMembros: r.campos_editaveis_membros ?? [],
     criadoPorNome: r.criador?.nome ?? undefined,
     criadoPorId: typeof r.criado_por === "string" ? r.criado_por : undefined,
+    capaUrl: r.capa_url ?? undefined,
     criadoEm: r.created_at,
     atualizadoEm: r.updated_at ?? undefined,
   };
@@ -417,6 +419,46 @@ export async function atualizarConteudoProjeto(
     .update(payload)
     .eq("id", id);
   if (error) throw error;
+}
+
+// ============================================================
+// Capa do projeto
+// ============================================================
+
+/** Troca a foto de capa (reduzida) do projeto. Só dono/admin (RLS + bucket `projeto-capas`). */
+export async function atualizarCapaProjeto(id: string, arquivo: File): Promise<string> {
+  if (!/^image\/(jpeg|png|webp)$/.test(arquivo.type))
+    throw new Error("Use uma imagem JPG, PNG ou WebP.");
+  if (arquivo.size > 25 * 1024 * 1024)
+    throw new Error("A imagem passa de 25 MB.");
+  const blob = await reduzirImagem(arquivo, 1800, 0.85);
+  if (USE_MOCK || !supabase) {
+    const p = mockProjetos.find((x) => x.id === id);
+    if (!p) throw new Error("Projeto não encontrado.");
+    p.capaUrl = URL.createObjectURL(blob);
+    return p.capaUrl;
+  }
+  const caminho = `${id}/capa.jpg`;
+  const { error } = await supabase.storage
+    .from("projeto-capas")
+    .upload(caminho, blob, { upsert: true, contentType: "image/jpeg" });
+  if (error) {
+    if (/row-level security|violates row-level/i.test(error.message))
+      throw new Error("Só o dono do projeto e o administrador trocam a capa.");
+    throw error;
+  }
+  const { data } = supabase.storage.from("projeto-capas").getPublicUrl(caminho);
+  const url = `${data.publicUrl}?v=${Date.now()}`; // muda a cada troca: evita cache da capa antiga
+  const { error: eUp } = await supabase
+    .from("projetos")
+    .update({ capa_url: url })
+    .eq("id", id);
+  if (eUp) {
+    if (/capa_url|column/i.test(eUp.message))
+      throw new Error("Falta rodar docs/supabase-projetos-tarefas.sql no Supabase.");
+    throw eUp;
+  }
+  return url;
 }
 
 // ============================================================

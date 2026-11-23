@@ -1,0 +1,236 @@
+import { useRef, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ArrowLeft, Calendar, Camera, FolderKanban, Loader2, Lock, MessageSquare, Pencil, Users } from 'lucide-react'
+import { Avatar } from '@/components/ui/Avatar'
+import { Badge } from '@/components/ui/Badge'
+import { Button } from '@/components/ui/Button'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { ProgressoBar } from '@/components/projetos/ProgressoBar'
+import { ProjetoChat } from '@/components/projetos/ProjetoChat'
+import { ProjetoEditarModal } from '@/components/projetos/ProjetoEditarModal'
+import { TarefasProjeto } from '@/components/projetos/TarefasProjeto'
+import { atualizarCapaProjeto, excluirProjeto, listarProjetos } from '@/data/projetos'
+import { listarUsuarios } from '@/data/api'
+import { usePermissoes } from '@/hooks/usePermissoes'
+import { ehDonoProjeto, rotuloTRL, statusProjetoInfo } from '@/lib/projetos'
+import { cn, formatDateOnlyBR, mensagemErro } from '@/lib/utils'
+
+type Aba = 'tarefas' | 'detalhes' | 'chat'
+
+/**
+ * Página do projeto (tela inteira): capa, título, responsável, equipe e abas
+ * Tarefas · Detalhes · Chat. Só o dono (criador/responsável) e o admin trocam a capa e editam o projeto.
+ */
+export function ProjetoDetalhePage() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const qc = useQueryClient()
+  const { ehAdmin, perfil } = usePermissoes()
+  const inputCapa = useRef<HTMLInputElement>(null)
+  const [aba, setAba] = useState<Aba>('tarefas')
+  const [editando, setEditando] = useState(false)
+  const [excluindo, setExcluindo] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+
+  const { data: lista = [], isLoading } = useQuery({ queryKey: ['projetos'], queryFn: listarProjetos })
+  const { data: usuarios = [] } = useQuery({ queryKey: ['usuarios'], queryFn: listarUsuarios })
+  const projeto = lista.find((p) => p.id === id)
+
+  const trocarCapa = useMutation({
+    mutationFn: (arquivo: File) => atualizarCapaProjeto(projeto!.id, arquivo),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['projetos'] }),
+    onError: (e) => setErro(mensagemErro(e)),
+  })
+  const remover = useMutation({
+    mutationFn: () => excluirProjeto(projeto!.id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['projetos'] })
+      navigate('/projetos', { replace: true })
+    },
+    onError: (e) => setErro(mensagemErro(e)),
+  })
+
+  if (isLoading) return <p className="py-20 text-center text-sm text-slate-400">Carregando projeto…</p>
+  if (!projeto)
+    return (
+      <div className="card flex flex-col items-center gap-3 px-4 py-16 text-center">
+        <FolderKanban className="h-8 w-8 text-slate-300" />
+        <p className="text-sm text-slate-500">Projeto não encontrado.</p>
+        <Link to="/projetos" className="text-sm font-medium text-brand-600 hover:underline">
+          Voltar para Projetos
+        </Link>
+      </div>
+    )
+
+  const souDono = ehDonoProjeto(projeto, perfil?.id)
+  const souMembro = Boolean(perfil?.id && projeto.pesquisadores.some((v) => v.usuarioId === perfil.id))
+  const total = ehAdmin || souDono
+  const podeEditar = total || (souMembro && projeto.camposEditaveisMembros.length > 0)
+  const podeChat = total || souMembro
+  const st = statusProjetoInfo[projeto.status]
+  const tone = st.tone as 'green' | 'amber' | 'blue' | 'red' | 'slate'
+
+  const abas: { id: Aba; label: string; icon?: typeof Users }[] = [
+    { id: 'tarefas', label: 'Tarefas' },
+    { id: 'detalhes', label: 'Detalhes' },
+    ...(podeChat ? [{ id: 'chat' as const, label: 'Chat', icon: MessageSquare }] : []),
+  ]
+
+  return (
+    <div>
+      <Link to="/projetos" className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-brand-600">
+        <ArrowLeft className="h-4 w-4" /> Projetos
+      </Link>
+
+      {/* Capa */}
+      <div className="relative h-40 overflow-hidden rounded-2xl bg-gradient-to-br from-brand-700 via-brand-600 to-emerald-400 sm:h-52 lg:h-60">
+        {projeto.capaUrl ? (
+          <img src={projeto.capaUrl} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <FolderKanban className="absolute right-6 top-1/2 h-24 w-24 -translate-y-1/2 text-white/20" />
+        )}
+        {total && (
+          <>
+            <input
+              ref={inputCapa}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                if (f) {
+                  setErro(null)
+                  trocarCapa.mutate(f)
+                }
+                if (inputCapa.current) inputCapa.current.value = ''
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => inputCapa.current?.click()}
+              disabled={trocarCapa.isPending}
+              className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-xl bg-black/55 px-3 py-1.5 text-sm font-medium text-white backdrop-blur hover:bg-black/70 disabled:opacity-70"
+            >
+              {trocarCapa.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+              Editar capa
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Cabeçalho */}
+      <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0 flex-1 space-y-2">
+          {podeEditar && (
+            <Button variant="secondary" size="sm" icon={Pencil} onClick={() => setEditando(true)}>
+              Editar projeto
+            </Button>
+          )}
+          <h1 className="break-words text-xl font-bold uppercase leading-snug text-slate-900 dark:text-white sm:text-2xl">{projeto.titulo}</h1>
+          <p className="text-sm text-slate-500">Resp: {projeto.responsavelNome ?? '—'}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 text-xs text-slate-400">
+              <Users className="h-3.5 w-3.5" /> Equipe:
+            </span>
+            {projeto.pesquisadores.map((p) => (
+              <span key={p.usuarioId} className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-slate-200 py-1 pl-1 pr-3 text-xs text-slate-600 dark:border-slate-700 dark:text-slate-300">
+                <Avatar nome={p.nome ?? '—'} fotoUrl={p.fotoUrl} size="sm" className="h-5 w-5 text-[9px]" />
+                <span className="truncate">{p.nome ?? '—'}</span>
+                {p.papel === 'responsavel' && <span className="text-slate-400">(resp.)</span>}
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 lg:flex-col lg:items-end">
+          <Badge tone={tone} dot>
+            {st.label}
+          </Badge>
+          {projeto.trl && <Badge tone="violet">{rotuloTRL(projeto.trl)}</Badge>}
+        </div>
+      </div>
+
+      {erro && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-300">{erro}</p>}
+
+      {/* Abas */}
+      <div className="mt-6 flex gap-1 overflow-x-auto border-b border-slate-200 dark:border-slate-800" role="tablist">
+        {abas.map((a) => (
+          <button
+            key={a.id}
+            type="button"
+            role="tab"
+            aria-selected={aba === a.id}
+            onClick={() => setAba(a.id)}
+            className={cn('-mb-px inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition-colors', aba === a.id ? 'border-brand-600 text-brand-700 dark:text-brand-300' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-200')}
+          >
+            {a.icon && <a.icon className="h-4 w-4" />}
+            {a.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-5">
+        {aba === 'tarefas' && <TarefasProjeto projeto={projeto} />}
+
+        {aba === 'detalhes' && (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div className="space-y-4 lg:col-span-2">
+              <Bloco titulo="Descrição">{projeto.descricao ? <p className="whitespace-pre-wrap break-words text-sm text-slate-700 dark:text-slate-200">{projeto.descricao}</p> : <Vazio />}</Bloco>
+              <Bloco titulo="Dados técnicos">{projeto.dadosTecnicos ? <p className="whitespace-pre-wrap break-words text-sm text-slate-700 dark:text-slate-200">{projeto.dadosTecnicos}</p> : <Vazio />}</Bloco>
+              <Bloco titulo="Observações">{projeto.observacoes ? <p className="whitespace-pre-wrap break-words text-sm text-slate-700 dark:text-slate-200">{projeto.observacoes}</p> : <Vazio />}</Bloco>
+            </div>
+            <div className="space-y-4">
+              <Bloco titulo={`Progresso — ${projeto.progresso}%`}>
+                <ProgressoBar progresso={projeto.progresso} />
+              </Bloco>
+              <Bloco titulo="Datas">
+                <ul className="space-y-1.5 text-sm text-slate-700 dark:text-slate-200">
+                  <li className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-slate-400" /> Início: {formatDateOnlyBR(projeto.dataInicio)}
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-slate-400" /> Previsão: {formatDateOnlyBR(projeto.dataFimPrevista)}
+                  </li>
+                </ul>
+              </Bloco>
+              <Bloco titulo="Registro">
+                <p className="text-sm text-slate-600 dark:text-slate-300">
+                  Criado por {projeto.criadoPorNome ?? '—'} em {formatDateOnlyBR(projeto.criadoEm)}
+                </p>
+              </Bloco>
+              {!podeEditar && (
+                <p className="flex items-center gap-1.5 text-xs text-slate-400">
+                  <Lock className="h-3 w-3" /> Somente leitura para você
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {aba === 'chat' && podeChat && <ProjetoChat projeto={projeto} />}
+      </div>
+
+      <ProjetoEditarModal projeto={projeto} open={editando} onClose={() => setEditando(false)} usuarios={usuarios} onExcluir={() => setExcluindo(true)} />
+      <ConfirmDialog
+        open={excluindo}
+        onClose={() => setExcluindo(false)}
+        onConfirm={() => remover.mutate()}
+        title="Excluir projeto"
+        message={`Tem certeza que deseja excluir "${projeto.titulo}"? As tarefas, o chat e o histórico serão perdidos. Esta ação não pode ser desfeita.`}
+        confirmLabel="Excluir"
+        variant="danger"
+      />
+    </div>
+  )
+}
+
+function Bloco({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+  return (
+    <section className="card p-4">
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{titulo}</h2>
+      {children}
+    </section>
+  )
+}
+
+const Vazio = () => <p className="text-sm text-slate-400">—</p>
