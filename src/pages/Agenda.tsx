@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, Users2, CalendarClock } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -6,7 +7,19 @@ import { StatCard } from "@/components/ui/StatCard";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { PersonRow } from "@/components/ui/PersonRow";
 import { ProgramacaoCard, useEventosHoje } from "@/components/agenda/Programacao";
+import { MinhaAgenda } from "@/components/afazeres/MinhaAgenda";
 import { listarUsuarios } from "@/data/api";
+import { cn } from "@/lib/utils";
+
+type Visao = "geral" | "minha";
+const CHAVE_VISAO = "cintesp:agenda-visao";
+function lerVisao(): Visao {
+  try {
+    return localStorage.getItem(CHAVE_VISAO) === "minha" ? "minha" : "geral";
+  } catch {
+    return "geral";
+  }
+}
 
 const dataHojeRaw = new Date().toLocaleDateString("pt-BR", {
   weekday: "long",
@@ -28,6 +41,15 @@ export function AgendaPage() {
     queryFn: listarUsuarios,
   });
   const eventosHoje = useEventosHoje();
+  const [visao, setVisao] = useState<Visao>(lerVisao);
+  const escolher = (v: Visao) => {
+    setVisao(v);
+    try {
+      localStorage.setItem(CHAVE_VISAO, v);
+    } catch {
+      /* sem localStorage: só vale nesta sessão */
+    }
+  };
 
   const ativos = useMemo(
     () => usuarios.filter((u) => u.status === "ativo"),
@@ -56,7 +78,48 @@ export function AgendaPage() {
 
   return (
     <div>
-      <PageHeader title="Agenda do Dia" subtitle={dataHoje} />
+      <PageHeader
+        title="Agenda do Dia"
+        subtitle={dataHoje}
+        actions={
+          <div className="inline-flex rounded-xl border border-slate-200 p-0.5 dark:border-slate-700" role="group" aria-label="Qual agenda ver">
+            {(
+              [
+                ["geral", "Agenda geral"],
+                ["minha", "Minha agenda"],
+              ] as const
+            ).map(([v, t]) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => escolher(v)}
+                aria-pressed={visao === v}
+                className={cn(
+                  "rounded-[10px] px-3.5 py-1.5 text-sm font-medium transition-colors",
+                  visao === v
+                    ? "bg-brand-600 text-white"
+                    : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800",
+                )}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        }
+      />
+
+      {visao === "minha" ? (
+        <div>
+          <MinhaAgenda />
+          <p className="mt-6 text-sm text-slate-500">
+            Quer ver suas tarefas e anotações também?{" "}
+            <Link to="/afazeres" className="font-medium text-brand-600 hover:underline">
+              Abrir Meus Afazeres
+            </Link>
+          </p>
+        </div>
+      ) : (
+      <>
 
       {/* KPIs */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -137,6 +200,8 @@ export function AgendaPage() {
           </SectionCard>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }

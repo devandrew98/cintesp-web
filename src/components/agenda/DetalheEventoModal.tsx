@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { CalendarDays, Clock3, ExternalLink, MapPin, Repeat, Users, Video } from 'lucide-react'
+import { CalendarDays, Clock3, ExternalLink, Lock, MapPin, Repeat, Users, Video } from 'lucide-react'
 import { listarUsuarios } from '@/data/api'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
@@ -14,7 +14,7 @@ export function DetalheEventoModal({
 }: {
   ocorrencia: Ocorrencia | null
   onClose: () => void
-  /** Só passado para administradores. */
+  /** Só passado a quem pode editar (admin nos oficiais; o dono nos pessoais). */
   onEditar?: () => void
 }) {
   const e = ocorrencia?.evento
@@ -43,7 +43,13 @@ export function DetalheEventoModal({
           </Linha>
           <Linha icon={Clock3}>{rotuloQuando(ocorrencia)}</Linha>
           {e.repeticao !== 'nunca' && <Linha icon={Repeat}>{rotuloRepeticao(e.repeticao, e.data)}</Linha>}
-          <Linha icon={Users}>{e.paraTodos ? 'Todos os pesquisadores' : nomes.length ? nomes.join(', ') : `${e.participantes.length} pesquisador(es)`}</Linha>
+          {e.donoId ? (
+            <Linha icon={e.visibilidade === 'privada' ? Lock : Users}>
+              {e.visibilidade === 'privada' ? 'Compromisso privado — só você vê' : `Compromisso pessoal de ${e.donoNome ?? 'um pesquisador'} (visível a todos)`}
+            </Linha>
+          ) : (
+            <Linha icon={Users}>{e.paraTodos ? 'Todos os pesquisadores' : nomes.length ? nomes.join(', ') : `${e.participantes.length} pesquisador(es)`}</Linha>
+          )}
           {e.local && <Linha icon={MapPin}>{e.local}</Linha>}
           {e.linkVideo && (
             <Linha icon={Video}>

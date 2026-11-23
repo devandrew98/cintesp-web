@@ -21,12 +21,15 @@ export function EventoEquipeModal({
   onClose,
   evento,
   dataInicial,
+  pessoal = false,
 }: {
   open: boolean
   onClose: () => void
   /** Presente = edição; ausente = novo evento. */
   evento?: EventoEquipe
   dataInicial?: string
+  /** Compromisso PESSOAL (do próprio usuário): sem lista de participantes e com visibilidade privada/pública. */
+  pessoal?: boolean
 }) {
   const qc = useQueryClient()
   const [titulo, setTitulo] = useState('')
@@ -40,6 +43,7 @@ export function EventoEquipeModal({
   const [local, setLocal] = useState('')
   const [linkVideo, setLinkVideo] = useState('')
   const [descricao, setDescricao] = useState('')
+  const [visibilidade, setVisibilidade] = useState<'privada' | 'publica'>('privada')
   const [paraTodos, setParaTodos] = useState(true)
   const [participantes, setParticipantes] = useState<string[]>([])
   const [erro, setErro] = useState<string | null>(null)
@@ -59,6 +63,7 @@ export function EventoEquipeModal({
     setLocal(evento?.local ?? '')
     setLinkVideo(evento?.linkVideo ?? '')
     setDescricao(evento?.descricao ?? '')
+    setVisibilidade(evento?.visibilidade ?? 'privada')
     setParaTodos(evento?.paraTodos ?? true)
     setParticipantes(evento?.participantes ?? [])
     setErro(null)
@@ -88,10 +93,12 @@ export function EventoEquipeModal({
         local,
         linkVideo,
         descricao,
-        paraTodos,
-        participantes: paraTodos ? [] : participantes,
+        // Pessoal: sem lista de participantes (ninguém recebe popup por ele).
+        paraTodos: pessoal ? true : paraTodos,
+        participantes: pessoal || paraTodos ? [] : participantes,
+        ...(pessoal ? { visibilidade } : {}),
       }
-      return evento ? atualizarEventoEquipe(evento.id, dados) : criarEventoEquipe(dados)
+      return evento ? atualizarEventoEquipe(evento.id, dados) : criarEventoEquipe(dados, { pessoal })
     },
     onSuccess: depois,
     onError: (e) => setErro(mensagemErro(e)),
@@ -120,7 +127,7 @@ export function EventoEquipeModal({
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">
             <CalendarPlus className="h-5 w-5" />
           </span>
-          {evento ? 'Editar evento' : 'Novo evento'}
+          {pessoal ? (evento ? 'Editar compromisso' : 'Novo compromisso') : evento ? 'Editar evento' : 'Novo evento'}
         </span>
       }
       footer={
@@ -191,6 +198,14 @@ export function EventoEquipeModal({
           )}
         </div>
 
+        {pessoal ? (
+          <Field label="Quem vê este compromisso" hint="Privado: só você. Público: todos os pesquisadores veem na Programação, com o seu nome.">
+            <Select value={visibilidade} onChange={(e) => setVisibilidade(e.target.value as 'privada' | 'publica')}>
+              <option value="privada">Privado (só eu)</option>
+              <option value="publica">Público (todos veem)</option>
+            </Select>
+          </Field>
+        ) : (
         <Field label="Quem participa" hint="Quem for selecionado recebe um aviso (popup) ao entrar no sistema no dia do evento.">
           <div className="space-y-2">
             <div className="flex flex-wrap gap-2">
@@ -247,6 +262,7 @@ export function EventoEquipeModal({
             {!paraTodos && <p className="text-xs text-slate-400">{participantes.length} selecionado(s)</p>}
           </div>
         </Field>
+        )}
 
         <Field label="Local (opcional)">
           <Input value={local} onChange={(e) => setLocal(e.target.value)} placeholder="Ex.: Arena Sabiazinho" />

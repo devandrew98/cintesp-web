@@ -1,5 +1,7 @@
 import { supabase, USE_MOCK } from '@/lib/supabase'
 import { perfilAtual, listarUsuarios } from '@/data/api'
+import { listarProjetos } from '@/data/projetos'
+import { usuarioAtual } from '@/data/mock'
 import { hojeISO, somarDias } from '@/lib/agendamento'
 import { validarTarefa, type DadosTarefa, type Tarefa } from '@/lib/tarefas'
 
@@ -67,6 +69,7 @@ const mockTarefas: Tarefa[] = [
   mk('proj-1', 'Aguardar chegada das peças do fornecedor', 'aguardando', { prioridade: 'baixa' }),
   mk('proj-1', 'Definir arquitetura do firmware', 'concluido', { responsavelId: 'u1', responsavelNome: 'João Silva', dataEntrega: somarDias(hoje, -10) }),
   mk('proj-2', 'Levantar requisitos com terapeutas', 'em_andamento', { responsavelId: 'u3', responsavelNome: 'Carlos Almeida' }),
+  mk('proj-1', 'Revisar o plano de testes com a equipe', 'em_andamento', { prioridade: 'alta', responsavelId: usuarioAtual.id, responsavelNome: usuarioAtual.nome, dataEntrega: somarDias(hoje, 2) }),
 ]
 
 // ---------------- API ----------------
@@ -137,4 +140,22 @@ export async function excluirTarefa(id: string): Promise<void> {
   }
   const { error } = await supabase.from('projeto_tarefas').delete().eq('id', id)
   if (error) throw erroAmigavel(error)
+}
+
+/** Tarefas de QUALQUER projeto atribuídas a este usuário (para o Meus Afazeres), com o nome do projeto. */
+export async function listarTarefasAtribuidas(usuarioId: string): Promise<{ tarefa: Tarefa; projetoTitulo?: string }[]> {
+  if (USE_MOCK || !supabase) {
+    const projetos = await listarProjetos()
+    return mockTarefas.filter((t) => t.responsavelId === usuarioId).map((t) => ({ tarefa: { ...t }, projetoTitulo: projetos.find((p) => p.id === t.projetoId)?.titulo }))
+  }
+  const { data, error } = await supabase
+    .from('projeto_tarefas')
+    .select('*, responsavel:responsavel_id (nome, foto_url), criador:criado_por (nome), projeto:projeto_id (titulo)')
+    .eq('responsavel_id', usuarioId)
+    .order('created_at', { ascending: true })
+  if (error) {
+    if (ehTabelaAusente(error)) return []
+    throw erroAmigavel(error)
+  }
+  return (data ?? []).map((r: any) => ({ tarefa: mapTarefa(r), projetoTitulo: r.projeto?.titulo ?? undefined }))
 }

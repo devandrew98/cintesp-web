@@ -31,7 +31,21 @@ export interface EventoEquipe {
   paraTodos: boolean
   /** Ids dos pesquisadores escolhidos (vale quando `paraTodos` é false). */
   participantes: string[]
+  /** Compromisso PESSOAL: quem é o dono. Ausente = evento oficial da equipe (cadastrado pelo admin). */
+  donoId?: string
+  donoNome?: string
+  /** Só para compromissos pessoais: 'privada' (só o dono vê) ou 'publica' (todos veem). */
+  visibilidade?: 'privada' | 'publica'
 }
+
+/** Evento oficial da equipe (cadastrado pelo administrador). */
+export const ehEventoDeEquipe = (e: Pick<EventoEquipe, 'donoId'>): boolean => !e.donoId
+/** Aparece na Programação geral: oficiais + compromissos pessoais marcados como públicos. */
+export const ehEventoGeral = (e: Pick<EventoEquipe, 'donoId' | 'visibilidade'>): boolean => !e.donoId || e.visibilidade === 'publica'
+/** Compromisso pessoal do usuário. */
+export const ehEventoMeu = (e: Pick<EventoEquipe, 'donoId'>, usuarioId?: string): boolean => Boolean(usuarioId) && e.donoId === usuarioId
+/** Quem pode editar/excluir: o dono (pessoal) ou o administrador (oficial). */
+export const podeEditarEvento = (e: Pick<EventoEquipe, 'donoId'>, usuarioId?: string, ehAdmin = false): boolean => (e.donoId ? e.donoId === usuarioId : ehAdmin)
 
 /** O pesquisador participa do evento? (todos, ou está na lista) */
 export const euParticipo = (e: Pick<EventoEquipe, 'paraTodos' | 'participantes'>, usuarioId?: string): boolean =>

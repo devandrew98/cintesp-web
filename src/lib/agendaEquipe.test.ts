@@ -3,7 +3,10 @@ import {
   ocorrenciasDoDia,
   ocorrenciasNoPeriodo,
   rotuloQuando,
+  ehEventoGeral,
+  ehEventoMeu,
   euParticipo,
+  podeEditarEvento,
   rotuloRepeticao,
   validarEventoEquipe,
   type EventoEquipe,
@@ -75,6 +78,22 @@ describe('euParticipo', () => {
     expect(euParticipo(ev({ paraTodos: false, participantes: ['u1'] }), 'u1')).toBe(true)
     expect(euParticipo(ev({ paraTodos: false, participantes: ['u1'] }), 'u2')).toBe(false)
     expect(euParticipo(ev(), undefined)).toBe(false)
+  })
+})
+
+describe('eventos pessoais', () => {
+  it('geral: oficiais e públicos; privados não', () => {
+    expect(ehEventoGeral(ev())).toBe(true)
+    expect(ehEventoGeral(ev({ donoId: 'u1', visibilidade: 'publica' }))).toBe(true)
+    expect(ehEventoGeral(ev({ donoId: 'u1', visibilidade: 'privada' }))).toBe(false)
+  })
+  it('meu e quem edita', () => {
+    expect(ehEventoMeu(ev({ donoId: 'u1' }), 'u1')).toBe(true)
+    expect(ehEventoMeu(ev({ donoId: 'u1' }), 'u2')).toBe(false)
+    expect(podeEditarEvento(ev(), 'u1', false)).toBe(false)
+    expect(podeEditarEvento(ev(), 'adm', true)).toBe(true)
+    expect(podeEditarEvento(ev({ donoId: 'u1' }), 'u1')).toBe(true)
+    expect(podeEditarEvento(ev({ donoId: 'u1' }), 'adm', true)).toBe(false)
   })
 })
 

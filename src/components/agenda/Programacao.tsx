@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { CalendarDays, MapPin, Plus, Repeat, Video } from 'lucide-react'
+import { CalendarDays, Lock, MapPin, Plus, Repeat, Video } from 'lucide-react'
 import { SectionCard } from '@/components/ui/SectionCard'
 import { Button } from '@/components/ui/Button'
 import { CalendarioMes } from '@/components/agendamento/CalendarioMes'
@@ -10,10 +10,15 @@ import { DetalheEventoModal } from '@/components/agenda/DetalheEventoModal'
 import { listarEventosEquipe } from '@/data/agendaEquipe'
 import { usePermissoes } from '@/hooks/usePermissoes'
 import { hojeISO, montarData, partesData, somarDias, MESES } from '@/lib/agendamento'
-import { ocorrenciasDoDia, ocorrenciasNoPeriodo, rotuloDia, rotuloQuando, type Ocorrencia } from '@/lib/agendaEquipe'
+import { ehEventoGeral, ocorrenciasDoDia, ocorrenciasNoPeriodo, podeEditarEvento, rotuloDia, rotuloQuando, type Ocorrencia } from '@/lib/agendaEquipe'
 
-/** Eventos da agenda da equipe (todos os usuários logados leem). */
+/** Eventos da Programação GERAL: oficiais + compromissos pessoais marcados como públicos (nunca os privados). */
 export function useEventosEquipe() {
+  return useQuery({ queryKey: ['agenda-equipe'], queryFn: listarEventosEquipe, select: (l) => l.filter(ehEventoGeral) })
+}
+
+/** Todos os eventos que EU posso ver (oficiais, meus privados/públicos e públicos de outros) — base do Meus Afazeres. */
+export function useTodosEventos() {
   return useQuery({ queryKey: ['agenda-equipe'], queryFn: listarEventosEquipe })
 }
 
@@ -43,6 +48,12 @@ function LinhaEvento({ o, onAbrir, mostrarData = true }: { o: Ocorrencia; onAbri
         <span className="flex items-center gap-1.5">
           <span className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{o.evento.titulo}</span>
           {o.evento.repeticao !== 'nunca' && <Repeat className="h-3 w-3 shrink-0 text-slate-400" aria-label="Se repete" />}
+          {o.evento.donoId && (
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-700 dark:bg-violet-500/20 dark:text-violet-300">
+              {o.evento.visibilidade === 'privada' && <Lock className="h-2.5 w-2.5" />}
+              {o.evento.donoNome ? `de ${o.evento.donoNome.split(' ')[0]}` : 'Pessoal'}
+            </span>
+          )}
         </span>
         <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-400">
           <span>{rotuloQuando(o)}</span>
@@ -64,9 +75,9 @@ function LinhaEvento({ o, onAbrir, mostrarData = true }: { o: Ocorrencia; onAbri
   )
 }
 
-/** Abre o detalhe e (para admin) o editor. Compartilhado entre a Agenda e o Dashboard. */
-function useAbrirEvento() {
-  const { ehAdmin } = usePermissoes()
+/** Abre o detalhe e o editor (admin nos oficiais; o dono nos pessoais). Compartilhado entre a Agenda, o Dashboard e o Meus Afazeres. */
+export function useAbrirEvento() {
+  const { ehAdmin, perfil } = usePermissoes()
   const [aberta, setAberta] = useState<Ocorrencia | null>(null)
   const [editando, setEditando] = useState<Ocorrencia | null>(null)
   const modais = (
@@ -74,9 +85,9 @@ function useAbrirEvento() {
       <DetalheEventoModal
         ocorrencia={aberta}
         onClose={() => setAberta(null)}
-        onEditar={ehAdmin ? () => { setEditando(aberta); setAberta(null) } : undefined}
+        onEditar={aberta && podeEditarEvento(aberta.evento, perfil?.id, ehAdmin) ? () => { setEditando(aberta); setAberta(null) } : undefined}
       />
-      <EventoEquipeModal open={Boolean(editando)} onClose={() => setEditando(null)} evento={editando?.evento} dataInicial={editando?.data} />
+      <EventoEquipeModal open={Boolean(editando)} onClose={() => setEditando(null)} evento={editando?.evento} dataInicial={editando?.data} pessoal={Boolean(editando?.evento.donoId)} />
     </>
   )
   return { abrir: setAberta, modais }

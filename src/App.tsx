@@ -11,6 +11,7 @@ import { RequirePermissao } from '@/components/auth/RequirePermissao'
 import { MeuAcessoPage } from '@/pages/MeuAcesso'
 import { RegistrosPage } from '@/pages/Registros'
 import { ProjetoDetalhePage } from '@/pages/ProjetoDetalhe'
+import { MeusAfazeresPage } from '@/pages/MeusAfazeres'
 import { RankingPage } from '@/pages/Ranking'
 import { AgendamentoPage } from '@/pages/Agendamento'
 import { AgendamentosAvaliadorPage } from '@/pages/AgendamentosAvaliador'
@@ -93,6 +94,7 @@ export default function App() {
           <Route path="/meu-horario" element={<MeuHorarioPage />} />
           <Route path="/pesquisadores" element={<PesquisadoresPage />} />
           <Route path="/agenda" element={<AgendaPage />} />
+          <Route path="/afazeres" element={<MeusAfazeresPage />} />
           <Route path="/avisos" element={<AvisosPage />} />
           <Route path="/documentos" element={<DocumentosPage />} />
           <Route path="/projetos" element={<ProjetosPage />} />

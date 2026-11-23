@@ -24,6 +24,7 @@ import {
   MapPin,
   Building2,
   Handshake,
+  ListTodo,
   Settings,
   type LucideIcon,
 } from 'lucide-react'
@@ -60,6 +61,7 @@ export const navSections: NavSection[] = [
       { label: 'Meu Perfil', to: '/meu-horario', icon: Clock },
       { label: 'Pesquisadores', to: '/pesquisadores', icon: Users },
       { label: 'Agenda do Dia', to: '/agenda', icon: CalendarDays },
+      { label: 'Meus Afazeres', to: '/afazeres', icon: ListTodo },
       { label: 'Avisos', to: '/avisos', icon: Megaphone },
       { label: 'Documentos', to: '/documentos', icon: FolderOpen },
       { label: 'Projetos', to: '/projetos', icon: FolderKanban },

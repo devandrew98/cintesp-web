@@ -91,7 +91,7 @@ export function AvisosAoEntrar() {
     const agora = new Date()
     const hhmm = `${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}`
     return ocorrenciasNoPeriodo(
-      eventos.filter((e) => euParticipo(e, uid)),
+      eventos.filter((e) => !e.donoId && euParticipo(e, uid)),
       hoje,
       hoje,
     ).filter((o) => o.evento.diaInteiro || !o.evento.horaFim || o.dataFim > hoje || o.evento.horaFim >= hhmm)

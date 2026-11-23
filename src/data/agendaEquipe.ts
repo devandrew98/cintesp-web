@@ -1,4 +1,5 @@
 import { supabase, USE_MOCK } from '@/lib/supabase'
+import { perfilAtual } from '@/data/api'
 import { hojeISO, somarDias } from '@/lib/agendamento'
 import { validarEventoEquipe, type EventoEquipe } from '@/lib/agendaEquipe'
 
@@ -19,7 +20,7 @@ function ehTabelaAusente(error: any): boolean {
 function erroAmigavel(error: any): Error {
   const msg = String(error?.message ?? error)
   if (ehTabelaAusente(error)) return new Error('A agenda ainda não foi ativada no banco (falta rodar docs/supabase-agenda-equipe.sql).')
-  if (/row-level security|violates row-level/i.test(msg)) return new Error('Só administradores podem alterar a agenda.')
+  if (/row-level security|violates row-level/i.test(msg)) return new Error('Você não tem permissão para alterar este compromisso.')
   return error instanceof Error ? error : new Error(msg)
 }
 
@@ -41,6 +42,9 @@ function mapEvento(r: any): EventoEquipe {
     repeteAte: r.repete_ate ?? undefined,
     paraTodos: r.para_todos ?? true,
     participantes: r.participantes ?? [],
+    donoId: r.dono_id ?? undefined,
+    donoNome: r.dono?.nome ?? undefined,
+    visibilidade: r.dono_id ? (r.visibilidade ?? 'privada') : undefined,
   }
 }
 
@@ -58,6 +62,7 @@ const paraLinha = (d: DadosEventoEquipe) => ({
   repete_ate: d.repeticao === 'nunca' ? null : d.repeteAte || null,
   para_todos: d.paraTodos,
   participantes: d.paraTodos ? [] : d.participantes,
+  ...(d.visibilidade ? { visibilidade: d.visibilidade } : {}),
 })
 
 /** Banco ainda sem as colunas de participantes (migração pendente): grava sem elas. */
@@ -77,7 +82,9 @@ const mockEventos: EventoEquipe[] = [
 // ----- API -----
 export async function listarEventosEquipe(): Promise<EventoEquipe[]> {
   if (USE_MOCK || !supabase) return structuredClone(mockEventos)
-  const { data, error } = await supabase.from('agenda_eventos').select('*').order('data').order('hora_inicio')
+  // Com o nome do dono (compromissos pessoais); se a migração dos afazeres ainda não rodou, lê sem ele.
+  let { data, error } = await supabase.from('agenda_eventos').select('*, dono:dono_id (nome)').order('data').order('hora_inicio')
+  if (error && !ehTabelaAusente(error)) ({ data, error } = await supabase.from('agenda_eventos').select('*').order('data').order('hora_inicio'))
   if (error) {
     if (ehTabelaAusente(error)) return [] // migração pendente: agenda vazia em vez de quebrar a tela
     throw erroAmigavel(error)
@@ -90,16 +97,24 @@ function conferir(d: DadosEventoEquipe) {
   if (erro) throw new Error(erro)
 }
 
-export async function criarEventoEquipe(d: DadosEventoEquipe): Promise<void> {
+/** `pessoal: true` cria um compromisso do próprio usuário (privado por padrão); senão, evento oficial (admin). */
+export async function criarEventoEquipe(d: DadosEventoEquipe, opc: { pessoal?: boolean } = {}): Promise<void> {
   conferir(d)
   if (USE_MOCK || !supabase) {
-    mockEventos.push({ id: uid(), ...d, titulo: d.titulo.trim() })
+    const perfil = opc.pessoal ? await perfilAtual() : null
+    mockEventos.push({ id: uid(), ...d, titulo: d.titulo.trim(), ...(opc.pessoal ? { donoId: perfil?.id, donoNome: perfil?.nome, visibilidade: d.visibilidade ?? 'privada' } : {}) })
     return
   }
   const { data: auth } = await supabase.auth.getUser()
-  const linha = { ...paraLinha(d), criado_por: auth.user?.id ?? null }
+  const linha = {
+    ...paraLinha(d),
+    criado_por: auth.user?.id ?? null,
+    ...(opc.pessoal ? { dono_id: auth.user?.id ?? null, visibilidade: d.visibilidade ?? 'privada' } : {}),
+  }
   let { error } = await supabase.from('agenda_eventos').insert(linha)
-  if (error && colunaAusente(error)) ({ error } = await supabase.from('agenda_eventos').insert({ ...semParticipantes(paraLinha(d)), criado_por: linha.criado_por }))
+  // Compromisso pessoal NUNCA cai no plano B (sem as colunas novas ele viraria evento da equipe).
+  if (error && !opc.pessoal && colunaAusente(error)) ({ error } = await supabase.from('agenda_eventos').insert({ ...semParticipantes(paraLinha(d)), criado_por: linha.criado_por }))
+  if (error && opc.pessoal && colunaAusente(error)) throw new Error('Os afazeres ainda não foram ativados no banco (falta rodar docs/supabase-afazeres.sql).')
   if (error) throw erroAmigavel(error)
 }
 
@@ -107,7 +122,7 @@ export async function atualizarEventoEquipe(id: string, d: DadosEventoEquipe): P
   conferir(d)
   if (USE_MOCK || !supabase) {
     const i = mockEventos.findIndex((e) => e.id === id)
-    if (i >= 0) mockEventos[i] = { id, ...d, titulo: d.titulo.trim() }
+    if (i >= 0) mockEventos[i] = { ...mockEventos[i], id, ...d, titulo: d.titulo.trim(), donoId: mockEventos[i].donoId, donoNome: mockEventos[i].donoNome }
     return
   }
   let { error } = await supabase.from('agenda_eventos').update(paraLinha(d)).eq('id', id)
