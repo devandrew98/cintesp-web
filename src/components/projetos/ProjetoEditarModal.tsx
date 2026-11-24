@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Pencil, Trash2 } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Field, Input, Select, Textarea } from '@/components/ui/Field'
 import { EquipeCamposForm } from './EquipeCamposForm'
+import { obterLinksProjeto, salvarLinksProjeto } from '@/data/grupos'
 import { atualizarConteudoProjeto, atualizarEstruturaProjeto, type ConteudoProjeto } from '@/data/projetos'
 import { STATUS_PROJETO, statusProjetoInfo, TRL_INFO, ehDonoProjeto } from '@/lib/projetos'
 import { usePermissoes } from '@/hooks/usePermissoes'
@@ -43,7 +44,8 @@ export function ProjetoEditarModal({
   const [dataInicio, setDataInicio] = useState('')
   const [dataFimPrevista, setDataFimPrevista] = useState('')
   const [trl, setTrl] = useState('')
-  const [progresso, setProgresso] = useState(0)
+  const [driveUrl, setDriveUrl] = useState('')
+  const [grupoUrl, setGrupoUrl] = useState('')
   const [dadosTecnicos, setDadosTecnicos] = useState('')
   const [observacoes, setObservacoes] = useState('')
   const [responsavelId, setResponsavelId] = useState('')
@@ -59,7 +61,6 @@ export function ProjetoEditarModal({
     setDataInicio(projeto.dataInicio ?? '')
     setDataFimPrevista(projeto.dataFimPrevista ?? '')
     setTrl(projeto.trl ? String(projeto.trl) : '')
-    setProgresso(projeto.progresso)
     setDadosTecnicos(projeto.dadosTecnicos ?? '')
     setObservacoes(projeto.observacoes ?? '')
     setResponsavelId(projeto.responsavelId)
@@ -67,6 +68,14 @@ export function ProjetoEditarModal({
     setCamposLiberados(projeto.camposEditaveisMembros)
     setErro(null)
   }, [open, projeto])
+
+  // Links do projeto (Drive e grupo de conversa): só a equipe vê; só o dono/admin altera.
+  const { data: links } = useQuery({ queryKey: ['projeto-links', projeto.id], queryFn: () => obterLinksProjeto(projeto.id), enabled: open && total })
+  useEffect(() => {
+    if (!open || !links) return
+    setDriveUrl(links.driveUrl ?? '')
+    setGrupoUrl(links.grupoUrl ?? '')
+  }, [open, links])
 
   const salvar = useMutation({
     mutationFn: async () => {
@@ -79,22 +88,23 @@ export function ProjetoEditarModal({
         patch.dataFimPrevista = dataFimPrevista || undefined
       }
       if (podeCampo('trl')) patch.trl = trl ? (Number(trl) as TRL) : undefined
-      if (podeCampo('progresso')) patch.progresso = progresso
       if (podeCampo('dadosTecnicos')) patch.dadosTecnicos = dadosTecnicos
       if (podeCampo('observacoes')) patch.observacoes = observacoes
       await atualizarConteudoProjeto(projeto.id, patch)
       if (total && responsavelId) {
         await atualizarEstruturaProjeto(projeto.id, { responsavelId, pesquisadoresIds: membrosIds, camposEditaveisMembros: camposLiberados })
+        await salvarLinksProjeto(projeto.id, { driveUrl, grupoUrl })
       }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['projetos'] })
+      qc.invalidateQueries({ queryKey: ['projeto-links', projeto.id] })
       onClose()
     },
     onError: (e) => setErro(mensagemErro(e)),
   })
 
-  const semPermissao = !total && !(['trl', 'progresso', 'dadosTecnicos', 'descricao', 'observacoes'] as const).some(podeCampo)
+  const semPermissao = !total && !(['trl', 'dadosTecnicos', 'descricao', 'observacoes'] as const).some(podeCampo)
 
   return (
     <Modal
@@ -164,14 +174,19 @@ export function ProjetoEditarModal({
                 </Select>
               </Field>
             )}
-            {podeCampo('progresso') && (
-              <Field label={`Progresso — ${progresso}%`}>
-                <Input type="number" min={0} max={100} step={5} value={progresso} onChange={(e) => setProgresso(Math.max(0, Math.min(100, Number(e.target.value))))} />
-              </Field>
-            )}
           </div>
+          {total && (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label="Link do Google Drive do projeto" hint="Só a equipe do projeto vê este link.">
+                <Input value={driveUrl} onChange={(e) => setDriveUrl(e.target.value)} placeholder="https://drive.google.com/drive/folders/…" inputMode="url" />
+              </Field>
+              <Field label="Link do grupo de WhatsApp" hint="Vira o botão “Entrar no grupo do projeto”. Só a equipe vê.">
+                <Input value={grupoUrl} onChange={(e) => setGrupoUrl(e.target.value)} placeholder="https://chat.whatsapp.com/…" inputMode="url" />
+              </Field>
+            </div>
+          )}
           {podeCampo('descricao') && (
-            <Field label="Descrição" hint="Objetivo, escopo, contexto do projeto.">
+            <Field label="Descrição" hint="Só a descrição do projeto: objetivo, escopo, contexto. O link do Drive vai no campo acima.">
               <Textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} />
             </Field>
           )}

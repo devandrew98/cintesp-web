@@ -42,7 +42,6 @@ export const rotuloTRL = (trl?: TRL): string => (trl ? TRL_INFO.find((t) => t.va
  */
 export const CAMPOS_EDITAVEIS_PROJETO: Array<{ value: CampoEditavelProjeto; label: string }> = [
   { value: 'trl', label: 'TRL (maturidade tecnológica)' },
-  { value: 'progresso', label: 'Progresso (%)' },
   { value: 'dadosTecnicos', label: 'Dados técnicos' },
   { value: 'descricao', label: 'Descrição do projeto' },
   { value: 'observacoes', label: 'Observações' },

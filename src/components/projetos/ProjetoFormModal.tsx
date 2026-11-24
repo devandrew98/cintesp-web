@@ -30,9 +30,11 @@ export function ProjetoFormModal({
   const [status, setStatus] = useState<StatusProjeto>('planejamento')
   const [dataInicio, setDataInicio] = useState('')
   const [dataFimPrevista, setDataFimPrevista] = useState('')
+  const [driveUrl, setDriveUrl] = useState('')
+  const [grupoUrl, setGrupoUrl] = useState('')
   const [responsavelId, setResponsavelId] = useState(responsavelPadraoId)
   const [membrosIds, setMembrosIds] = useState<string[]>([])
-  const [camposLiberados, setCamposLiberados] = useState<CampoEditavelProjeto[]>(['trl', 'progresso'])
+  const [camposLiberados, setCamposLiberados] = useState<CampoEditavelProjeto[]>(['trl'])
 
   function alternarMembro(id: string) {
     setMembrosIds((atual) => (atual.includes(id) ? atual.filter((x) => x !== id) : [...atual, id]))
@@ -53,6 +55,8 @@ export function ProjetoFormModal({
       responsavelId,
       pesquisadoresIds: membrosIds,
       camposEditaveisMembros: camposLiberados,
+      driveUrl: driveUrl.trim() || undefined,
+      grupoUrl: grupoUrl.trim() || undefined,
     })
   }
 
@@ -114,6 +118,15 @@ export function ProjetoFormModal({
           </Field>
           <Field label="Fim previsto">
             <Input type="date" value={dataFimPrevista} onChange={(e) => setDataFimPrevista(e.target.value)} />
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Link do grupo de WhatsApp (opcional)" hint="Vira o botão “Entrar no grupo do projeto”. Só a equipe vê.">
+            <Input value={grupoUrl} onChange={(e) => setGrupoUrl(e.target.value)} placeholder="https://chat.whatsapp.com/…" inputMode="url" />
+          </Field>
+          <Field label="Link do Google Drive (opcional)" hint="Só a equipe do projeto vê.">
+            <Input value={driveUrl} onChange={(e) => setDriveUrl(e.target.value)} placeholder="https://drive.google.com/drive/folders/…" inputMode="url" />
           </Field>
         </div>
 

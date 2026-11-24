@@ -35,6 +35,9 @@ export interface DadosProjeto {
   /** Ids dos pesquisadores vinculados, SEM o responsável (ele é incluído automaticamente). */
   pesquisadoresIds: string[];
   camposEditaveisMembros: CampoEditavelProjeto[];
+  /** Links só da equipe (gravados em projeto_links). */
+  driveUrl?: string;
+  grupoUrl?: string;
 }
 
 /** Campos de conteúdo que podem ser atualizados (parcialmente) depois de criado. */
@@ -45,7 +48,6 @@ export interface ConteudoProjeto {
   dataInicio?: string;
   dataFimPrevista?: string;
   trl?: number;
-  progresso?: number;
   dadosTecnicos?: string;
   observacoes?: string;
 }
@@ -127,7 +129,7 @@ const mockProjetos: Projeto[] = [
       P("u2", "Mariana Souza"),
       P("u4", "Larissa Martins"),
     ],
-    camposEditaveisMembros: ["trl", "progresso", "dadosTecnicos"],
+    camposEditaveisMembros: ["trl", "dadosTecnicos"],
     criadoPorNome: "Administrador",
     criadoEm: diasAtras(120),
     atualizadoEm: diasAtras(2),
@@ -148,7 +150,7 @@ const mockProjetos: Projeto[] = [
       P("u3", "Carlos Almeida", "responsavel"),
       P("u6", "Ana Rodrigues"),
     ],
-    camposEditaveisMembros: ["progresso", "descricao"],
+    camposEditaveisMembros: ["descricao"],
     criadoPorNome: "Administrador",
     criadoEm: diasAtras(15),
   },
@@ -173,12 +175,7 @@ const mockProjetos: Projeto[] = [
       P("u1", "João Silva"),
       P("u7", "Lucas Almeida"),
     ],
-    camposEditaveisMembros: [
-      "trl",
-      "progresso",
-      "dadosTecnicos",
-      "observacoes",
-    ],
+    camposEditaveisMembros: ["trl", "dadosTecnicos", "observacoes"],
     criadoPorNome: "Coordenação",
     criadoEm: diasAtras(400),
     atualizadoEm: diasAtras(30),
@@ -201,7 +198,7 @@ const mockMensagens: MensagemProjeto[] = [
     autorId: "u1",
     autorNome: "João Silva",
     corpo:
-      "Combinado. Os sensores novos chegam essa semana, já atualizei o progresso.",
+      "Combinado. Os sensores novos chegam essa semana, já atualizei as tarefas.",
     criadoEm: diasAtras(2),
   },
 ];
@@ -409,7 +406,6 @@ export async function atualizarConteudoProjeto(
   if (patch.dataFimPrevista !== undefined)
     payload.data_fim_prevista = patch.dataFimPrevista || null;
   if (patch.trl !== undefined) payload.trl = patch.trl;
-  if (patch.progresso !== undefined) payload.progresso = patch.progresso;
   if (patch.dadosTecnicos !== undefined)
     payload.dados_tecnicos = patch.dadosTecnicos.trim() || null;
   if (patch.observacoes !== undefined)
@@ -421,17 +417,24 @@ export async function atualizarConteudoProjeto(
   if (error) throw error;
 }
 
+/** Só para o modo mock: o banco recalcula o progresso sozinho (trigger) quando as tarefas mudam. */
+export function definirProgressoMock(id: string, progresso: number): void {
+  const p = mockProjetos.find((x) => x.id === id);
+  if (p) p.progresso = Math.max(0, Math.min(100, Math.round(progresso)));
+}
+
 // ============================================================
 // Capa do projeto
 // ============================================================
 
 /** Troca a foto de capa (reduzida) do projeto. Só dono/admin (RLS + bucket `projeto-capas`). */
-export async function atualizarCapaProjeto(id: string, arquivo: File): Promise<string> {
+export async function atualizarCapaProjeto(id: string, arquivo: Blob): Promise<string> {
   if (!/^image\/(jpeg|png|webp)$/.test(arquivo.type))
     throw new Error("Use uma imagem JPG, PNG ou WebP.");
   if (arquivo.size > 25 * 1024 * 1024)
     throw new Error("A imagem passa de 25 MB.");
-  const blob = await reduzirImagem(arquivo, 1800, 0.85);
+  // A tela de ajuste já entrega o recorte pronto (JPEG 1800×600); uma imagem solta ainda é reduzida.
+  const blob = arquivo.type === "image/jpeg" ? arquivo : await reduzirImagem(arquivo as File, 1800, 0.85);
   if (USE_MOCK || !supabase) {
     const p = mockProjetos.find((x) => x.id === id);
     if (!p) throw new Error("Projeto não encontrado.");

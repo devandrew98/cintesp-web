@@ -254,7 +254,7 @@ export type TRL = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
  * vinculados (que não são o responsável) editarem. Título, status e datas
  * nunca entram nessa lista — ficam sempre restritos a admin + responsável.
  */
-export type CampoEditavelProjeto = 'trl' | 'progresso' | 'dadosTecnicos' | 'descricao' | 'observacoes'
+export type CampoEditavelProjeto = 'trl' | 'dadosTecnicos' | 'descricao' | 'observacoes'
 
 /** Um pesquisador vinculado ao projeto (o responsável também aparece aqui). */
 export interface PesquisadorVinculado {
