@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { agruparAfazeres, deTarefaPessoal, deTarefaProjeto, itensDoDia, organizarNotas, resumoAfazeres, validarNota, validarTarefaPessoal, type ItemAfazer, type Nota } from './afazeres'
+import { agruparAfazeres, agruparPorPrazo, contarDaSemana, fimDaSemana, deTarefaPessoal, deTarefaProjeto, itensDoDia, organizarNotas, resumoAfazeres, validarNota, validarTarefaPessoal, type ItemAfazer, type Nota } from './afazeres'
 
 const it_ = (p: Partial<ItemAfazer>): ItemAfazer => ({ chave: 'pessoal:x', origem: 'pessoal', id: 'x', titulo: 'T', status: 'nao_iniciado', prioridade: 'media', criadoEm: '2026-11-01T00:00:00Z', ...p })
 const HOJE = '2026-11-23'
@@ -59,5 +59,27 @@ describe('validações e notas', () => {
     const l = [n('a', { atualizadoEm: '2026-11-05' }), n('b', { fixada: true, atualizadoEm: '2026-11-01' }), n('c', { atualizadoEm: '2026-11-10', texto: 'Reunião' })]
     expect(organizarNotas(l).map((x) => x.id)).toEqual(['b', 'c', 'a'])
     expect(organizarNotas(l, 'reuniao').map((x) => x.id)).toEqual(['c'])
+  })
+})
+
+describe('agruparPorPrazo (área de trabalho)', () => {
+  // 2026-11-24 é terça-feira: a semana termina no domingo 29/11.
+  const hoje = '2026-11-24'
+  const mk = (id: string, dataEntrega?: string, status: ItemAfazer['status'] = 'nao_iniciado'): ItemAfazer => ({ chave: `pessoal:${id}`, origem: 'pessoal', id, titulo: id, status, prioridade: 'media', dataEntrega, criadoEm: '2026-01-01' })
+  it('separa atrasadas, hoje, amanhã, esta semana, semana que vem, depois e sem data', () => {
+    const g = agruparPorPrazo([mk('a', '2026-11-20'), mk('b', hoje), mk('c', '2026-11-25'), mk('d', '2026-11-29'), mk('e', '2026-11-30'), mk('f', '2026-12-06'), mk('g', '2026-12-07'), mk('h'), mk('feita', hoje, 'concluido')], hoje)
+    expect(g.atrasadas.map((i) => i.id)).toEqual(['a'])
+    expect(g.hoje.map((i) => i.id)).toEqual(['b'])
+    expect(g.amanha.map((i) => i.id)).toEqual(['c'])
+    expect(g.estaSemana.map((i) => i.id)).toEqual(['d'])
+    expect(g.semanaQueVem.map((i) => i.id)).toEqual(['e', 'f'])
+    expect(g.depois.map((i) => i.id)).toEqual(['g'])
+    expect(g.semData.map((i) => i.id)).toEqual(['h'])
+  })
+  it('fim da semana e contagem', () => {
+    expect(fimDaSemana('2026-11-24')).toBe('2026-11-29')
+    expect(fimDaSemana('2026-11-29')).toBe('2026-11-29')
+    expect(fimDaSemana('2026-11-30')).toBe('2026-12-06')
+    expect(contarDaSemana([mk('a', hoje), mk('b', '2026-11-29'), mk('c', '2026-11-30'), mk('d', '2026-11-20')], hoje)).toBe(2)
   })
 })

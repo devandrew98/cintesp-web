@@ -74,7 +74,7 @@ export function MinhaAgenda() {
           Mostrar também a agenda geral da equipe
         </label>
         <Button icon={Plus} onClick={() => setNovoCompromisso(true)} className="w-full sm:w-auto">
-          Novo compromisso
+          Novo evento
         </Button>
       </div>
 
@@ -83,7 +83,7 @@ export function MinhaAgenda() {
           <CalendarioMes ano={ano} mes={mes} onMes={(a, m) => setMes({ ano: a, mes: m })} selecionado={dia} onSelecionar={setDia} marcadores={marcadores} />
           <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-400">
             <li className="inline-flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-violet-500" /> Meus compromissos
+              <span className="h-2 w-2 rounded-full bg-violet-500" /> Meus eventos
             </li>
             <li className="inline-flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-amber-500" /> Tarefas com prazo
@@ -104,7 +104,7 @@ export function MinhaAgenda() {
             <>
               {doDia.length > 0 && (
                 <section>
-                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Compromissos</p>
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Eventos</p>
                   <ul className="card divide-y divide-slate-100 dark:divide-slate-800">{doDia.map(linhaEvento)}</ul>
                 </section>
               )}
@@ -123,7 +123,7 @@ export function MinhaAgenda() {
 
           {proximos.length > 0 && (
             <section>
-              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Meus próximos compromissos</p>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Meus próximos eventos</p>
               <ul className="card divide-y divide-slate-100 dark:divide-slate-800">
                 {proximos.map((o) => (
                   <li key={`${o.evento.id}|${o.data}`}>

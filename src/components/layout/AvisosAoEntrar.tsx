@@ -1,18 +1,19 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { CalendarClock, ExternalLink, MapPin, Timer, Video } from 'lucide-react'
+import { Cake, CalendarClock, ExternalLink, MapPin, Timer, Video } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { listarRegistrosPonto } from '@/data/ponto'
 import { listarEventosEquipe } from '@/data/agendaEquipe'
-import { listarAvisos } from '@/data/api'
+import { listarAvisos, listarUsuarios } from '@/data/api'
 import { usePermissoes } from '@/hooks/usePermissoes'
 import { acessoEsquecidoAberto } from '@/lib/acessoAberto'
 import { euParticipo, ocorrenciasNoPeriodo, rotuloQuando } from '@/lib/agendaEquipe'
 import { hojeISO } from '@/lib/agendamento'
 import { tipoAvisoInfo } from '@/lib/avisos'
 import { paraDateLocal } from '@/lib/ponto'
+import { Avatar } from '@/components/ui/Avatar'
 import { cn } from '@/lib/utils'
 
 /** Avisos publicados nos últimos dias contam como "novos" (mesma regra do sino). */
@@ -63,8 +64,9 @@ const Icone = ({ tom, children }: { tom: string; children: ReactNode }) => (
 /**
  * Popups ao entrar no sistema, sempre que a página é aberta ou atualizada:
  *  1) "Você deixou o acesso aberto": última marcação é uma ENTRADA de dia anterior, sem saída.
- *  2) "Você tem compromisso hoje": eventos da Programação de hoje em que a pessoa participa.
- *  3) Avisos novos publicados (últimos 7 dias).
+ *  2) Aniversário: só no dia — parabéns para quem faz aniversário e aviso aos colegas.
+ *  3) "Você tem evento hoje": eventos da Programação de hoje em que a pessoa participa.
+ *  4) Avisos novos publicados (últimos 7 dias).
  * "Entendi" fecha só por agora (volta ao atualizar a página). "Não me avise novamente" some
  * para sempre com AQUELE aviso — os próximos continuam aparecendo.
  */
@@ -84,6 +86,10 @@ export function AvisosAoEntrar() {
   })
   const { data: eventos = [] } = useQuery({ queryKey: ['agenda-equipe'], queryFn: listarEventosEquipe, enabled: Boolean(uid) })
   const { data: avisos = [] } = useQuery({ queryKey: ['avisos'], queryFn: listarAvisos, enabled: Boolean(uid) })
+  const { data: usuarios = [] } = useQuery({ queryKey: ['usuarios'], queryFn: listarUsuarios, enabled: Boolean(uid) })
+
+  // Quem faz aniversário HOJE (mês-dia da data de nascimento = hoje).
+  const aniversariantesHoje = useMemo(() => usuarios.filter((u) => u.status === 'ativo' && u.dataNascimento && u.dataNascimento.slice(5, 10) === hoje.slice(5, 10)), [usuarios, hoje])
 
   const aberto = useMemo(() => acessoEsquecidoAberto(registros, hoje, paraDateLocal), [registros, hoje])
 
@@ -155,7 +161,66 @@ export function AvisosAoEntrar() {
     )
   }
 
-  // ---- 2) compromissos de hoje ----
+  // ---- 2) aniversário (só no dia) ----
+  const kAniv = `aniv:${hoje}`
+  if (aniversariantesHoje.length > 0 && visivel(kAniv)) {
+    const eu = aniversariantesHoje.find((u) => u.id === uid)
+    const outros = aniversariantesHoje.filter((u) => u.id !== uid)
+    return (
+      <Modal
+        open
+        onClose={() => adiar([kAniv])}
+        title={
+          <span className="flex items-center gap-2.5">
+            <Icone tom="bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">
+              <Cake className="h-5 w-5" />
+            </Icone>
+            {eu ? 'Feliz aniversário! 🎉' : aniversariantesHoje.length === 1 ? 'Aniversário hoje 🎂' : 'Aniversários hoje 🎂'}
+          </span>
+        }
+        footer={
+          <Rodape
+            onEntendi={() => adiar([kAniv])}
+            onNunca={() => nunca([kAniv])}
+            extra={
+              <Link to="/pesquisadores" onClick={() => adiar([kAniv])} className="w-full sm:w-auto">
+                <Button variant="secondary" className="w-full">
+                  Ver pesquisadores
+                </Button>
+              </Link>
+            }
+          />
+        }
+      >
+        <div className="space-y-3 text-sm text-slate-700 dark:text-slate-200">
+          {eu && (
+            <p className="rounded-xl bg-brand-50 px-3 py-3 text-brand-800 dark:bg-brand-500/10 dark:text-brand-200">
+              Parabéns, <strong>{eu.nome.split(' ')[0]}</strong>! A equipe do CINTESP deseja um dia muito especial para você. 🎂
+            </p>
+          )}
+          {outros.length > 0 && (
+            <>
+              <p>{eu ? 'Também fazem aniversário hoje:' : 'Hoje é aniversário de:'}</p>
+              <ul className="space-y-2">
+                {outros.map((u) => (
+                  <li key={u.id} className="flex items-center gap-3 rounded-xl border border-slate-200 p-2.5 dark:border-slate-700">
+                    <Avatar nome={u.nome} fotoUrl={u.fotoUrl} size="sm" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">{u.nome}</span>
+                      {u.funcao?.nome && <span className="block truncate text-xs text-slate-400">{u.funcao.nome}</span>}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-slate-400">Que tal mandar os parabéns?</p>
+            </>
+          )}
+        </div>
+      </Modal>
+    )
+  }
+
+  // ---- 3) eventos de hoje ----
   const pendentes = reunioes.filter((o) => visivel(`evento:${o.evento.id}:${o.data}`))
   if (pendentes.length > 0) {
     const chaves = pendentes.map((o) => `evento:${o.evento.id}:${o.data}`)
@@ -168,7 +233,7 @@ export function AvisosAoEntrar() {
             <Icone tom="bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">
               <CalendarClock className="h-5 w-5" />
             </Icone>
-            {pendentes.length === 1 ? 'Você tem um compromisso hoje' : `Você tem ${pendentes.length} compromissos hoje`}
+            {pendentes.length === 1 ? 'Você tem um evento hoje' : `Você tem ${pendentes.length} eventos hoje`}
           </span>
         }
         footer={
@@ -213,7 +278,7 @@ export function AvisosAoEntrar() {
     )
   }
 
-  // ---- 3) aviso novo (um por vez, do mais recente) ----
+  // ---- 4) aviso novo (um por vez, do mais recente) ----
   const aviso = novos.find((a) => visivel(`aviso:${a.id}`))
   if (aviso) {
     const info = tipoAvisoInfo[aviso.tipo]

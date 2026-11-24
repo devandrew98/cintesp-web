@@ -24,7 +24,6 @@ import {
   MapPin,
   Building2,
   Handshake,
-  ListTodo,
   Settings,
   type LucideIcon,
 } from 'lucide-react'
@@ -56,12 +55,11 @@ export const navSections: NavSection[] = [
     // Plataforma: some para quem ainda é Participante (aguardando liberação).
     somenteLiberado: true,
     items: [
-      { label: 'Dashboard', to: '/', icon: LayoutDashboard },
+      { label: 'Minha área de trabalho', to: '/', icon: LayoutDashboard },
       { label: 'Quadro de Disponibilidade', to: '/quadro', icon: CalendarClock },
       { label: 'Meu Perfil', to: '/meu-horario', icon: Clock },
       { label: 'Pesquisadores', to: '/pesquisadores', icon: Users },
       { label: 'Agenda do Dia', to: '/agenda', icon: CalendarDays },
-      { label: 'Meus Afazeres', to: '/afazeres', icon: ListTodo },
       { label: 'Avisos', to: '/avisos', icon: Megaphone },
       { label: 'Documentos', to: '/documentos', icon: FolderOpen },
       { label: 'Projetos', to: '/projetos', icon: FolderKanban },

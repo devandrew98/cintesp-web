@@ -20,7 +20,7 @@ function ehTabelaAusente(error: any): boolean {
 function erroAmigavel(error: any): Error {
   const msg = String(error?.message ?? error)
   if (ehTabelaAusente(error)) return new Error('A agenda ainda não foi ativada no banco (falta rodar docs/supabase-agenda-equipe.sql).')
-  if (/row-level security|violates row-level/i.test(msg)) return new Error('Você não tem permissão para alterar este compromisso.')
+  if (/row-level security|violates row-level/i.test(msg)) return new Error('Você não tem permissão para alterar este evento.')
   return error instanceof Error ? error : new Error(msg)
 }
 

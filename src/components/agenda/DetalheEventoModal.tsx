@@ -45,7 +45,7 @@ export function DetalheEventoModal({
           {e.repeticao !== 'nunca' && <Linha icon={Repeat}>{rotuloRepeticao(e.repeticao, e.data)}</Linha>}
           {e.donoId ? (
             <Linha icon={e.visibilidade === 'privada' ? Lock : Users}>
-              {e.visibilidade === 'privada' ? 'Compromisso privado — só você vê' : `Compromisso pessoal de ${e.donoNome ?? 'um pesquisador'} (visível a todos)`}
+              {e.visibilidade === 'privada' ? 'Evento privado — só você vê' : `Evento pessoal de ${e.donoNome ?? 'um pesquisador'} (visível a todos)`}
             </Linha>
           ) : (
             <Linha icon={Users}>{e.paraTodos ? 'Todos os pesquisadores' : nomes.length ? nomes.join(', ') : `${e.participantes.length} pesquisador(es)`}</Linha>
