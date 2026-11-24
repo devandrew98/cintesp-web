@@ -40,7 +40,7 @@ export function MeusAfazeresPage() {
       <PageHeader title="Meus Afazeres" subtitle="Sua agenda, tarefas e anotações num lugar só. O que é pessoal, só você vê." />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard icon={CalendarClock} value={compromissosHoje} label="Compromissos meus hoje" accent="violet" />
+        <StatCard icon={CalendarClock} value={compromissosHoje} label="Meus eventos hoje" accent="violet" />
         <StatCard icon={ListTodo} value={resumo.hoje} label="Tarefas para hoje" accent="blue" />
         <StatCard icon={AlertCircle} value={resumo.atrasadas} label="Tarefas atrasadas" accent="amber" />
       </div>

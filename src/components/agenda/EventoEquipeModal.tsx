@@ -127,7 +127,7 @@ export function EventoEquipeModal({
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">
             <CalendarPlus className="h-5 w-5" />
           </span>
-          {pessoal ? (evento ? 'Editar compromisso' : 'Novo compromisso') : evento ? 'Editar evento' : 'Novo evento'}
+          {pessoal ? (evento ? 'Editar evento' : 'Novo evento') : evento ? 'Editar evento' : 'Novo evento'}
         </span>
       }
       footer={
@@ -199,7 +199,7 @@ export function EventoEquipeModal({
         </div>
 
         {pessoal ? (
-          <Field label="Quem vê este compromisso" hint="Privado: só você. Público: todos os pesquisadores veem na Programação, com o seu nome.">
+          <Field label="Quem vê este evento" hint="Privado: só você. Público: todos os pesquisadores veem na Programação, com o seu nome.">
             <Select value={visibilidade} onChange={(e) => setVisibilidade(e.target.value as 'privada' | 'publica')}>
               <option value="privada">Privado (só eu)</option>
               <option value="publica">Público (todos veem)</option>

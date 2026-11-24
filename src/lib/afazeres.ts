@@ -85,6 +85,61 @@ export function agruparAfazeres(itens: ItemAfazer[], hoje: string): GruposAfazer
   return { atrasadas: ordem(g.atrasadas), hoje: ordem(g.hoje), proximas: ordem(g.proximas), semData: ordem(g.semData), concluidas: ordem(g.concluidas).reverse() }
 }
 
+export interface GruposPrazo {
+  atrasadas: ItemAfazer[]
+  hoje: ItemAfazer[]
+  amanha: ItemAfazer[]
+  /** Depois de amanhã até o domingo desta semana. */
+  estaSemana: ItemAfazer[]
+  /** Segunda a domingo da semana seguinte. */
+  semanaQueVem: ItemAfazer[]
+  depois: ItemAfazer[]
+  semData: ItemAfazer[]
+}
+
+const somar = (iso: string, n: number): string => {
+  const d = new Date(`${iso}T12:00:00`)
+  d.setDate(d.getDate() + n)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** Domingo da semana de `iso` (a semana vai de segunda a domingo). Se já é domingo, é o próprio dia. */
+export const fimDaSemana = (iso: string): string => somar(iso, (7 - new Date(`${iso}T12:00:00`).getDay()) % 7)
+
+/** Tarefas ABERTAS separadas por prazo: atrasadas, hoje, amanhã, esta semana, semana que vem, depois e sem data. */
+export function agruparPorPrazo(itens: ItemAfazer[], hoje: string): GruposPrazo {
+  const amanha = somar(hoje, 1)
+  const fimSemana = fimDaSemana(hoje)
+  const fimProxima = somar(fimSemana, 7)
+  const g: GruposPrazo = { atrasadas: [], hoje: [], amanha: [], estaSemana: [], semanaQueVem: [], depois: [], semData: [] }
+  for (const i of itens) {
+    if (i.status === 'concluido') continue
+    const d = i.dataEntrega
+    if (!d) g.semData.push(i)
+    else if (d < hoje) g.atrasadas.push(i)
+    else if (d === hoje) g.hoje.push(i)
+    else if (d === amanha) g.amanha.push(i)
+    else if (d <= fimSemana) g.estaSemana.push(i)
+    else if (d <= fimProxima) g.semanaQueVem.push(i)
+    else g.depois.push(i)
+  }
+  return {
+    atrasadas: ordenarPorPrazo(g.atrasadas),
+    hoje: ordenarPorPrazo(g.hoje),
+    amanha: ordenarPorPrazo(g.amanha),
+    estaSemana: ordenarPorPrazo(g.estaSemana),
+    semanaQueVem: ordenarPorPrazo(g.semanaQueVem),
+    depois: ordenarPorPrazo(g.depois),
+    semData: ordenarPorPrazo(g.semData),
+  }
+}
+
+/** Abertas com prazo de hoje até o domingo desta semana (inclui hoje). */
+export const contarDaSemana = (itens: ItemAfazer[], hoje: string): number => {
+  const fim = fimDaSemana(hoje)
+  return itens.filter((i) => i.status !== 'concluido' && i.dataEntrega && i.dataEntrega >= hoje && i.dataEntrega <= fim).length
+}
+
 /** Reaproveita a ordenação das tarefas de projeto (prazo; sem prazo por último; criação). */
 export function ordenarPorPrazo(l: ItemAfazer[]): ItemAfazer[] {
   const idx = new Map(l.map((i) => [i.chave, i]))

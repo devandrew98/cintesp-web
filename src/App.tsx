@@ -22,7 +22,7 @@ const InventarioPage = lazy(() => import('@/pages/Inventario').then((m) => ({ de
 import { AbrirChamadoPage } from '@/pages/AbrirChamado'
 import { ChamadosAdminPage } from '@/pages/admin/ChamadosAdmin'
 import { AdminConsignadosPage } from '@/pages/admin/Consignados'
-import { DashboardPage } from '@/pages/Dashboard'
+import { AreaDeTrabalhoPage } from '@/pages/AreaDeTrabalho'
 import { QuadroPage } from '@/pages/Quadro'
 import { MeuHorarioPage } from '@/pages/MeuHorario'
 import { PesquisadoresPage } from '@/pages/Pesquisadores'
@@ -89,7 +89,7 @@ export default function App() {
             </RequireLiberado>
           }
         >
-          <Route index element={<DashboardPage />} />
+          <Route index element={<AreaDeTrabalhoPage />} />
           <Route path="/quadro" element={<QuadroPage />} />
           <Route path="/meu-horario" element={<MeuHorarioPage />} />
           <Route path="/pesquisadores" element={<PesquisadoresPage />} />

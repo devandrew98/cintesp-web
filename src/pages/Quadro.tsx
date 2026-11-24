@@ -1,11 +1,14 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { CheckCircle2, Users2, Clock3, Search, SlidersHorizontal, X, Loader2 } from 'lucide-react'
+import { CheckCircle2, Users2, Clock3, CalendarClock, Search, SlidersHorizontal, X, Loader2 } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { StatCard } from '@/components/ui/StatCard'
 import { PesquisadorCard } from '@/components/ui/PesquisadorCard'
 import { Button } from '@/components/ui/Button'
 import { Input, Select } from '@/components/ui/Field'
+import { AniversariantesCard } from '@/components/dashboard/AniversariantesCard'
+import { AusentesCard, DisponiveisAgoraCard, HomeOfficeCard } from '@/components/dashboard/DisponibilidadeCards'
+import { useEventosHoje } from '@/components/agenda/Programacao'
 import { filtrarUsuarios } from '@/lib/pesquisadores'
 import { listarUsuarios, listarAreas, listarFuncoes } from '@/data/api'
 import type { StatusDisponibilidade } from '@/types'
@@ -21,6 +24,7 @@ export function QuadroPage() {
   const [areaId, setAreaId] = useState<string>('todas')
   const [funcaoId, setFuncaoId] = useState<string>('todas')
   const [mostrarFiltros, setMostrarFiltros] = useState(false)
+  const eventosHoje = useEventosHoje()
 
   // Dados (Supabase quando conectado; senão, mock).
   const { data: usuarios = [], isLoading } = useQuery({
@@ -75,10 +79,19 @@ export function QuadroPage() {
       />
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard icon={CheckCircle2} value={kpis.disponiveis} label="Disponíveis agora" accent="green" />
-        <StatCard icon={Users2} value={kpis.emAtendimento} label="Em atendimento" accent="blue" />
-        <StatCard icon={Clock3} value={kpis.ausentes} label="Ausentes" accent="amber" />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard icon={CheckCircle2} value={kpis.disponiveis} label="Disponíveis agora" hint={`de ${ativos.length} pesquisadores`} accent="green" />
+        <StatCard icon={Users2} value={kpis.emAtendimento} label="Em atendimento" hint={`de ${ativos.length} pesquisadores`} accent="blue" />
+        <StatCard icon={Clock3} value={kpis.ausentes} label="Ausentes" hint={`de ${ativos.length} pesquisadores`} accent="amber" />
+        <StatCard icon={CalendarClock} value={eventosHoje} label="Eventos hoje" hint="na programação" accent="violet" />
+      </div>
+
+      {/* Quem está onde agora + aniversariantes */}
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <DisponiveisAgoraCard ativos={ativos} className="lg:col-span-2" />
+        <HomeOfficeCard ativos={ativos} />
+        <AusentesCard ativos={ativos} className="lg:col-span-2" />
+        <AniversariantesCard ativos={ativos} />
       </div>
 
       {/* Barra de busca + filtros */}

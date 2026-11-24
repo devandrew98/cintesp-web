@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { PesquisadorCard } from '@/components/ui/PesquisadorCard'
 import { PesquisadorDetailModal } from '@/components/pesquisadores/PesquisadorDetailModal'
 import { Input, Select } from '@/components/ui/Field'
+import { AniversariantesCard } from '@/components/dashboard/AniversariantesCard'
 import { filtrarUsuarios } from '@/lib/pesquisadores'
 import { listarUsuarios, listarAreas } from '@/data/api'
 import type { StatusDisponibilidade, Usuario } from '@/types'
@@ -38,6 +39,8 @@ export function PesquisadoresPage() {
         title="Pesquisadores"
         subtitle="Diretório da equipe — clique num pesquisador para ver os detalhes."
       />
+
+      <AniversariantesCard ativos={ativos} className="mb-6" />
 
       {/* Busca + filtros */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_200px_200px]">
