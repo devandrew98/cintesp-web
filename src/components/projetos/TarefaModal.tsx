@@ -5,6 +5,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Field, Input, Select, Textarea } from '@/components/ui/Field'
 import { atualizarTarefa, criarTarefa, excluirTarefa } from '@/data/tarefas'
+import { equipeDoGrupo, type GrupoTarefas } from '@/lib/grupos'
 import { PRIORIDADES, STATUS_TAREFA, validarTarefa, type PrioridadeTarefa, type StatusTarefa, type Tarefa } from '@/lib/tarefas'
 import { mensagemErro } from '@/lib/utils'
 import type { Projeto } from '@/types'
@@ -14,6 +15,7 @@ export function TarefaModal({
   open,
   onClose,
   projeto,
+  grupo,
   tarefa,
   statusInicial = 'nao_iniciado',
   responsavelInicialId,
@@ -23,6 +25,7 @@ export function TarefaModal({
   open: boolean
   onClose: () => void
   projeto: Projeto
+  grupo: GrupoTarefas
   /** Presente = edição. */
   tarefa?: Tarefa
   statusInicial?: StatusTarefa
@@ -53,7 +56,7 @@ export function TarefaModal({
   }, [open, tarefa, statusInicial, responsavelInicialId])
 
   // Equipe do projeto (+ quem já é responsável pela tarefa, mesmo que tenha saído da equipe).
-  const equipe = projeto.pesquisadores.map((p) => ({ id: p.usuarioId, nome: p.nome ?? '—' }))
+  const equipe = equipeDoGrupo(grupo, projeto)
   if (tarefa?.responsavelId && !equipe.some((e) => e.id === tarefa.responsavelId)) equipe.push({ id: tarefa.responsavelId, nome: tarefa.responsavelNome ?? '—' })
 
   const aposSalvar = () => {
@@ -66,7 +69,7 @@ export function TarefaModal({
       const dados = { titulo, descricao, status, prioridade, responsavelId: responsavelId || undefined, dataEntrega: dataEntrega || undefined }
       const invalido = validarTarefa(dados)
       if (invalido) throw new Error(invalido)
-      return tarefa ? atualizarTarefa(tarefa.id, dados) : criarTarefa(projeto.id, dados)
+      return tarefa ? atualizarTarefa(tarefa.id, dados) : criarTarefa(projeto.id, grupo.id, dados)
     },
     onSuccess: aposSalvar,
     onError: (e) => setErro(mensagemErro(e)),
@@ -94,7 +97,7 @@ export function TarefaModal({
           {ro ? 'Tarefa' : tarefa ? 'Editar tarefa' : 'Nova tarefa'}
         </span>
       }
-      subtitle={tarefa?.criadoPorNome ? `Criada por ${tarefa.criadoPorNome}` : undefined}
+      subtitle={tarefa?.criadoPorNome ? `${grupo.titulo} · criada por ${tarefa.criadoPorNome}` : grupo.titulo}
       footer={
         <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:items-center">
           {tarefa && podeExcluir && !ro && (

@@ -17,7 +17,9 @@ import { Input, Select } from "@/components/ui/Field";
 import { Avatar } from "@/components/ui/Avatar";
 import { ProgressoBar } from "@/components/projetos/ProgressoBar";
 import { ProjetoFormModal } from "@/components/projetos/ProjetoFormModal";
-import { listarProjetos, criarProjeto } from "@/data/projetos";
+import { listarProjetos, criarProjeto, type DadosProjeto } from "@/data/projetos";
+import { salvarLinksProjeto } from "@/data/grupos";
+import { normalizarLink } from "@/lib/grupos";
 import { listarUsuarios } from "@/data/api";
 import { STATUS_PROJETO, statusProjetoInfo, rotuloTRL } from "@/lib/projetos";
 import { usePermissoes } from "@/hooks/usePermissoes";
@@ -47,7 +49,13 @@ export function ProjetosPage() {
   const [modalNovo, setModalNovo] = useState(false);
 
   const criar = useMutation({
-    mutationFn: criarProjeto,
+    mutationFn: async (d: DadosProjeto) => {
+      normalizarLink(d.driveUrl); // links inválidos param antes de criar
+      normalizarLink(d.grupoUrl);
+      const p = await criarProjeto(d);
+      if (d.driveUrl?.trim() || d.grupoUrl?.trim()) await salvarLinksProjeto(p.id, { driveUrl: d.driveUrl, grupoUrl: d.grupoUrl });
+      return p;
+    },
     onSuccess: (novo) => {
       qc.invalidateQueries({ queryKey: ["projetos"] });
       setModalNovo(false);

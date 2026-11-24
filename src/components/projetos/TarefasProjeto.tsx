@@ -7,6 +7,7 @@ import { ProgressoBar } from './ProgressoBar'
 import { TarefaModal } from './TarefaModal'
 import { atualizarTarefa, listarTarefas } from '@/data/tarefas'
 import { usePermissoes } from '@/hooks/usePermissoes'
+import { equipeDoGrupo, podeVerGrupo, type GrupoTarefas } from '@/lib/grupos'
 import { hojeISO } from '@/lib/agendamento'
 import {
   STATUS_TAREFA,
@@ -20,7 +21,6 @@ import {
   minhasTarefas,
   ordenarTarefas,
   podeExcluirTarefa,
-  podeGerenciarTarefas,
   resumoTarefas,
   tarefasDoStatus,
   type DadosTarefa,
@@ -32,21 +32,23 @@ import { cn, formatDateOnlyBR, mensagemErro } from '@/lib/utils'
 import type { Projeto } from '@/types'
 
 /**
- * Tarefas do projeto, em 4 visões que o pesquisador escolhe (e o navegador lembra):
+ * Tarefas de UM GRUPO do projeto, em 4 visões que o pesquisador escolhe (e o navegador lembra):
  * Tabela, Por status (quadro), Minhas tarefas e Checklist.
- * Dono e vinculados criam/editam; os demais só consultam.
+ * Quem tem acesso ao grupo cria/edita; os demais nem chegam a ver o grupo.
  */
-export function TarefasProjeto({ projeto }: { projeto: Projeto }) {
+export function TarefasProjeto({ projeto, grupo }: { projeto: Projeto; grupo: GrupoTarefas }) {
   const qc = useQueryClient()
   const { perfil, ehAdmin } = usePermissoes()
   const hoje = hojeISO()
-  const pode = podeGerenciarTarefas(projeto, perfil?.id, ehAdmin)
+  const pode = podeVerGrupo(grupo, projeto, perfil?.id, ehAdmin)
   const [visao, setVisao] = useState<VisaoTarefas>(() => lerVisao())
   const [erro, setErro] = useState<string | null>(null)
   const [modal, setModal] = useState<{ tarefa?: Tarefa; status?: StatusTarefa; responsavelId?: string } | null>(null)
 
+  const equipe = useMemo(() => equipeDoGrupo(grupo, projeto), [grupo, projeto])
   const chave = ['tarefas', projeto.id]
-  const { data: tarefas = [], isLoading } = useQuery({ queryKey: chave, queryFn: () => listarTarefas(projeto.id) })
+  const { data: todas = [], isLoading } = useQuery({ queryKey: chave, queryFn: () => listarTarefas(projeto.id) })
+  const tarefas = useMemo(() => todas.filter((t) => t.grupoId === grupo.id), [todas, grupo.id])
 
   // Mudança rápida (status, responsável, prazo…): aparece na hora e desfaz se o servidor recusar.
   const mudar = useMutation({
@@ -59,7 +61,8 @@ export function TarefasProjeto({ projeto }: { projeto: Projeto }) {
         l.map((t) => {
           if (t.id !== id) return t
           const resp = 'responsavelId' in patch ? projeto.pesquisadores.find((p) => p.usuarioId === patch.responsavelId) : undefined
-          return { ...t, ...patch, ...('responsavelId' in patch ? { responsavelNome: resp?.nome, responsavelFotoUrl: resp?.fotoUrl } : {}) }
+          const nomeResp = resp?.nome ?? equipe.find((e) => e.id === patch.responsavelId)?.nome
+          return { ...t, ...patch, ...('responsavelId' in patch ? { responsavelNome: nomeResp, responsavelFotoUrl: resp?.fotoUrl } : {}) }
         }),
       )
       return { antes }
@@ -68,7 +71,10 @@ export function TarefasProjeto({ projeto }: { projeto: Projeto }) {
       if (ctx?.antes) qc.setQueryData(chave, ctx.antes)
       setErro(mensagemErro(e))
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: chave }),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: chave })
+      qc.invalidateQueries({ queryKey: ['projetos'] }) // o progresso do projeto acompanha as tarefas
+    },
   })
 
   const resumo = useMemo(() => resumoTarefas(tarefas), [tarefas])
@@ -114,7 +120,6 @@ export function TarefasProjeto({ projeto }: { projeto: Projeto }) {
           <span>{resumo.percentual}%</span>
         </div>
       )}
-      {!pode && <p className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:bg-slate-800/60">Só o dono do projeto e os pesquisadores vinculados criam e editam tarefas. Você pode consultar.</p>}
       {erro && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-300">{erro}</p>}
 
       {isLoading ? (
@@ -122,17 +127,17 @@ export function TarefasProjeto({ projeto }: { projeto: Projeto }) {
       ) : tarefas.length === 0 ? (
         <div className="card flex flex-col items-center gap-2 px-4 py-14 text-center">
           <ListChecks className="h-8 w-8 text-slate-300" />
-          <p className="text-sm text-slate-500">Nenhuma tarefa ainda.{pode ? ' Crie a primeira!' : ''}</p>
+          <p className="text-sm text-slate-500">Nenhuma tarefa neste grupo ainda.{pode ? ' Crie a primeira!' : ''}</p>
         </div>
       ) : visao === 'tabela' ? (
-        <TabelaTarefas lista={ordenarTarefas(tarefas)} hoje={hoje} pode={pode} projeto={projeto} onAbrir={abrir} onMudar={(id, patch) => mudar.mutate({ id, patch })} />
+        <TabelaTarefas lista={ordenarTarefas(tarefas)} hoje={hoje} pode={pode} equipe={equipe} onAbrir={abrir} onMudar={(id, patch) => mudar.mutate({ id, patch })} />
       ) : visao === 'status' ? (
         <QuadroStatus tarefas={tarefas} hoje={hoje} pode={pode} onAbrir={abrir} onNova={(status) => setModal({ status })} onTrocarStatus={trocarStatus} />
       ) : visao === 'minhas' ? (
         minhas.length === 0 ? (
           <p className="card px-4 py-12 text-center text-sm text-slate-500">Nenhuma tarefa atribuída a você neste projeto.</p>
         ) : (
-          <TabelaTarefas lista={minhas} hoje={hoje} pode={pode} projeto={projeto} onAbrir={abrir} onMudar={(id, patch) => mudar.mutate({ id, patch })} />
+          <TabelaTarefas lista={minhas} hoje={hoje} pode={pode} equipe={equipe} onAbrir={abrir} onMudar={(id, patch) => mudar.mutate({ id, patch })} />
         )
       ) : (
         <Checklist lista={ordenarTarefas(tarefas)} hoje={hoje} pode={pode} onAbrir={abrir} onAlternar={(t) => trocarStatus(t, alternarConcluida(t.status))} />
@@ -142,11 +147,12 @@ export function TarefasProjeto({ projeto }: { projeto: Projeto }) {
         open={modal !== null}
         onClose={() => setModal(null)}
         projeto={projeto}
+        grupo={grupo}
         tarefa={modal?.tarefa}
         statusInicial={modal?.status}
         responsavelInicialId={visao === 'minhas' ? perfil?.id : undefined}
         somenteLeitura={!pode}
-        podeExcluir={modal?.tarefa ? podeExcluirTarefa(modal.tarefa, projeto, perfil?.id, ehAdmin) : false}
+        podeExcluir={modal?.tarefa ? podeExcluirTarefa(modal.tarefa, projeto, perfil?.id, ehAdmin) || grupo.responsavelId === perfil?.id : false}
       />
     </div>
   )
@@ -188,14 +194,14 @@ function TabelaTarefas({
   lista,
   hoje,
   pode,
-  projeto,
+  equipe,
   onAbrir,
   onMudar,
 }: {
   lista: Tarefa[]
   hoje: string
   pode: boolean
-  projeto: Projeto
+  equipe: { id: string; nome: string }[]
   onAbrir: (t: Tarefa) => void
   onMudar: (id: string, patch: Partial<DadosTarefa>) => void
 }) {
@@ -246,12 +252,12 @@ function TabelaTarefas({
                     className="max-w-[180px] rounded-lg border border-transparent bg-transparent py-0.5 pl-1 pr-6 text-xs text-slate-600 hover:border-slate-200 focus:border-brand-500 dark:text-slate-300 dark:hover:border-slate-700"
                   >
                     <option value="">— Sem responsável —</option>
-                    {projeto.pesquisadores.map((p) => (
-                      <option key={p.usuarioId} value={p.usuarioId}>
+                    {equipe.map((p) => (
+                      <option key={p.id} value={p.id}>
                         {p.nome}
                       </option>
                     ))}
-                    {t.responsavelId && !projeto.pesquisadores.some((p) => p.usuarioId === t.responsavelId) && <option value={t.responsavelId}>{t.responsavelNome}</option>}
+                    {t.responsavelId && !equipe.some((p) => p.id === t.responsavelId) && <option value={t.responsavelId}>{t.responsavelNome}</option>}
                   </select>
                 ) : (
                   <Responsavel t={t} />

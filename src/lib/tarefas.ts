@@ -12,6 +12,8 @@ export type VisaoTarefas = 'tabela' | 'status' | 'minhas' | 'checklist'
 export interface Tarefa {
   id: string
   projetoId: string
+  /** Grupo (plano de trabalho) a que a tarefa pertence. */
+  grupoId?: string
   titulo: string
   descricao?: string
   status: StatusTarefa
