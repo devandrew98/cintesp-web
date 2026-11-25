@@ -12,6 +12,7 @@ import { STATUS_TAREFA, atrasada, infoPrioridade, infoStatus, type StatusTarefa 
 import { cn, formatDateOnlyBR, mensagemErro } from '@/lib/utils'
 
 const PERIODOS: { id: PeriodoTarefas; label: string }[] = [
+  { id: 'passadas', label: 'Passadas' },
   { id: 'hoje', label: 'Hoje' },
   { id: 'amanha', label: 'Amanhã' },
   { id: 'estaSemana', label: 'Esta semana' },
@@ -115,7 +116,7 @@ export function MinhasTarefas({ hoje, className }: { hoje: string; className?: s
           value={titulo}
           onChange={(e) => setTitulo(e.target.value)}
           disabled={semDia}
-          placeholder={semDia ? 'A semana já está acabando — use "Semana que vem".' : prazo ? `Nova tarefa para ${formatDateOnlyBR(prazo)} — escreva e aperte Enter` : 'Nova tarefa sem data — escreva e aperte Enter'}
+          placeholder={periodo === 'passadas' ? 'Para adicionar uma tarefa, escolha Hoje ou um período à frente.' : semDia ? 'A semana já está acabando — use "Semana que vem".' : prazo ? `Nova tarefa para ${formatDateOnlyBR(prazo)} — escreva e aperte Enter` : 'Nova tarefa sem data — escreva e aperte Enter'}
           aria-label="Nova tarefa"
           className="min-w-0 flex-1"
         />
@@ -138,7 +139,7 @@ export function MinhasTarefas({ hoje, className }: { hoje: string; className?: s
         ) : visao === 'status' ? (
           <PorStatus lista={lista} hoje={hoje} onAbrir={abrir} onTrocarStatus={trocarStatus} />
         ) : (
-          <ul className="divide-y divide-slate-100 rounded-xl border border-slate-100 dark:divide-slate-800 dark:border-slate-800">
+          <ul className="max-h-[440px] divide-y divide-slate-100 overflow-y-auto overscroll-contain rounded-xl border border-slate-100 dark:divide-slate-800 dark:border-slate-800">
             {lista.map((i) => (
               <LinhaAfazer key={i.chave} item={i} hoje={hoje} onAlternar={(x) => alternar.mutate(x)} onAbrir={abrir} />
             ))}
@@ -177,9 +178,9 @@ const Origem = ({ item }: { item: ItemAfazer }) =>
 
 function Tabela({ lista, hoje, onAbrir, onMudar }: { lista: ItemAfazer[]; hoje: string; onAbrir: (i: ItemAfazer) => void; onMudar: (i: ItemAfazer, patch: { status?: StatusTarefa; dataEntrega?: string }) => void }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-100 dark:border-slate-800">
+    <div className="max-h-[440px] overflow-auto overscroll-contain rounded-xl border border-slate-100 dark:border-slate-800">
       <table className="w-full min-w-[640px] text-left text-sm">
-        <thead>
+        <thead className="sticky top-0 z-10 bg-white dark:bg-slate-900">
           <tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400 dark:border-slate-800">
             <th className="px-3 py-2.5 font-semibold">Tarefa</th>
             <th className="px-3 py-2.5 font-semibold">Status</th>
@@ -254,7 +255,7 @@ function PorStatus({ lista, hoje, onAbrir, onTrocarStatus }: { lista: ItemAfazer
               </span>
               <span className="text-xs font-medium text-slate-400">{daColuna.length}</span>
             </header>
-            <div className="space-y-2">
+            <div className="max-h-[380px] space-y-2 overflow-y-auto overscroll-contain pr-1">
               {daColuna.map((i) => (
                 <article key={i.chave} draggable onDragStart={() => setArrastando(i.chave)} onDragEnd={() => setArrastando(null)} className={cn('cursor-grab rounded-xl border border-slate-200 bg-white p-3 shadow-card active:cursor-grabbing dark:border-slate-700 dark:bg-slate-900', arrastando === i.chave && 'opacity-50')}>
                   <Titulo item={i} onAbrir={onAbrir} />

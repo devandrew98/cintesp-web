@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Resumo — Agendamento de avaliações · CINTESP.Br</title>
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+
+<div class="capa">
+  <img src="logo-branca.png" alt="CINTESP.Br">
+  <h1>Agendamento de avaliações</h1>
+  <p>Resumo do que foi desenvolvido no sistema CINTESP Web</p>
+  <div class="meta">Programa Integrado de Avaliação Física, Treinamento Adaptado e Inclusão Esportiva · Novembro de 2026</div>
+</div>
+
+<h2>1. Visão geral</h2>
+<p>Foi criada uma nova área de agendamento a partir do formulário HTML enviado, com <strong>duas frentes</strong> que conversam entre si: uma pública, para quem solicita as avaliações, e uma restrita, para o <strong>Pesquisador Avaliador</strong> acompanhar tudo.</p>
+
+<div class="fluxo">
+  <div class="e"><span class="n">1</span><b>Solicitante preenche</b><span>Formulário público, sem login</span></div>
+  <div class="e"><span class="n">2</span><b>Envia ao pesquisador</b><span>Chega só para o Avaliador</span></div>
+  <div class="e"><span class="n">3</span><b>Avaliador confirma</b><span>Pelo sistema e pelo WhatsApp</span></div>
+  <div class="e"><span class="n">4</span><b>Acompanha</b><span>Agenda, lista e prontuário</span></div>
+</div>
+
+<div class="cards">
+  <div class="card verde">
+    <h3>Aba do solicitante <span class="badge">pública</span></h3>
+    <p><code>/agendamento</code> — não exige login. O próprio formulário coleta a identificação.</p>
+  </div>
+  <div class="card verde">
+    <h3>Aba do pesquisador <span class="badge">com login</span></h3>
+    <p><code>/agendamentos</code> — aparece no menu somente para quem tem a tag <strong>Pesquisador Avaliador</strong>.</p>
+  </div>
+</div>
+
+<h2>2. Formulário público</h2>
+<ul>
+  <li><strong>Identidade visual do sistema</strong> (verde da marca, tema claro/escuro, funciona no celular).</li>
+  <li><strong>Dados pessoais:</strong> nome, CPF (validado), endereço, telefone/WhatsApp, e-mail, perfil (atleta / não atleta) e deficiência ou patologia.</li>
+  <li><strong>Triagem condicionada</strong> (pedido do pesquisador Neto): nos itens 1, 3, 4, 5, 6, 7 e 9 o campo de texto só aparece, e só aceita escrita, quando a resposta é <em>Sim</em>. No item 8, escolher <em>Outro</em> abre o campo “Qual?”. Voltar para <em>Não</em> apaga o texto.</li>
+  <li><strong>Calendário com hora</strong> para cada uma das 5 avaliações, ligado à agenda do pesquisador: dias e horários indisponíveis ficam bloqueados (horário ocupado aparece riscado).</li>
+  <li><strong>Regras do formulário original mantidas:</strong> agendar tudo de uma vez; dias úteis; blocos de 1h (8h–12h e 13h–17h); dias diferentes dentro da mesma fase; nunca dois no mesmo dia e horário; Fase 1 antes da Fase 2.</li>
+  <li><strong>Após enviar:</strong> protocolo, resumo das datas e um botão que abre o <strong>WhatsApp do pesquisador</strong> com mensagem pronta, citando dias, horários e o local (Arena Sabiazinho).</li>
+</ul>
+
+<h2>3. Área do Pesquisador Avaliador</h2>
+<table>
+  <tr><th style="width:24%">Aba</th><th>O que faz</th></tr>
+  <tr><td><strong>Solicitações</strong></td><td>Lista com filtro (pendentes, confirmadas, canceladas) e busca. Confirmar, cancelar a solicitação ou desmarcar uma única avaliação. WhatsApp com “Olá, Fulano(a), passando para confirmar com você…”.</td></tr>
+  <tr><td><strong>Calendário</strong></td><td>Agenda própria do sistema: cadastrar compromissos, bloquear horários ou dias inteiros e desmarcar. Tudo isso tira o horário do formulário público.</td></tr>
+  <tr><td><strong>Programação</strong></td><td>Lista completa e cronológica, agrupada por dia, com filtro por tipo e opção de ver dias passados.</td></tr>
+  <tr><td><strong>Prontuários</strong></td><td>Anotações, prontuário e relatórios por solicitante, além das respostas completas da triagem (com alerta para sinais cardiovasculares e respiratórios).</td></tr>
+  <tr><td><strong>Configurações</strong></td><td>WhatsApp, local, períodos das fases, prazo da triagem e abrir/fechar o formulário. Há também o botão para copiar o link público.</td></tr>
+</table>
+
+<h2>4. Como evitamos duplicidade e horários indisponíveis</h2>
+<ul>
+  <li><strong>Trava no banco de dados:</strong> um índice único impede dois agendamentos ativos no mesmo dia e horário, mesmo que duas pessoas enviem ao mesmo tempo.</li>
+  <li><strong>Revalidação no servidor:</strong> o front só guia; o servidor confere de novo CPF, dias úteis, períodos, horários livres, regras das fases e compromissos do pesquisador.</li>
+  <li><strong>Uma solicitação ativa por CPF.</strong> Ao cancelar, a pessoa pode solicitar de novo.</li>
+  <li><strong>Atualização automática:</strong> os horários ocupados são recarregados a cada 30 s no formulário.</li>
+  <li><strong>Freio contra abuso:</strong> no máximo 40 solicitações por hora no formulário aberto.</li>
+</ul>
+
+<h2>5. Permissões e privacidade</h2>
+<ul>
+  <li>A aba só aparece para quem tem a função <strong>“Pesquisador Avaliador”</strong> (ou a nova permissão <em>Avaliador (agendamentos)</em>).</li>
+  <li>O banco aplica a mesma regra (RLS): mesmo chamando a API por fora, só o Avaliador lê solicitações, triagem e prontuários.</li>
+  <li><strong>O administrador não entra automaticamente</strong>, por serem dados de saúde. Para ver a aba, atribua a função ao usuário.</li>
+  <li>Quem usa o formulário público não consegue ler nada de volta: só enxerga quais horários estão ocupados, nunca de quem.</li>
+</ul>
+
+<div class="quebra"></div>
+<h2>6. Detalhes técnicos</h2>
+<table>
+  <tr><th style="width:30%">Parte</th><th>Arquivos</th></tr>
+  <tr><td>Banco de dados (Supabase)</td><td><code>docs/supabase-agendamentos.sql</code> — 5 tabelas (config, solicitações, itens, eventos, anotações), RLS, função <code>pode_avaliar()</code> e funções públicas <code>agendamento_solicitar</code>, <code>agendamento_ocupados</code>, <code>agendamento_config_publica</code>.</td></tr>
+  <tr><td>Regras (puras, testadas)</td><td><code>src/lib/agendamento.ts</code> — fases, horários, ocupação, validação, triagem condicional, mensagens de WhatsApp.</td></tr>
+  <tr><td>Dados</td><td><code>src/data/agendamentos.ts</code> — Supabase e modo de teste em memória.</td></tr>
+  <tr><td>Telas</td><td><code>src/pages/Agendamento.tsx</code> (pública) e <code>src/pages/AgendamentosAvaliador.tsx</code> (restrita), mais componentes em <code>src/components/agendamento/</code>.</td></tr>
+  <tr><td>Acesso</td><td><code>RequireAvaliador</code>, item “Agendamentos” no menu, permissão nova no catálogo.</td></tr>
+</table>
+
+<h2>7. Testes feitos</h2>
+<ul>
+  <li><strong>20 testes automatizados novos</strong> (regras de fases, ocupação, triagem condicional, WhatsApp). Suíte completa: 76 testes passando; build de produção ok.</li>
+  <li><strong>Fluxo completo no navegador</strong> (modo de teste): campos condicionais, bloqueio de dias, envio das 5 avaliações, solicitação chegando ao Avaliador, confirmar, anotar no prontuário, bloquear um dia e vê-lo indisponível no formulário, CPF repetido barrado e layout no celular sem rolagem lateral.</li>
+  <li><strong>Ainda não testado:</strong> o SQL no Supabase real (não foi possível executá-lo daqui). Rode e teste um envio de ponta a ponta antes de divulgar o link.</li>
+</ul>
+
+<h2>8. Para colocar no ar</h2>
+<div class="aviso">
+  <strong>Três passos pendentes</strong>
+  <ol style="margin-top:4px">
+    <li>Rodar <code>docs/supabase-agendamentos.sql</code> no SQL Editor do Supabase.</li>
+    <li>Garantir que o pesquisador tenha a função <strong>“Pesquisador Avaliador”</strong> (Administração → Pesquisadores).</li>
+    <li>Entrar em Agendamentos → Configurações e informar o <strong>WhatsApp</strong>; conferir local e períodos das fases.</li>
+  </ol>
+</div>
+
+<h2>9. Limites e decisões</h2>
+<ul>
+  <li>Não há “reagendar”: o Avaliador desmarca a avaliação (libera o horário) e combina o novo com a pessoa; se cancelar tudo, o CPF pode enviar nova solicitação.</li>
+  <li>Feriados não são automáticos: cadastre-os como <em>bloqueio de dia inteiro</em> no calendário.</li>
+  <li>O envio ao Avaliador é o próprio “Enviar solicitação”; o WhatsApp é um aviso complementar, não substitui o registro.</li>
+  <li>Os períodos 2026 do formulário original (23/11–06/12 e 07–20/12) são o padrão e podem ser editados nas Configurações.</li>
+</ul>
+
+<h2>10. Também feito nesta rodada</h2>
+<div class="cards">
+  <div class="card"><h3>Atalho do celular</h3><p>Puxar a tela para baixo atualiza o app instalado, como no navegador.</p></div>
+  <div class="card"><h3>Ranking e Registro de Ponto</h3><p>Escolha do mês (meses anteriores) e botão para baixar o ranking do mês (administrador).</p></div>
+  <div class="card"><h3>Lançamento manual de ponto</h3><p>Botão “+” na linha incompleta para adicionar a entrada ou saída que falta.</p></div>
+  <div class="card"><h3>Inventário</h3><p>Botão “Buscar produto”, que abre o Google Imagens com o nome do item.</p></div>
+</div>
+
+<div class="rodape">CINTESP.Br · Centro Brasileiro de Referência em Inovação Tecnológica Assistiva</div>
+</body>
+</html>

@@ -91,6 +91,8 @@ describe('períodos de Minhas tarefas', () => {
   const ids = (p: Parameters<typeof filtrarPorPeriodo>[1]) => filtrarPorPeriodo(lista, p, hoje).map((i) => i.id)
   it('filtra cada período; hoje traz as atrasadas em aberto', () => {
     expect(ids('hoje')).toEqual(['atrasada', 'hoje', 'feitaHoje'])
+    expect(ids('passadas').sort()).toEqual(['atrasada', 'velhaFeita'])
+    expect(prazoDoPeriodo('passadas', hoje)).toBeNull()
     expect(ids('amanha')).toEqual(['amanha'])
     expect(ids('estaSemana')).toEqual(['sexta'])
     expect(ids('semanaQueVem')).toEqual(['prox'])

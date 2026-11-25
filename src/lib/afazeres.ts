@@ -140,7 +140,7 @@ export const contarDaSemana = (itens: ItemAfazer[], hoje: string): number => {
   return itens.filter((i) => i.status !== 'concluido' && i.dataEntrega && i.dataEntrega >= hoje && i.dataEntrega <= fim).length
 }
 
-export type PeriodoTarefas = 'hoje' | 'amanha' | 'estaSemana' | 'semanaQueVem' | 'semData'
+export type PeriodoTarefas = 'passadas' | 'hoje' | 'amanha' | 'estaSemana' | 'semanaQueVem' | 'semData'
 
 /** Tarefas de um período (inclui as concluídas, para as colunas de status). "Hoje" também traz as atrasadas em aberto. */
 export function filtrarPorPeriodo(itens: ItemAfazer[], periodo: PeriodoTarefas, hoje: string): ItemAfazer[] {
@@ -150,17 +150,20 @@ export function filtrarPorPeriodo(itens: ItemAfazer[], periodo: PeriodoTarefas, 
     const d = i.dataEntrega
     if (periodo === 'semData') return !d
     if (!d) return false
+    if (periodo === 'passadas') return d < hoje
     if (periodo === 'hoje') return d === hoje || (d < hoje && i.status !== 'concluido')
     if (periodo === 'amanha') return d === amanha
     if (periodo === 'estaSemana') return d > amanha && d <= fim
     return d > fim && d <= somar(fim, 7)
   }
-  return ordenarPorPrazo(itens.filter(dentro))
+  const lista = ordenarPorPrazo(itens.filter(dentro))
+  return periodo === 'passadas' ? lista.reverse() : lista // passadas: a mais recente primeiro
 }
 
-/** Prazo de uma tarefa criada dentro de um período. `null` = o período não tem dia disponível (fim de semana). */
+/** Prazo de uma tarefa criada dentro de um período. `null` = não dá para criar nele (passado, ou a semana acabou). */
 export function prazoDoPeriodo(periodo: PeriodoTarefas, hoje: string): string | undefined | null {
   if (periodo === 'semData') return undefined
+  if (periodo === 'passadas') return null
   if (periodo === 'hoje') return hoje
   if (periodo === 'amanha') return somar(hoje, 1)
   const fim = fimDaSemana(hoje)
