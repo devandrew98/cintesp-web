@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { agruparAfazeres, agruparPorPrazo, contarDaSemana, fimDaSemana, deTarefaPessoal, deTarefaProjeto, itensDoDia, organizarNotas, resumoAfazeres, validarNota, validarTarefaPessoal, type ItemAfazer, type Nota } from './afazeres'
+import { agruparAfazeres, agruparPorPrazo, filtrarPorPeriodo, prazoDoPeriodo, contarDaSemana, fimDaSemana, deTarefaPessoal, deTarefaProjeto, itensDoDia, organizarNotas, resumoAfazeres, validarNota, validarTarefaPessoal, type ItemAfazer, type Nota } from './afazeres'
 
 const it_ = (p: Partial<ItemAfazer>): ItemAfazer => ({ chave: 'pessoal:x', origem: 'pessoal', id: 'x', titulo: 'T', status: 'nao_iniciado', prioridade: 'media', criadoEm: '2026-11-01T00:00:00Z', ...p })
 const HOJE = '2026-11-23'
@@ -81,5 +81,26 @@ describe('agruparPorPrazo (área de trabalho)', () => {
     expect(fimDaSemana('2026-11-29')).toBe('2026-11-29')
     expect(fimDaSemana('2026-11-30')).toBe('2026-12-06')
     expect(contarDaSemana([mk('a', hoje), mk('b', '2026-11-29'), mk('c', '2026-11-30'), mk('d', '2026-11-20')], hoje)).toBe(2)
+  })
+})
+
+describe('períodos de Minhas tarefas', () => {
+  const hoje = '2026-11-24' // terça
+  const mk = (id: string, dataEntrega?: string, status: ItemAfazer['status'] = 'nao_iniciado'): ItemAfazer => ({ chave: `pessoal:${id}`, origem: 'pessoal', id, titulo: id, status, prioridade: 'media', dataEntrega, criadoEm: '2026-01-01' })
+  const lista = [mk('atrasada', '2026-11-20'), mk('velhaFeita', '2026-11-20', 'concluido'), mk('hoje', hoje), mk('feitaHoje', hoje, 'concluido'), mk('amanha', '2026-11-25'), mk('sexta', '2026-11-27'), mk('prox', '2026-12-01'), mk('solta')]
+  const ids = (p: Parameters<typeof filtrarPorPeriodo>[1]) => filtrarPorPeriodo(lista, p, hoje).map((i) => i.id)
+  it('filtra cada período; hoje traz as atrasadas em aberto', () => {
+    expect(ids('hoje')).toEqual(['atrasada', 'hoje', 'feitaHoje'])
+    expect(ids('amanha')).toEqual(['amanha'])
+    expect(ids('estaSemana')).toEqual(['sexta'])
+    expect(ids('semanaQueVem')).toEqual(['prox'])
+    expect(ids('semData')).toEqual(['solta'])
+  })
+  it('prazo de uma tarefa nova em cada período', () => {
+    expect(prazoDoPeriodo('hoje', hoje)).toBe(hoje)
+    expect(prazoDoPeriodo('estaSemana', hoje)).toBe('2026-11-29')
+    expect(prazoDoPeriodo('estaSemana', '2026-11-28')).toBeNull()
+    expect(prazoDoPeriodo('semanaQueVem', hoje)).toBe('2026-11-30')
+    expect(prazoDoPeriodo('semData', hoje)).toBeUndefined()
   })
 })

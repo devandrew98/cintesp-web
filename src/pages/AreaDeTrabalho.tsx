@@ -11,7 +11,7 @@ import { AvisosRecentes } from '@/components/trabalho/AvisosRecentes'
 import { HojeCard } from '@/components/trabalho/HojeCard'
 import { MeusProjetosCard } from '@/components/trabalho/MeusProjetosCard'
 import { NotasRapidas } from '@/components/trabalho/NotasRapidas'
-import { TarefasPorPrazo } from '@/components/trabalho/TarefasPorPrazo'
+import { MinhasTarefas } from '@/components/trabalho/MinhasTarefas'
 import { usePermissoes } from '@/hooks/usePermissoes'
 import { agruparPorPrazo, contarDaSemana } from '@/lib/afazeres'
 import { ehEventoMeu, euParticipo, ocorrenciasNoPeriodo } from '@/lib/agendaEquipe'
@@ -91,11 +91,10 @@ export function AreaDeTrabalhoPage() {
         <HojeCard className="lg:col-span-2" ocorrencias={ocHoje} tarefas={grupos.hoje} hoje={hoje} onAlternar={(i) => alternar.mutate(i)} aoSalvarTarefa={() => recarregar()} />
         <AcessoRapido />
 
-        <TarefasPorPrazo className="lg:col-span-2" grupos={grupos} hoje={hoje} onAlternar={(i) => alternar.mutate(i)} aoSalvarTarefa={() => recarregar()} />
-        <ProgramacaoResumo />
+        <MinhasTarefas className="min-w-0 lg:col-span-3" hoje={hoje} />
 
         <MeusProjetosCard className="lg:col-span-2" itens={itens} />
-        <AvisosRecentes />
+        <ProgramacaoResumo />
 
         <SectionCard
           className="lg:col-span-2"
@@ -109,7 +108,10 @@ export function AreaDeTrabalhoPage() {
         >
           <MinhaAgenda />
         </SectionCard>
-        <NotasRapidas />
+        <div className="space-y-6">
+          <AvisosRecentes />
+          <NotasRapidas />
+        </div>
       </div>
     </div>
   )

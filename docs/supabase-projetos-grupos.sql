@@ -112,7 +112,10 @@ alter table public.projeto_grupo_membros enable row level security;
 
 drop policy if exists "projeto_grupos: ler" on public.projeto_grupos;
 create policy "projeto_grupos: ler" on public.projeto_grupos
-  for select to authenticated using (public.grupo_acesso(id));
+  for select to authenticated
+  -- As 3 primeiras condições valem direto na linha (sem consultar a tabela): o INSERT ... RETURNING
+  -- precisa ler o grupo recém-criado, que uma função STABLE ainda não enxerga.
+  using (public.is_admin() or criado_por = auth.uid() or public.projeto_dono(projeto_id) or public.grupo_acesso(id));
 
 drop policy if exists "projeto_grupos: criar" on public.projeto_grupos;
 create policy "projeto_grupos: criar" on public.projeto_grupos

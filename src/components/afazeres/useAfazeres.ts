@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { atualizarTarefaPessoal, criarTarefaPessoal, listarTarefasPessoais } from '@/data/afazeres'
 import { atualizarTarefa, listarTarefasAtribuidas } from '@/data/tarefas'
 import { usePermissoes } from '@/hooks/usePermissoes'
-import { deTarefaPessoal, deTarefaProjeto, type ItemAfazer } from '@/lib/afazeres'
+import { deTarefaPessoal, deTarefaProjeto, type DadosTarefaPessoal, type ItemAfazer } from '@/lib/afazeres'
 import { alternarConcluida } from '@/lib/tarefas'
 
 /**
@@ -38,8 +38,19 @@ export function useAfazeres() {
   })
 
   const adicionarRapida = useMutation({
-    mutationFn: (titulo: string) => criarTarefaPessoal({ titulo, status: 'nao_iniciado', prioridade: 'media' }),
+    mutationFn: (nova: string | { titulo: string; dataEntrega?: string }) =>
+      criarTarefaPessoal({ ...(typeof nova === 'string' ? { titulo: nova } : nova), status: 'nao_iniciado', prioridade: 'media' }),
     onSuccess: () => recarregar(),
+  })
+
+  /** Muda status ou prazo direto na lista (vale para tarefa pessoal e de projeto). */
+  const mudar = useMutation({
+    mutationFn: ({ item, patch }: { item: ItemAfazer; patch: Partial<Pick<DadosTarefaPessoal, 'status' | 'dataEntrega'>> }) =>
+      item.origem === 'pessoal' ? atualizarTarefaPessoal(item.id, patch) : atualizarTarefa(item.id, patch),
+    onSuccess: (_d, v) => {
+      recarregar(v.item)
+      qc.invalidateQueries({ queryKey: ['projetos'] })
+    },
   })
 
   return {
@@ -47,6 +58,7 @@ export function useAfazeres() {
     carregando: pessoais.isLoading || atribuidas.isLoading,
     alternar,
     adicionarRapida,
+    mudar,
     recarregar,
   }
 }
