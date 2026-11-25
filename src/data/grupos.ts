@@ -173,6 +173,21 @@ export async function excluirGrupo(id: string): Promise<void> {
   if (error) throw erroAmigavel(error)
 }
 
+/** Grava a ordem dos grupos do projeto (posição = índice na lista). Só o ADM (banco garante). */
+export async function reordenarGrupos(ids: string[]): Promise<void> {
+  if (USE_MOCK || !supabase) {
+    ids.forEach((id, i) => {
+      const g = mockGrupos.find((x) => x.id === id)
+      if (g) g.ordem = i + 1
+    })
+    return
+  }
+  for (const [i, id] of ids.entries()) {
+    const { error } = await supabase.from('projeto_grupos').update({ ordem: i + 1 }).eq('id', id)
+    if (error) throw erroAmigavel(error)
+  }
+}
+
 // ---------------- API: links do projeto (só a equipe vê) ----------------
 
 export interface LinksProjeto {

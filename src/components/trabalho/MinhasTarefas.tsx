@@ -197,7 +197,7 @@ function Tabela({ lista, hoje, onAbrir, onMudar }: { lista: ItemAfazer[]; hoje: 
               </td>
               <td className="px-3 py-2">
                 <select value={i.status} onChange={(e) => onMudar(i, { status: e.target.value as StatusTarefa })} aria-label={`Status de ${i.titulo}`} className={cn('rounded-full border-0 py-0.5 pl-2.5 pr-6 text-xs font-medium focus:ring-2 focus:ring-brand-500', infoStatus(i.status).pill)}>
-                  {STATUS_TAREFA.map((s) => (
+                  {STATUS_TAREFA.filter((s) => !i.permitidos || i.permitidos.includes(s.value)).map((s) => (
                     <option key={s.value} value={s.value}>
                       {s.label}
                     </option>
@@ -208,6 +208,7 @@ function Tabela({ lista, hoje, onAbrir, onMudar }: { lista: ItemAfazer[]; hoje: 
                 <input
                   type="date"
                   value={i.dataEntrega ?? ''}
+                  disabled={i.podePrazo === false}
                   onChange={(e) => onMudar(i, { dataEntrega: e.target.value || undefined })}
                   aria-label={`Prazo de ${i.titulo}`}
                   className={cn('rounded-lg border border-transparent bg-transparent px-1 py-0.5 text-xs hover:border-slate-200 focus:border-brand-500 dark:hover:border-slate-700', atrasada({ dataEntrega: i.dataEntrega, status: i.status }, hoje) ? 'font-semibold text-red-600 dark:text-red-400' : 'text-slate-600 dark:text-slate-300')}
@@ -243,7 +244,7 @@ function PorStatus({ lista, hoje, onAbrir, onTrocarStatus }: { lista: ItemAfazer
             onDrop={(e) => {
               e.preventDefault()
               const i = lista.find((x) => x.chave === arrastando)
-              if (i && i.status !== col.value) onTrocarStatus(i, col.value)
+              if (i && i.status !== col.value && (!i.permitidos || i.permitidos.includes(col.value))) onTrocarStatus(i, col.value)
               setArrastando(null)
             }}
             className={cn('min-w-0 rounded-2xl p-2.5', col.coluna)}
@@ -268,7 +269,7 @@ function PorStatus({ lista, hoje, onAbrir, onTrocarStatus }: { lista: ItemAfazer
                     )}
                   </div>
                   <select value={i.status} onChange={(e) => onTrocarStatus(i, e.target.value as StatusTarefa)} aria-label={`Mover ${i.titulo} para`} className="mt-2 w-full rounded-lg border border-slate-200 bg-transparent py-0.5 pl-1.5 pr-6 text-[11px] text-slate-500 dark:border-slate-700 xl:hidden">
-                    {STATUS_TAREFA.map((s) => (
+                    {STATUS_TAREFA.filter((s) => !i.permitidos || i.permitidos.includes(s.value)).map((s) => (
                       <option key={s.value} value={s.value}>
                         {s.label}
                       </option>

@@ -250,11 +250,25 @@ export type StatusProjeto = 'planejamento' | 'em_andamento' | 'pausado' | 'concl
 export type TRL = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
 
 /**
- * Campos de CONTEÚDO que o admin pode liberar para os pesquisadores
- * vinculados (que não são o responsável) editarem. Título, status e datas
- * nunca entram nessa lista — ficam sempre restritos a admin + responsável.
+ * O que o ADM do projeto (ou do sistema) pode liberar para os colaboradores vinculados.
+ * Sem nada liberado, eles só consultam. Reordenar, concluir e conferir tarefas nunca entram.
  */
-export type CampoEditavelProjeto = 'trl' | 'dadosTecnicos' | 'descricao' | 'observacoes'
+export type CampoEditavelProjeto =
+  | 'gruposCriar'
+  | 'gruposEditar'
+  | 'gruposExcluir'
+  | 'tarefasCriar'
+  | 'tarefasEditar'
+  | 'tarefasAndamento'
+  | 'tarefasExcluir'
+  | 'trl'
+  | 'dadosTecnicos'
+  | 'descricao'
+  | 'observacoes'
+  | 'cronograma'
+  | 'capa'
+  | 'links'
+  | 'causaEfeito'
 
 /** Um pesquisador vinculado ao projeto (o responsável também aparece aqui). */
 export interface PesquisadorVinculado {

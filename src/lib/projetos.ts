@@ -35,20 +35,55 @@ export const TRL_INFO: Array<{ value: TRL; label: string; descricao: string }> =
 
 export const rotuloTRL = (trl?: TRL): string => (trl ? TRL_INFO.find((t) => t.value === trl)?.label ?? `TRL ${trl}` : '—')
 
-/**
- * Campos de conteúdo que o admin pode liberar para os pesquisadores
- * vinculados (não-responsáveis) editarem. Título, status e datas nunca
- * entram aqui — ficam sempre com admin + responsável.
- */
-export const CAMPOS_EDITAVEIS_PROJETO: Array<{ value: CampoEditavelProjeto; label: string }> = [
-  { value: 'trl', label: 'TRL (maturidade tecnológica)' },
-  { value: 'dadosTecnicos', label: 'Dados técnicos' },
-  { value: 'descricao', label: 'Descrição do projeto' },
-  { value: 'observacoes', label: 'Observações' },
+/** Permissões que podem ser liberadas aos colaboradores, agrupadas como aparecem na tela. */
+export const GRUPOS_PERMISSOES: { titulo: string; opcoes: { value: CampoEditavelProjeto; label: string }[] }[] = [
+  {
+    titulo: 'Grupos de tarefas',
+    opcoes: [
+      { value: 'gruposCriar', label: 'Criar grupos' },
+      { value: 'gruposEditar', label: 'Editar grupos' },
+      { value: 'gruposExcluir', label: 'Excluir grupos' },
+    ],
+  },
+  {
+    titulo: 'Tarefas',
+    opcoes: [
+      { value: 'tarefasCriar', label: 'Criar tarefas' },
+      { value: 'tarefasEditar', label: 'Editar tarefas' },
+      { value: 'tarefasAndamento', label: 'Atualizar andamento' },
+      { value: 'tarefasExcluir', label: 'Excluir tarefas' },
+    ],
+  },
+  {
+    titulo: 'Dados do projeto',
+    opcoes: [
+      { value: 'descricao', label: 'Descrição do projeto' },
+      { value: 'dadosTecnicos', label: 'Dados técnicos' },
+      { value: 'observacoes', label: 'Observações' },
+      { value: 'trl', label: 'TRL (maturidade tecnológica)' },
+      { value: 'cronograma', label: 'Status e datas' },
+      { value: 'capa', label: 'Foto de capa' },
+      { value: 'links', label: 'Links do Drive e WhatsApp' },
+      { value: 'causaEfeito', label: 'Gráfico de causa e efeito' },
+    ],
+  },
 ]
+
+export const CAMPOS_EDITAVEIS_PROJETO = GRUPOS_PERMISSOES.flatMap((g) => g.opcoes)
 
 export const rotuloCampoEditavel = (c: CampoEditavelProjeto): string =>
   CAMPOS_EDITAVEIS_PROJETO.find((x) => x.value === c)?.label ?? c
+
+type ProjetoPermissoes = Pick<Projeto, 'criadoPorId' | 'responsavelId' | 'pesquisadores' | 'camposEditaveisMembros'>
+
+/** ADM do projeto (criador/responsável) ou do sistema: pode tudo, e só ele reordena, conclui e confere. */
+export const ehGestorProjeto = (p: Pick<Projeto, 'criadoPorId' | 'responsavelId'>, usuarioId?: string, ehAdmin = false): boolean =>
+  ehAdmin || ehDonoProjeto(p, usuarioId)
+
+/** O ADM pode tudo; o colaborador vinculado, só o que foi liberado no projeto. */
+export const podeNoProjeto = (p: ProjetoPermissoes, permissao: CampoEditavelProjeto, usuarioId?: string, ehAdmin = false): boolean =>
+  ehGestorProjeto(p, usuarioId, ehAdmin) ||
+  (p.pesquisadores.some((v) => v.usuarioId === usuarioId) && p.camposEditaveisMembros.includes(permissao))
 
 /** Cor da barra de progresso conforme o quanto já avançou. */
 export function corProgresso(progresso: number): string {

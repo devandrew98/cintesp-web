@@ -4,10 +4,11 @@ import { Calendar, Check, ListChecks, Plus } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { ProgressoBar } from './ProgressoBar'
+import { SetasOrdem } from './SetasOrdem'
 import { TarefaModal } from './TarefaModal'
-import { atualizarTarefa, listarTarefas } from '@/data/tarefas'
+import { atualizarTarefa, listarTarefas, reordenarTarefas } from '@/data/tarefas'
 import { usePermissoes } from '@/hooks/usePermissoes'
-import { equipeDoGrupo, podeVerGrupo, type GrupoTarefas } from '@/lib/grupos'
+import { equipeDoGrupo, type GrupoTarefas } from '@/lib/grupos'
 import { hojeISO } from '@/lib/agendamento'
 import {
   STATUS_TAREFA,
@@ -19,11 +20,15 @@ import {
   infoStatus,
   lerVisao,
   minhasTarefas,
+  moverNaOrdem,
   ordenarTarefas,
-  podeExcluirTarefa,
+  permissoesTarefa,
+  rotuloConferencia,
+  statusPermitidos,
   resumoTarefas,
   tarefasDoStatus,
   type DadosTarefa,
+  type PermissoesTarefa,
   type StatusTarefa,
   type Tarefa,
   type VisaoTarefas,
@@ -34,13 +39,13 @@ import type { Projeto } from '@/types'
 /**
  * Tarefas de UM GRUPO do projeto, em 4 visões que o pesquisador escolhe (e o navegador lembra):
  * Tabela, Por status (quadro), Minhas tarefas e Checklist.
- * Quem tem acesso ao grupo cria/edita; os demais nem chegam a ver o grupo.
+ * O que cada um pode fazer vem de permissoesTarefa(): sem liberação, o colaborador só consulta.
  */
 export function TarefasProjeto({ projeto, grupo }: { projeto: Projeto; grupo: GrupoTarefas }) {
   const qc = useQueryClient()
   const { perfil, ehAdmin } = usePermissoes()
   const hoje = hojeISO()
-  const pode = podeVerGrupo(grupo, projeto, perfil?.id, ehAdmin)
+  const perms = permissoesTarefa(projeto, perfil?.id, ehAdmin)
   const [visao, setVisao] = useState<VisaoTarefas>(() => lerVisao())
   const [erro, setErro] = useState<string | null>(null)
   const [modal, setModal] = useState<{ tarefa?: Tarefa; status?: StatusTarefa; responsavelId?: string } | null>(null)
@@ -77,6 +82,16 @@ export function TarefasProjeto({ projeto, grupo }: { projeto: Projeto; grupo: Gr
     },
   })
 
+  const ordenar = useMutation({
+    mutationFn: reordenarTarefas,
+    onMutate: () => setErro(null),
+    onError: (e) => setErro(mensagemErro(e)),
+    onSettled: () => qc.invalidateQueries({ queryKey: chave }),
+  })
+  const ordenadas = useMemo(() => ordenarTarefas(tarefas), [tarefas])
+  const mover = (id: string, passo: -1 | 1) => ordenar.mutate(moverNaOrdem(ordenadas.map((t) => t.id), id, passo))
+  const ordem: Ordem | undefined = perms.gestor && tarefas.length > 1 ? { ids: ordenadas.map((t) => t.id), ocupado: ordenar.isPending, mover } : undefined
+
   const resumo = useMemo(() => resumoTarefas(tarefas), [tarefas])
   const minhas = useMemo(() => minhasTarefas(tarefas, perfil?.id), [tarefas, perfil?.id])
   const abrir = (tarefa: Tarefa) => setModal({ tarefa })
@@ -104,7 +119,7 @@ export function TarefasProjeto({ projeto, grupo }: { projeto: Projeto; grupo: Gr
             </button>
           ))}
         </div>
-        {pode && (
+        {perms.criar && (
           <Button icon={Plus} onClick={() => setModal({})} className="w-full sm:w-auto">
             Nova tarefa
           </Button>
@@ -127,20 +142,20 @@ export function TarefasProjeto({ projeto, grupo }: { projeto: Projeto; grupo: Gr
       ) : tarefas.length === 0 ? (
         <div className="card flex flex-col items-center gap-2 px-4 py-14 text-center">
           <ListChecks className="h-8 w-8 text-slate-300" />
-          <p className="text-sm text-slate-500">Nenhuma tarefa neste grupo ainda.{pode ? ' Crie a primeira!' : ''}</p>
+          <p className="text-sm text-slate-500">Nenhuma tarefa neste grupo ainda.{perms.criar ? ' Crie a primeira!' : ''}</p>
         </div>
       ) : visao === 'tabela' ? (
-        <TabelaTarefas lista={ordenarTarefas(tarefas)} hoje={hoje} pode={pode} equipe={equipe} onAbrir={abrir} onMudar={(id, patch) => mudar.mutate({ id, patch })} />
+        <TabelaTarefas lista={ordenadas} hoje={hoje} perms={perms} ordem={ordem} equipe={equipe} onAbrir={abrir} onMudar={(id, patch) => mudar.mutate({ id, patch })} />
       ) : visao === 'status' ? (
-        <QuadroStatus tarefas={tarefas} hoje={hoje} pode={pode} onAbrir={abrir} onNova={(status) => setModal({ status })} onTrocarStatus={trocarStatus} />
+        <QuadroStatus tarefas={tarefas} hoje={hoje} perms={perms} onAbrir={abrir} onNova={(status) => setModal({ status })} onTrocarStatus={trocarStatus} />
       ) : visao === 'minhas' ? (
         minhas.length === 0 ? (
           <p className="card px-4 py-12 text-center text-sm text-slate-500">Nenhuma tarefa atribuída a você neste projeto.</p>
         ) : (
-          <TabelaTarefas lista={minhas} hoje={hoje} pode={pode} equipe={equipe} onAbrir={abrir} onMudar={(id, patch) => mudar.mutate({ id, patch })} />
+          <TabelaTarefas lista={minhas} hoje={hoje} perms={perms} equipe={equipe} onAbrir={abrir} onMudar={(id, patch) => mudar.mutate({ id, patch })} />
         )
       ) : (
-        <Checklist lista={ordenarTarefas(tarefas)} hoje={hoje} pode={pode} onAbrir={abrir} onAlternar={(t) => trocarStatus(t, alternarConcluida(t.status))} />
+        <Checklist lista={ordenadas} hoje={hoje} perms={perms} ordem={ordem} onAbrir={abrir} onAlternar={(t) => trocarStatus(t, alternarConcluida(t.status))} />
       )}
 
       <TarefaModal
@@ -151,14 +166,33 @@ export function TarefasProjeto({ projeto, grupo }: { projeto: Projeto; grupo: Gr
         tarefa={modal?.tarefa}
         statusInicial={modal?.status}
         responsavelInicialId={visao === 'minhas' ? perfil?.id : undefined}
-        somenteLeitura={!pode}
-        podeExcluir={modal?.tarefa ? podeExcluirTarefa(modal.tarefa, projeto, perfil?.id, ehAdmin) || grupo.responsavelId === perfil?.id : false}
+        perms={perms}
       />
     </div>
   )
 }
 
 // ---------------------------------------------------------------------------
+
+interface Ordem {
+  ids: string[]
+  ocupado: boolean
+  mover: (id: string, passo: -1 | 1) => void
+}
+
+function Setas({ t, ordem }: { t: Tarefa; ordem: Ordem }) {
+  const i = ordem.ids.indexOf(t.id)
+  return <SetasOrdem nome={t.titulo} primeiro={i === 0} ultimo={i === ordem.ids.length - 1} ocupado={ordem.ocupado} onMover={(passo) => ordem.mover(t.id, passo)} />
+}
+
+function SeloConferencia({ t }: { t: Tarefa }) {
+  if (!t.conferencia) return null
+  return (
+    <span className="ml-1.5 inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-violet-100 px-2 py-0.5 align-middle text-[10px] font-semibold text-violet-700 dark:bg-violet-500/20 dark:text-violet-300" title={t.conferidaPorNome ? `Por ${t.conferidaPorNome}` : undefined}>
+      <Check className="h-3 w-3" /> {rotuloConferencia(t.conferencia)}
+    </span>
+  )
+}
 
 function PillStatus({ status }: { status: StatusTarefa }) {
   const i = infoStatus(status)
@@ -193,26 +227,29 @@ const seletorPill = 'rounded-full border-0 py-0.5 pl-2.5 pr-6 text-xs font-mediu
 function TabelaTarefas({
   lista,
   hoje,
-  pode,
+  perms,
+  ordem,
   equipe,
   onAbrir,
   onMudar,
 }: {
   lista: Tarefa[]
   hoje: string
-  pode: boolean
+  perms: PermissoesTarefa
+  ordem?: Ordem
   equipe: { id: string; nome: string }[]
   onAbrir: (t: Tarefa) => void
   onMudar: (id: string, patch: Partial<DadosTarefa>) => void
 }) {
   return (
     <div className="card overflow-x-auto">
-      <table className="w-full min-w-[720px] text-left text-sm">
+      <table className="w-full min-w-[840px] text-left text-sm">
         <thead>
           <tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400 dark:border-slate-800">
             <th className="px-4 py-3 font-semibold">Tarefa</th>
             <th className="px-3 py-3 font-semibold">Status</th>
             <th className="px-3 py-3 font-semibold">Responsável</th>
+            <th className="px-3 py-3 font-semibold">Início</th>
             <th className="px-3 py-3 font-semibold">Entrega</th>
             <th className="px-3 py-3 font-semibold">Prioridade</th>
           </tr>
@@ -221,21 +258,27 @@ function TabelaTarefas({
           {lista.map((t) => (
             <tr key={t.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
               <td className="max-w-[320px] px-4 py-2.5">
-                <button type="button" onClick={() => onAbrir(t)} className={cn('text-left font-medium hover:text-brand-600', t.status === 'concluido' ? 'text-slate-400 line-through' : 'text-slate-800 dark:text-slate-100')}>
-                  {t.titulo}
-                </button>
+                <span className="flex items-center gap-2">
+                  {ordem && <Setas t={t} ordem={ordem} />}
+                  <span className="min-w-0">
+                    <button type="button" onClick={() => onAbrir(t)} className={cn('text-left font-medium hover:text-brand-600', t.status === 'concluido' ? 'text-slate-400 line-through' : 'text-slate-800 dark:text-slate-100')}>
+                      {t.titulo}
+                    </button>
+                    <SeloConferencia t={t} />
+                  </span>
+                </span>
               </td>
               <td className="px-3 py-2.5">
-                {pode ? (
+                {statusPermitidos(t.status, perms).length > 1 ? (
                   <select
                     value={t.status}
                     onChange={(e) => onMudar(t.id, { status: e.target.value as StatusTarefa })}
                     aria-label={`Status de ${t.titulo}`}
                     className={cn(seletorPill, infoStatus(t.status).pill)}
                   >
-                    {STATUS_TAREFA.map((s) => (
-                      <option key={s.value} value={s.value}>
-                        {s.label}
+                    {statusPermitidos(t.status, perms).map((s) => (
+                      <option key={s} value={s}>
+                        {infoStatus(s).label}
                       </option>
                     ))}
                   </select>
@@ -244,7 +287,7 @@ function TabelaTarefas({
                 )}
               </td>
               <td className="px-3 py-2.5">
-                {pode ? (
+                {perms.editar ? (
                   <select
                     value={t.responsavelId ?? ''}
                     onChange={(e) => onMudar(t.id, { responsavelId: e.target.value || undefined })}
@@ -264,11 +307,26 @@ function TabelaTarefas({
                 )}
               </td>
               <td className="px-3 py-2.5">
-                {pode ? (
+                {perms.editar ? (
+                  <input
+                    type="date"
+                    value={t.dataInicio ?? ''}
+                    max={t.dataEntrega}
+                    onChange={(e) => onMudar(t.id, { dataInicio: e.target.value || undefined })}
+                    aria-label={`Início de ${t.titulo}`}
+                    className="rounded-lg border border-transparent bg-transparent px-1 py-0.5 text-xs text-slate-600 hover:border-slate-200 focus:border-brand-500 dark:text-slate-300 dark:hover:border-slate-700"
+                  />
+                ) : (
+                  <span className="text-xs text-slate-600 dark:text-slate-300">{t.dataInicio ? formatDateOnlyBR(t.dataInicio) : '—'}</span>
+                )}
+              </td>
+              <td className="px-3 py-2.5">
+                {perms.editar ? (
                   <div className="flex flex-col items-start gap-0.5">
                     <input
                       type="date"
                       value={t.dataEntrega ?? ''}
+                      min={t.dataInicio}
                       onChange={(e) => onMudar(t.id, { dataEntrega: e.target.value || undefined })}
                       aria-label={`Entrega de ${t.titulo}`}
                       className={cn('rounded-lg border border-transparent bg-transparent px-1 py-0.5 text-xs hover:border-slate-200 focus:border-brand-500 dark:hover:border-slate-700', atrasada(t, hoje) ? 'font-semibold text-red-600 dark:text-red-400' : 'text-slate-600 dark:text-slate-300')}
@@ -293,14 +351,14 @@ function TabelaTarefas({
 function QuadroStatus({
   tarefas,
   hoje,
-  pode,
+  perms,
   onAbrir,
   onNova,
   onTrocarStatus,
 }: {
   tarefas: Tarefa[]
   hoje: string
-  pode: boolean
+  perms: PermissoesTarefa
   onAbrir: (t: Tarefa) => void
   onNova: (status: StatusTarefa) => void
   onTrocarStatus: (t: Tarefa, s: StatusTarefa) => void
@@ -316,7 +374,8 @@ function QuadroStatus({
           <section
             key={col.value}
             onDragOver={(e) => {
-              if (!pode || !arrastando) return
+              const t = tarefas.find((x) => x.id === arrastando)
+              if (!t || !statusPermitidos(t.status, perms).includes(col.value)) return
               e.preventDefault()
               setSobre(col.value)
             }}
@@ -324,7 +383,7 @@ function QuadroStatus({
             onDrop={(e) => {
               e.preventDefault()
               const t = tarefas.find((x) => x.id === arrastando)
-              if (t && t.status !== col.value) onTrocarStatus(t, col.value)
+              if (t && t.status !== col.value && statusPermitidos(t.status, perms).includes(col.value)) onTrocarStatus(t, col.value)
               setArrastando(null)
               setSobre(null)
             }}
@@ -341,33 +400,34 @@ function QuadroStatus({
               {itens.map((t) => (
                 <article
                   key={t.id}
-                  draggable={pode}
+                  draggable={statusPermitidos(t.status, perms).length > 1}
                   onDragStart={() => setArrastando(t.id)}
                   onDragEnd={() => {
                     setArrastando(null)
                     setSobre(null)
                   }}
-                  className={cn('rounded-xl border border-slate-200 bg-white p-3 shadow-card dark:border-slate-700 dark:bg-slate-900', pode && 'cursor-grab active:cursor-grabbing', arrastando === t.id && 'opacity-50')}
+                  className={cn('rounded-xl border border-slate-200 bg-white p-3 shadow-card dark:border-slate-700 dark:bg-slate-900', statusPermitidos(t.status, perms).length > 1 && 'cursor-grab active:cursor-grabbing', arrastando === t.id && 'opacity-50')}
                 >
                   <button type="button" onClick={() => onAbrir(t)} className={cn('block w-full text-left text-sm font-medium', t.status === 'concluido' ? 'text-slate-400 line-through' : 'text-slate-800 dark:text-slate-100')}>
                     {t.titulo}
                   </button>
+                  <SeloConferencia t={t} />
                   <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
                     <Responsavel t={t} />
                     <Entrega t={t} hoje={hoje} />
                   </div>
                   <div className="mt-2 flex items-center justify-between gap-2">
                     <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', infoPrioridade(t.prioridade).pill)}>{infoPrioridade(t.prioridade).label}</span>
-                    {pode && (
+                    {statusPermitidos(t.status, perms).length > 1 && (
                       <select
                         value={t.status}
                         onChange={(e) => onTrocarStatus(t, e.target.value as StatusTarefa)}
                         aria-label={`Mover ${t.titulo} para`}
                         className="rounded-lg border border-slate-200 bg-transparent py-0.5 pl-1.5 pr-6 text-[11px] text-slate-500 dark:border-slate-700 lg:hidden"
                       >
-                        {STATUS_TAREFA.map((s) => (
-                          <option key={s.value} value={s.value}>
-                            {s.label}
+                        {statusPermitidos(t.status, perms).map((s) => (
+                          <option key={s} value={s}>
+                            {infoStatus(s).label}
                           </option>
                         ))}
                       </select>
@@ -375,7 +435,7 @@ function QuadroStatus({
                   </div>
                 </article>
               ))}
-              {pode && (
+              {perms.criar && (perms.gestor || col.value !== 'concluido') && (
                 <button type="button" onClick={() => onNova(col.value)} className="flex w-full items-center gap-1.5 rounded-xl px-2 py-2 text-sm text-slate-400 hover:bg-white/70 hover:text-brand-600 dark:hover:bg-slate-800/60">
                   <Plus className="h-4 w-4" /> Adicionar tarefa
                 </button>
@@ -389,14 +449,16 @@ function QuadroStatus({
 }
 
 // ---- Checklist ----
-function Checklist({ lista, hoje, pode, onAbrir, onAlternar }: { lista: Tarefa[]; hoje: string; pode: boolean; onAbrir: (t: Tarefa) => void; onAlternar: (t: Tarefa) => void }) {
+function Checklist({ lista, hoje, perms, ordem, onAbrir, onAlternar }: { lista: Tarefa[]; hoje: string; perms: PermissoesTarefa; ordem?: Ordem; onAbrir: (t: Tarefa) => void; onAlternar: (t: Tarefa) => void }) {
   const pendentes = lista.filter((t) => t.status !== 'concluido')
   const feitas = lista.filter((t) => t.status === 'concluido')
   const linha = (t: Tarefa) => (
     <li key={t.id} className="flex items-center gap-3 px-3 py-2.5">
+      {ordem && <Setas t={t} ordem={ordem} />}
       <button
         type="button"
-        disabled={!pode}
+        disabled={!perms.gestor}
+        title={perms.gestor ? undefined : 'Só o responsável pelo projeto ou o administrador conclui tarefas'}
         onClick={() => onAlternar(t)}
         aria-label={t.status === 'concluido' ? `Reabrir ${t.titulo}` : `Concluir ${t.titulo}`}
         className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors disabled:cursor-default', t.status === 'concluido' ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 hover:border-brand-500 dark:border-slate-600')}
@@ -408,6 +470,7 @@ function Checklist({ lista, hoje, pode, onAbrir, onAlternar }: { lista: Tarefa[]
         <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5">
           {t.status !== 'concluido' && t.status !== 'nao_iniciado' && <PillStatus status={t.status} />}
           <Entrega t={t} hoje={hoje} />
+          <SeloConferencia t={t} />
         </span>
       </button>
       <Responsavel t={t} />

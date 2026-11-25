@@ -70,7 +70,7 @@ export function ProjetoEditarModal({
   }, [open, projeto])
 
   // Links do projeto (Drive e grupo de conversa): só a equipe vê; só o dono/admin altera.
-  const { data: links } = useQuery({ queryKey: ['projeto-links', projeto.id], queryFn: () => obterLinksProjeto(projeto.id), enabled: open && total })
+  const { data: links } = useQuery({ queryKey: ['projeto-links', projeto.id], queryFn: () => obterLinksProjeto(projeto.id), enabled: open && podeCampo('links') })
   useEffect(() => {
     if (!open || !links) return
     setDriveUrl(links.driveUrl ?? '')
@@ -81,8 +81,8 @@ export function ProjetoEditarModal({
     mutationFn: async () => {
       const patch: ConteudoProjeto = {}
       if (podeCampo('descricao')) patch.descricao = descricao
-      if (total) {
-        patch.titulo = titulo
+      if (total) patch.titulo = titulo
+      if (podeCampo('cronograma')) {
         patch.status = status
         patch.dataInicio = dataInicio || undefined
         patch.dataFimPrevista = dataFimPrevista || undefined
@@ -90,11 +90,9 @@ export function ProjetoEditarModal({
       if (podeCampo('trl')) patch.trl = trl ? (Number(trl) as TRL) : undefined
       if (podeCampo('dadosTecnicos')) patch.dadosTecnicos = dadosTecnicos
       if (podeCampo('observacoes')) patch.observacoes = observacoes
-      await atualizarConteudoProjeto(projeto.id, patch)
-      if (total && responsavelId) {
-        await atualizarEstruturaProjeto(projeto.id, { responsavelId, pesquisadoresIds: membrosIds, camposEditaveisMembros: camposLiberados })
-        await salvarLinksProjeto(projeto.id, { driveUrl, grupoUrl })
-      }
+      if (Object.keys(patch).length > 0) await atualizarConteudoProjeto(projeto.id, patch)
+      if (podeCampo('links') && links) await salvarLinksProjeto(projeto.id, { driveUrl, grupoUrl })
+      if (total && responsavelId) await atualizarEstruturaProjeto(projeto.id, { responsavelId, pesquisadoresIds: membrosIds, camposEditaveisMembros: camposLiberados })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['projetos'] })
@@ -104,7 +102,7 @@ export function ProjetoEditarModal({
     onError: (e) => setErro(mensagemErro(e)),
   })
 
-  const semPermissao = !total && !(['trl', 'dadosTecnicos', 'descricao', 'observacoes'] as const).some(podeCampo)
+  const semPermissao = !total && !(['trl', 'dadosTecnicos', 'descricao', 'observacoes', 'cronograma', 'links'] as const).some(podeCampo)
 
   return (
     <Modal
@@ -136,15 +134,17 @@ export function ProjetoEditarModal({
       }
     >
       {semPermissao ? (
-        <p className="py-6 text-center text-sm text-slate-500">Você pode acompanhar este projeto e criar tarefas, mas só o criador e o responsável editam os dados dele.</p>
+        <p className="py-6 text-center text-sm text-slate-500">Os dados deste projeto são editados pelo criador, pelo responsável ou por quem eles liberarem.</p>
       ) : (
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {total && (
+              <Field label="Título">
+                <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} />
+              </Field>
+            )}
+            {podeCampo('cronograma') && (
               <>
-                <Field label="Título">
-                  <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} />
-                </Field>
                 <Field label="Status">
                   <Select value={status} onChange={(e) => setStatus(e.target.value as StatusProjeto)}>
                     {STATUS_PROJETO.map((s) => (
@@ -175,7 +175,7 @@ export function ProjetoEditarModal({
               </Field>
             )}
           </div>
-          {total && (
+          {podeCampo('links') && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="Link do Google Drive do projeto" hint="Só a equipe do projeto vê este link.">
                 <Input value={driveUrl} onChange={(e) => setDriveUrl(e.target.value)} placeholder="https://drive.google.com/drive/folders/…" inputMode="url" />

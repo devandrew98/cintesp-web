@@ -1,15 +1,18 @@
 import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronDown, ExternalLink, FolderOpen, Layers, Lock, Pencil, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { GrupoModal } from './GrupoModal'
 import { ProgressoBar } from './ProgressoBar'
+import { SetasOrdem } from './SetasOrdem'
 import { TarefasProjeto } from './TarefasProjeto'
-import { listarGrupos } from '@/data/grupos'
+import { listarGrupos, reordenarGrupos } from '@/data/grupos'
 import { listarTarefas } from '@/data/tarefas'
 import { usePermissoes } from '@/hooks/usePermissoes'
-import { podeCriarGrupo, podeGerenciarGrupo, podeVerGrupo, progressoGrupo, progressoProjeto, type GrupoTarefas } from '@/lib/grupos'
-import { cn } from '@/lib/utils'
+import { podeCriarGrupo, podeEditarGrupo, podeExcluirGrupo, podeVerGrupo, progressoGrupo, progressoProjeto, type GrupoTarefas } from '@/lib/grupos'
+import { ehGestorProjeto } from '@/lib/projetos'
+import { moverNaOrdem } from '@/lib/tarefas'
+import { cn, mensagemErro } from '@/lib/utils'
 import type { Projeto } from '@/types'
 
 type AbaGrupo = 'tarefas' | 'detalhes'
@@ -30,6 +33,11 @@ export function GruposProjeto({ projeto }: { projeto: Projeto }) {
   const visiveis = useMemo(() => grupos.filter((g) => podeVerGrupo(g, projeto, perfil?.id, ehAdmin)), [grupos, projeto, perfil?.id, ehAdmin])
   const doProjeto = useMemo(() => progressoProjeto(tarefas), [tarefas])
   const podeCriar = podeCriarGrupo(projeto, perfil?.id, ehAdmin)
+  const gestor = ehGestorProjeto(projeto, perfil?.id, ehAdmin)
+
+  const qc = useQueryClient()
+  const ordenar = useMutation({ mutationFn: reordenarGrupos, onSettled: () => qc.invalidateQueries({ queryKey: ['grupos', projeto.id] }) })
+  const mover = (id: string, passo: -1 | 1) => ordenar.mutate(moverNaOrdem(visiveis.map((g) => g.id), id, passo))
 
   return (
     <div className="space-y-4">
@@ -47,6 +55,8 @@ export function GruposProjeto({ projeto }: { projeto: Projeto }) {
         )}
       </div>
 
+      {ordenar.error != null && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-300">{mensagemErro(ordenar.error)}</p>}
+
       {isLoading ? (
         <p className="py-12 text-center text-sm text-slate-400">Carregando grupos…</p>
       ) : visiveis.length === 0 ? (
@@ -56,13 +66,22 @@ export function GruposProjeto({ projeto }: { projeto: Projeto }) {
         </div>
       ) : (
         <div className="space-y-3">
-          {visiveis.map((g) => (
-            <CartaoGrupo key={g.id} grupo={g} projeto={projeto} aberto={Boolean(abertos[g.id])} onAlternar={() => setAbertos((a) => ({ ...a, [g.id]: !a[g.id] }))} progresso={progressoGrupo(tarefas, g.id).percentual} onEditar={() => setModal({ grupo: g })} />
+          {visiveis.map((g, i) => (
+            <div key={g.id} className="flex items-start gap-1.5">
+              {gestor && visiveis.length > 1 && (
+                <span className="mt-3">
+                  <SetasOrdem nome={g.titulo} primeiro={i === 0} ultimo={i === visiveis.length - 1} ocupado={ordenar.isPending} onMover={(passo) => mover(g.id, passo)} />
+                </span>
+              )}
+              <div className="min-w-0 flex-1">
+                <CartaoGrupo grupo={g} projeto={projeto} aberto={Boolean(abertos[g.id])} onAlternar={() => setAbertos((a) => ({ ...a, [g.id]: !a[g.id] }))} progresso={progressoGrupo(tarefas, g.id).percentual} onEditar={() => setModal({ grupo: g })} />
+              </div>
+            </div>
           ))}
         </div>
       )}
 
-      <GrupoModal open={modal !== null} onClose={() => setModal(null)} projeto={projeto} grupo={modal?.grupo} podeGerenciar={modal?.grupo ? podeGerenciarGrupo(modal.grupo, projeto, perfil?.id, ehAdmin) : true} />
+      <GrupoModal open={modal !== null} onClose={() => setModal(null)} projeto={projeto} grupo={modal?.grupo} podeSalvar={modal?.grupo ? podeEditarGrupo(modal.grupo, projeto, perfil?.id, ehAdmin) : podeCriar} podeExcluir={modal?.grupo ? podeExcluirGrupo(modal.grupo, projeto, perfil?.id, ehAdmin) : false} />
     </div>
   )
 }
@@ -70,7 +89,7 @@ export function GruposProjeto({ projeto }: { projeto: Projeto }) {
 function CartaoGrupo({ grupo, projeto, aberto, onAlternar, progresso, onEditar }: { grupo: GrupoTarefas; projeto: Projeto; aberto: boolean; onAlternar: () => void; progresso: number; onEditar: () => void }) {
   const { perfil, ehAdmin } = usePermissoes()
   const [aba, setAba] = useState<AbaGrupo>('tarefas')
-  const gerencia = podeGerenciarGrupo(grupo, projeto, perfil?.id, ehAdmin)
+  const gerencia = podeEditarGrupo(grupo, projeto, perfil?.id, ehAdmin) || podeExcluirGrupo(grupo, projeto, perfil?.id, ehAdmin)
 
   return (
     <section className="card overflow-hidden border-l-4 border-l-brand-500">

@@ -4,8 +4,6 @@ import {
   atrasada,
   minhasTarefas,
   ordenarTarefas,
-  podeExcluirTarefa,
-  podeGerenciarTarefas,
   resumoTarefas,
   tarefasDoStatus,
   validarTarefa,
@@ -13,23 +11,6 @@ import {
 } from './tarefas'
 
 const t = (p: Partial<Tarefa>): Tarefa => ({ id: 'x', projetoId: 'p', titulo: 'T', status: 'nao_iniciado', prioridade: 'media', criadoEm: '2026-11-01T00:00:00Z', ...p })
-
-describe('permissões', () => {
-  const proj = { criadoPorId: 'dono', responsavelId: 'resp', pesquisadores: [{ usuarioId: 'resp', papel: 'responsavel' as const }, { usuarioId: 'membro', papel: 'membro' as const }] }
-  it('gerenciar: admin, criador, responsável e vinculados', () => {
-    for (const u of ['dono', 'resp', 'membro']) expect(podeGerenciarTarefas(proj, u)).toBe(true)
-    expect(podeGerenciarTarefas(proj, 'estranho')).toBe(false)
-    expect(podeGerenciarTarefas(proj, 'estranho', true)).toBe(true)
-    expect(podeGerenciarTarefas(proj, undefined)).toBe(false)
-  })
-  it('excluir: dono do projeto, autor da tarefa ou admin (membro comum não apaga tarefa alheia)', () => {
-    const tarefa = { criadoPorId: 'membro2' }
-    expect(podeExcluirTarefa(tarefa, proj, 'dono')).toBe(true)
-    expect(podeExcluirTarefa(tarefa, proj, 'membro2')).toBe(true)
-    expect(podeExcluirTarefa(tarefa, proj, 'membro')).toBe(false)
-    expect(podeExcluirTarefa(tarefa, proj, 'membro', true)).toBe(true)
-  })
-})
 
 describe('consultas', () => {
   it('atrasada: só se tem prazo vencido e não concluída', () => {

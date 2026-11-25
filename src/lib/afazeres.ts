@@ -34,6 +34,10 @@ export interface ItemAfazer {
   dataEntrega?: string
   projetoId?: string
   projetoTitulo?: string
+  /** Tarefa de projeto: para quais status posso levar. Ausente = qualquer um (tarefa pessoal). */
+  permitidos?: StatusTarefa[]
+  /** false = não posso mudar o prazo. */
+  podePrazo?: boolean
   criadoEm: string
 }
 

@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Check } from 'lucide-react'
 import { Field, Select } from '@/components/ui/Field'
-import { CAMPOS_EDITAVEIS_PROJETO } from '@/lib/projetos'
+import { GRUPOS_PERMISSOES } from '@/lib/projetos'
 import { cn } from '@/lib/utils'
 import type { CampoEditavelProjeto, Usuario } from '@/types'
 
@@ -47,7 +47,7 @@ export function EquipeCamposForm({
 
       <Field
         label={`Pesquisadores vinculados${membrosIds.length > 0 ? ` — ${membrosIds.length} selecionado(s)` : ''}`}
-        hint="Além do responsável. Todos veem o projeto; só quem está vinculado participa do chat."
+        hint="Além do responsável. Todos veem o projeto; só quem está vinculado vê o plano de trabalho."
       >
         {!responsavelId ? (
           <p className="text-xs text-slate-400">Escolha o responsável primeiro.</p>
@@ -85,31 +85,39 @@ export function EquipeCamposForm({
         )}
       </Field>
 
-      <Field
-        label="Campos que os demais vinculados podem editar"
-        hint="O criador, o responsável e o admin sempre podem editar tudo. Título, status e datas ficam restritos a eles."
-      >
-        <div className="flex flex-wrap gap-2">
-          {CAMPOS_EDITAVEIS_PROJETO.map((c) => {
-            const marcado = camposLiberados.includes(c.value)
-            return (
-              <button
-                key={c.value}
-                type="button"
-                onClick={() => onAlternarCampo(c.value)}
-                className={cn(
-                  'rounded-full px-3 py-1.5 text-sm font-medium transition-colors',
-                  marcado
-                    ? 'bg-brand-600 text-white'
-                    : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-700',
-                )}
-              >
-                {c.label}
-              </button>
-            )
-          })}
-        </div>
-      </Field>
+      {/* Não usa <Field>: ele é um <label>, e um clique no texto acionaria o primeiro botão. */}
+      <fieldset className="space-y-3">
+        <legend className="mb-1 text-sm font-medium text-slate-700 dark:text-slate-200">O que os colaboradores podem fazer</legend>
+        {GRUPOS_PERMISSOES.map((g) => (
+          <div key={g.titulo}>
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">{g.titulo}</p>
+            <div className="flex flex-wrap gap-2">
+              {g.opcoes.map((c) => {
+                const marcado = camposLiberados.includes(c.value)
+                return (
+                  <button
+                    key={c.value}
+                    type="button"
+                    aria-pressed={marcado}
+                    onClick={() => onAlternarCampo(c.value)}
+                    className={cn(
+                      'rounded-full px-3 py-1.5 text-sm font-medium transition-colors',
+                      marcado
+                        ? 'bg-brand-600 text-white'
+                        : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-700',
+                    )}
+                  >
+                    {c.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+        <p className="text-xs text-slate-500">
+          Sem nada marcado, o colaborador só consulta. O criador, o responsável e o administrador podem tudo — e só eles reordenam, concluem e conferem tarefas, mudam o título e a equipe.
+        </p>
+      </fieldset>
     </>
   )
 }

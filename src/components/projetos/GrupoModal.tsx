@@ -15,14 +15,16 @@ export function GrupoModal({
   onClose,
   projeto,
   grupo,
-  podeGerenciar,
+  podeSalvar,
+  podeExcluir,
 }: {
   open: boolean
   onClose: () => void
   projeto: Projeto
   /** Presente = edição. */
   grupo?: GrupoTarefas
-  podeGerenciar: boolean
+  podeSalvar: boolean
+  podeExcluir: boolean
 }) {
   const qc = useQueryClient()
   const [titulo, setTitulo] = useState('')
@@ -84,7 +86,7 @@ export function GrupoModal({
       subtitle="Um grupo reúne as tarefas de uma frente do projeto. O progresso dele vem das tarefas concluídas."
       footer={
         <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:items-center">
-          {grupo && podeGerenciar && (
+          {grupo && podeExcluir && (
             <Button variant={confirma ? 'danger' : 'ghost'} icon={Trash2} disabled={ocupado} onClick={() => (confirma ? excluir.mutate() : setConfirma(true))} className={confirma ? 'w-full sm:mr-auto sm:w-auto' : 'w-full text-red-600 sm:mr-auto sm:w-auto'}>
               {confirma ? 'Confirmar: apaga o grupo e as tarefas' : 'Excluir grupo'}
             </Button>
@@ -92,7 +94,7 @@ export function GrupoModal({
           <Button variant="secondary" onClick={onClose} className="w-full sm:w-auto">
             Cancelar
           </Button>
-          <Button onClick={() => salvar.mutate()} disabled={ocupado || !titulo.trim()} className="w-full sm:w-auto">
+          <Button onClick={() => salvar.mutate()} disabled={ocupado || !podeSalvar || !titulo.trim()} className="w-full sm:w-auto">
             {salvar.isPending ? 'Salvando…' : grupo ? 'Salvar' : 'Criar grupo'}
           </Button>
         </div>

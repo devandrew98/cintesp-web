@@ -1,10 +1,11 @@
 import { useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { atualizarTarefaPessoal, criarTarefaPessoal, listarTarefasPessoais } from '@/data/afazeres'
+import { listarProjetos } from '@/data/projetos'
 import { atualizarTarefa, listarTarefasAtribuidas } from '@/data/tarefas'
 import { usePermissoes } from '@/hooks/usePermissoes'
 import { deTarefaPessoal, deTarefaProjeto, type DadosTarefaPessoal, type ItemAfazer } from '@/lib/afazeres'
-import { alternarConcluida } from '@/lib/tarefas'
+import { alternarConcluida, permissoesTarefa, statusPermitidos } from '@/lib/tarefas'
 
 /**
  * Lista unificada dos meus afazeres: tarefas particulares + tarefas dos projetos em que
@@ -12,16 +13,22 @@ import { alternarConcluida } from '@/lib/tarefas'
  */
 export function useAfazeres() {
   const qc = useQueryClient()
-  const { perfil } = usePermissoes()
+  const { perfil, ehAdmin } = usePermissoes()
   const uid = perfil?.id
 
   const pessoais = useQuery({ queryKey: ['afazeres-tarefas'], queryFn: listarTarefasPessoais })
   const atribuidas = useQuery({ queryKey: ['afazeres-atribuidas', uid], queryFn: () => listarTarefasAtribuidas(uid!), enabled: Boolean(uid) })
 
-  const itens = useMemo<ItemAfazer[]>(
-    () => [...(pessoais.data ?? []).map(deTarefaPessoal), ...(atribuidas.data ?? []).map((a) => deTarefaProjeto(a.tarefa, a.projetoTitulo))],
-    [pessoais.data, atribuidas.data],
-  )
+  const projetos = useQuery({ queryKey: ['projetos'], queryFn: listarProjetos })
+
+  const itens = useMemo<ItemAfazer[]>(() => {
+    const deProjeto = (atribuidas.data ?? []).map((a) => {
+      const p = projetos.data?.find((x) => x.id === a.tarefa.projetoId)
+      const perms = p ? permissoesTarefa(p, uid, ehAdmin) : { gestor: false, andamento: false, editar: false }
+      return { ...deTarefaProjeto(a.tarefa, a.projetoTitulo), permitidos: statusPermitidos(a.tarefa.status, perms), podePrazo: perms.editar }
+    })
+    return [...(pessoais.data ?? []).map(deTarefaPessoal), ...deProjeto]
+  }, [pessoais.data, atribuidas.data, projetos.data, uid, ehAdmin])
 
   const recarregar = (item?: ItemAfazer) => {
     qc.invalidateQueries({ queryKey: ['afazeres-tarefas'] })

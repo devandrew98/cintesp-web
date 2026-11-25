@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { equipeDoGrupo, normalizarLink, podeCriarGrupo, podeGerenciarGrupo, podeVerGrupo, progressoGrupo, progressoProjeto, validarGrupo, type GrupoTarefas } from './grupos'
+import { equipeDoGrupo, normalizarLink, podeCriarGrupo, podeEditarGrupo, podeExcluirGrupo, podeVerGrupo, progressoGrupo, progressoProjeto, validarGrupo, type GrupoTarefas } from './grupos'
 import type { Tarefa } from './tarefas'
 
 const projeto = {
+  camposEditaveisMembros: [] as never[],
   criadoPorId: 'dono',
   responsavelId: 'resp',
   pesquisadores: [
@@ -31,17 +32,22 @@ describe('acesso aos grupos', () => {
     const g2 = grupo({ restrito: true, membros: [{ usuarioId: 'ana' }] })
     expect(podeVerGrupo(g2, projeto, 'bia')).toBe(false)
   })
-  it('gerencia: admin, dono, responsável e criador do grupo', () => {
+  it('editar e excluir: ADM do projeto/sistema; colaborador só se liberado (e se enxergar o grupo)', () => {
     const g = grupo({ responsavelId: 'ana', criadoPorId: 'bia' })
-    expect(podeGerenciarGrupo(g, projeto, 'ana')).toBe(true)
-    expect(podeGerenciarGrupo(g, projeto, 'bia')).toBe(true)
-    expect(podeGerenciarGrupo(g, projeto, 'dono')).toBe(true)
-    expect(podeGerenciarGrupo(g, projeto, 'resp')).toBe(true)
-    expect(podeGerenciarGrupo(g, projeto, 'x')).toBe(false)
-    expect(podeGerenciarGrupo(g, projeto, 'x', true)).toBe(true)
+    expect(podeEditarGrupo(g, projeto, 'dono')).toBe(true)
+    expect(podeExcluirGrupo(g, projeto, 'resp')).toBe(true)
+    expect(podeEditarGrupo(g, projeto, 'ana')).toBe(false)
+    expect(podeExcluirGrupo(g, projeto, 'bia')).toBe(false)
+    expect(podeEditarGrupo(g, projeto, 'x', true)).toBe(true)
+    const liberado = { ...projeto, camposEditaveisMembros: ['gruposEditar'] as never }
+    expect(podeEditarGrupo(g, liberado, 'ana')).toBe(true)
+    expect(podeExcluirGrupo(g, liberado, 'ana')).toBe(false)
+    expect(podeEditarGrupo(grupo({ restrito: true }), liberado, 'ana')).toBe(false)
   })
-  it('cria grupos: equipe sim, de fora não', () => {
-    expect(podeCriarGrupo(projeto, 'ana')).toBe(true)
+  it('cria grupos: só ADM, ou colaborador liberado', () => {
+    expect(podeCriarGrupo(projeto, 'resp')).toBe(true)
+    expect(podeCriarGrupo(projeto, 'ana')).toBe(false)
+    expect(podeCriarGrupo({ ...projeto, camposEditaveisMembros: ['gruposCriar'] as never }, 'ana')).toBe(true)
     expect(podeCriarGrupo(projeto, 'x')).toBe(false)
   })
 })

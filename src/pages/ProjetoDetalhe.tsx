@@ -11,21 +11,22 @@ import { CapaEditorModal } from '@/components/projetos/CapaEditorModal'
 import { ProjetoChat } from '@/components/projetos/ProjetoChat'
 import { ProjetoEditarModal } from '@/components/projetos/ProjetoEditarModal'
 import { GruposProjeto } from '@/components/projetos/GruposProjeto'
+import { GraficosProjeto } from '@/components/projetos/graficos/GraficosProjeto'
 import { excluirProjeto, listarProjetos } from '@/data/projetos'
 import { listarUsuarios } from '@/data/api'
 import { obterLinksProjeto } from '@/data/grupos'
 import { usePermissoes } from '@/hooks/usePermissoes'
 import { ehEquipeProjeto } from '@/lib/grupos'
-import { ehDonoProjeto, rotuloTRL, statusProjetoInfo } from '@/lib/projetos'
+import { ehDonoProjeto, podeNoProjeto, rotuloTRL, statusProjetoInfo } from '@/lib/projetos'
 import { cn, formatDateOnlyBR, mensagemErro } from '@/lib/utils'
 
 const CHAT_ATIVO = false
 
-type Aba = 'tarefas' | 'detalhes' | 'chat'
+type Aba = 'tarefas' | 'graficos' | 'detalhes' | 'chat'
 
 /**
  * Página do projeto (tela inteira): capa, título, responsável, equipe e abas
- * Tarefas · Detalhes · Chat. Só o dono (criador/responsável) e o admin trocam a capa e editam o projeto.
+ * Plano de trabalho · Gráficos · Detalhes. Capa e edição: dono, admin ou quem eles liberarem.
  */
 export function ProjetoDetalhePage() {
   const { id } = useParams()
@@ -69,13 +70,16 @@ export function ProjetoDetalhePage() {
   const souDono = ehDonoProjeto(projeto, perfil?.id)
   const souMembro = Boolean(perfil?.id && projeto.pesquisadores.some((v) => v.usuarioId === perfil.id))
   const total = ehAdmin || souDono
-  const podeEditar = total || (souMembro && projeto.camposEditaveisMembros.length > 0)
+  const pode = (p: Parameters<typeof podeNoProjeto>[1]) => podeNoProjeto(projeto, p, perfil?.id, ehAdmin)
+  const podeEditar = total || (['trl', 'dadosTecnicos', 'descricao', 'observacoes', 'cronograma', 'links'] as const).some(pode)
+  const podeCapa = pode('capa')
   const podeChat = total || souMembro
   const st = statusProjetoInfo[projeto.status]
   const tone = st.tone as 'green' | 'amber' | 'blue' | 'red' | 'slate'
 
   const abas: { id: Aba; label: string; icon?: typeof Users }[] = [
     { id: 'tarefas', label: 'Plano de trabalho' },
+    { id: 'graficos', label: 'Gráficos' },
     { id: 'detalhes', label: 'Detalhes' },
     // Chat oculto por enquanto (o grupo de WhatsApp assumiu o papel). Para reativar: CHAT_ATIVO = true.
     ...(CHAT_ATIVO && podeChat ? [{ id: 'chat' as const, label: 'Chat', icon: MessageSquare }] : []),
@@ -94,7 +98,7 @@ export function ProjetoDetalhePage() {
         ) : (
           <FolderKanban className="absolute right-6 top-1/2 h-24 w-24 -translate-y-1/2 text-white/20" />
         )}
-        {total && (
+        {podeCapa && (
           <button type="button" onClick={() => setEditandoCapa(true)} className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-xl bg-black/55 px-3 py-1.5 text-sm font-medium text-white backdrop-blur hover:bg-black/70">
             <Camera className="h-4 w-4" />
             Editar capa
@@ -150,7 +154,7 @@ export function ProjetoDetalhePage() {
       {erro && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-300">{erro}</p>}
 
       {/* Abas */}
-      <div className="mt-6 flex gap-1 overflow-x-auto border-b border-slate-200 dark:border-slate-800" role="tablist">
+      <div className="mt-6 flex gap-1 overflow-x-auto overflow-y-hidden border-b border-slate-200 dark:border-slate-800" role="tablist">
         {abas.map((a) => (
           <button
             key={a.id}
@@ -174,6 +178,16 @@ export function ProjetoDetalhePage() {
             <div className="card flex flex-col items-center gap-2 px-4 py-14 text-center">
               <Lock className="h-8 w-8 text-slate-300" />
               <p className="text-sm text-slate-500">Os grupos, as tarefas e os arquivos do projeto são só da equipe vinculada a ele.</p>
+            </div>
+          ))}
+
+        {aba === 'graficos' &&
+          (equipeDoProjeto ? (
+            <GraficosProjeto projeto={projeto} />
+          ) : (
+            <div className="card flex flex-col items-center gap-2 px-4 py-14 text-center">
+              <Lock className="h-8 w-8 text-slate-300" />
+              <p className="text-sm text-slate-500">Os gráficos mostram as tarefas e são só da equipe vinculada ao projeto.</p>
             </div>
           ))}
 
@@ -216,7 +230,7 @@ export function ProjetoDetalhePage() {
         {CHAT_ATIVO && aba === 'chat' && podeChat && <ProjetoChat projeto={projeto} />}
       </div>
 
-      {total && <CapaEditorModal open={editandoCapa} onClose={() => setEditandoCapa(false)} projetoId={projeto.id} capaAtualUrl={projeto.capaUrl} aoSalvar={() => qc.invalidateQueries({ queryKey: ['projetos'] })} />}
+      {podeCapa && <CapaEditorModal open={editandoCapa} onClose={() => setEditandoCapa(false)} projetoId={projeto.id} capaAtualUrl={projeto.capaUrl} aoSalvar={() => qc.invalidateQueries({ queryKey: ['projetos'] })} />}
       <ProjetoEditarModal projeto={projeto} open={editando} onClose={() => setEditando(false)} usuarios={usuarios} onExcluir={() => setExcluindo(true)} />
       <ConfirmDialog
         open={excluindo}

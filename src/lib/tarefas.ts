@@ -1,3 +1,4 @@
+import { ehGestorProjeto, podeNoProjeto } from '@/lib/projetos'
 import type { Projeto } from '@/types'
 
 /**
@@ -8,6 +9,8 @@ import type { Projeto } from '@/types'
 export type StatusTarefa = 'nao_iniciado' | 'em_andamento' | 'aguardando' | 'concluido'
 export type PrioridadeTarefa = 'baixa' | 'media' | 'alta'
 export type VisaoTarefas = 'tabela' | 'status' | 'minhas' | 'checklist'
+/** Marca opcional do ADM sobre uma tarefa concluída. */
+export type Conferencia = 'revisada' | 'conferida'
 
 export interface Tarefa {
   id: string
@@ -21,15 +24,27 @@ export interface Tarefa {
   responsavelId?: string
   responsavelNome?: string
   responsavelFotoUrl?: string
+  /** Início previsto ("yyyy-mm-dd"). */
+  dataInicio?: string
   /** Prazo de entrega ("yyyy-mm-dd"). */
   dataEntrega?: string
+  /** Posição dada pelo ADM dentro do grupo (0 = sem ordem definida). */
+  ordem?: number
+  conferencia?: Conferencia
+  conferidaPorNome?: string
   criadoPorId?: string
   criadoPorNome?: string
   criadoEm: string
   atualizadoEm?: string
 }
 
-export type DadosTarefa = Pick<Tarefa, 'titulo' | 'descricao' | 'status' | 'prioridade' | 'responsavelId' | 'dataEntrega'>
+export type DadosTarefa = Pick<Tarefa, 'titulo' | 'descricao' | 'status' | 'prioridade' | 'responsavelId' | 'dataInicio' | 'dataEntrega' | 'conferencia'>
+
+export const CONFERENCIAS: { value: Conferencia; label: string }[] = [
+  { value: 'revisada', label: 'Revisada' },
+  { value: 'conferida', label: 'Conferida' },
+]
+export const rotuloConferencia = (c: Conferencia): string => CONFERENCIAS.find((x) => x.value === c)!.label
 
 export const STATUS_TAREFA: { value: StatusTarefa; label: string; pill: string; ponto: string; coluna: string }[] = [
   { value: 'nao_iniciado', label: 'Não iniciado', pill: 'bg-slate-100 text-slate-700 dark:bg-slate-700/50 dark:text-slate-300', ponto: 'bg-slate-400', coluna: 'bg-slate-50 dark:bg-slate-900/60' },
@@ -58,16 +73,46 @@ export const infoPrioridade = (p: PrioridadeTarefa) => PRIORIDADES.find((x) => x
 // Permissões
 // ---------------------------------------------------------------------------
 
-/** Cria e edita tarefas: admin, dono (criador/responsável) e pesquisadores vinculados ao projeto. */
-export function podeGerenciarTarefas(p: Pick<Projeto, 'criadoPorId' | 'responsavelId' | 'pesquisadores'>, usuarioId?: string, ehAdmin = false): boolean {
-  if (ehAdmin) return true
-  if (!usuarioId) return false
-  return p.criadoPorId === usuarioId || p.responsavelId === usuarioId || p.pesquisadores.some((v) => v.usuarioId === usuarioId)
+type ProjetoPermissoes = Pick<Projeto, 'criadoPorId' | 'responsavelId' | 'pesquisadores' | 'camposEditaveisMembros'>
+
+export interface PermissoesTarefa {
+  /** ADM do projeto/sistema: reordena, conclui, reabre e marca revisada/conferida. */
+  gestor: boolean
+  criar: boolean
+  /** Título, descrição, datas, prioridade e responsável. */
+  editar: boolean
+  /** Mudar o status entre as etapas não concluídas. */
+  andamento: boolean
+  excluir: boolean
 }
 
-/** Exclui uma tarefa: admin, dono do projeto ou quem criou a tarefa. */
-export const podeExcluirTarefa = (t: Pick<Tarefa, 'criadoPorId'>, p: Pick<Projeto, 'criadoPorId' | 'responsavelId'>, usuarioId?: string, ehAdmin = false): boolean =>
-  ehAdmin || (Boolean(usuarioId) && (p.criadoPorId === usuarioId || p.responsavelId === usuarioId || t.criadoPorId === usuarioId))
+export function permissoesTarefa(p: ProjetoPermissoes, usuarioId?: string, ehAdmin = false): PermissoesTarefa {
+  const editar = podeNoProjeto(p, 'tarefasEditar', usuarioId, ehAdmin)
+  return {
+    gestor: ehGestorProjeto(p, usuarioId, ehAdmin),
+    criar: podeNoProjeto(p, 'tarefasCriar', usuarioId, ehAdmin),
+    editar,
+    andamento: editar || podeNoProjeto(p, 'tarefasAndamento', usuarioId, ehAdmin),
+    excluir: podeNoProjeto(p, 'tarefasExcluir', usuarioId, ehAdmin),
+  }
+}
+
+/** Status para os quais esta pessoa pode levar a tarefa (sempre inclui o atual). */
+export function statusPermitidos(atual: StatusTarefa, p: Pick<PermissoesTarefa, 'gestor' | 'andamento'>): StatusTarefa[] {
+  if (p.gestor) return STATUS_TAREFA.map((s) => s.value)
+  if (!p.andamento || atual === 'concluido') return [atual]
+  return STATUS_TAREFA.map((s) => s.value).filter((s) => s !== 'concluido')
+}
+
+/** Troca a posição de um item com o vizinho (-1 sobe, +1 desce) e devolve a nova lista de ids. */
+export function moverNaOrdem(ids: string[], id: string, passo: -1 | 1): string[] {
+  const i = ids.indexOf(id)
+  const j = i + passo
+  if (i < 0 || j < 0 || j >= ids.length) return ids
+  const novo = [...ids]
+  ;[novo[i], novo[j]] = [novo[j], novo[i]]
+  return novo
+}
 
 // ---------------------------------------------------------------------------
 // Consultas
@@ -76,9 +121,10 @@ export const podeExcluirTarefa = (t: Pick<Tarefa, 'criadoPorId'>, p: Pick<Projet
 /** Passou do prazo e ainda não foi concluída. */
 export const atrasada = (t: Pick<Tarefa, 'dataEntrega' | 'status'>, hoje: string): boolean => Boolean(t.dataEntrega) && t.status !== 'concluido' && t.dataEntrega! < hoje
 
-/** Por prazo (sem prazo por último), depois pela criação. */
+/** Pela ordem definida pelo ADM; sem ordem, por prazo (sem prazo por último) e pela criação. */
 export function ordenarTarefas(lista: Tarefa[]): Tarefa[] {
   return [...lista].sort((a, b) => {
+    if ((a.ordem ?? 0) !== (b.ordem ?? 0)) return (a.ordem ?? 0) - (b.ordem ?? 0)
     if (a.dataEntrega && b.dataEntrega && a.dataEntrega !== b.dataEntrega) return a.dataEntrega.localeCompare(b.dataEntrega)
     if (a.dataEntrega && !b.dataEntrega) return -1
     if (!a.dataEntrega && b.dataEntrega) return 1
@@ -97,8 +143,10 @@ export function resumoTarefas(lista: Tarefa[]): { total: number; concluidas: num
 /** Alterna o item do checklist: concluído ⇄ não iniciado. */
 export const alternarConcluida = (s: StatusTarefa): StatusTarefa => (s === 'concluido' ? 'nao_iniciado' : 'concluido')
 
-export function validarTarefa(d: Pick<DadosTarefa, 'titulo'>): string | null {
-  return d.titulo.trim() ? null : 'Informe o título da tarefa.'
+export function validarTarefa(d: Pick<DadosTarefa, 'titulo' | 'dataInicio' | 'dataEntrega'>): string | null {
+  if (!d.titulo.trim()) return 'Informe o título da tarefa.'
+  if (d.dataInicio && d.dataEntrega && d.dataEntrega < d.dataInicio) return 'A entrega não pode ser antes do início.'
+  return null
 }
 
 const CHAVE_VISAO = 'cintesp:projeto-visao-tarefas'

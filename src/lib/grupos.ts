@@ -1,4 +1,4 @@
-import { ehDonoProjeto } from '@/lib/projetos'
+import { ehDonoProjeto, podeNoProjeto } from '@/lib/projetos'
 import { resumoTarefas, type Tarefa } from '@/lib/tarefas'
 import type { Projeto } from '@/types'
 
@@ -40,6 +40,7 @@ export interface DadosGrupo {
 }
 
 type ProjetoMin = Pick<Projeto, 'criadoPorId' | 'responsavelId' | 'pesquisadores'>
+type ProjetoPermissoes = ProjetoMin & Pick<Projeto, 'camposEditaveisMembros'>
 type GrupoMin = Pick<GrupoTarefas, 'responsavelId' | 'criadoPorId' | 'restrito' | 'membros'>
 
 const souEquipe = (p: ProjetoMin, uid?: string): boolean => Boolean(uid) && (ehDonoProjeto(p, uid) || p.pesquisadores.some((v) => v.usuarioId === uid))
@@ -55,12 +56,15 @@ export function podeVerGrupo(g: GrupoMin, p: ProjetoMin, uid?: string, ehAdmin =
   return !g.restrito && souEquipe(p, uid)
 }
 
-/** Edita o grupo (título, acesso, link) e o exclui. */
-export const podeGerenciarGrupo = (g: Pick<GrupoTarefas, 'responsavelId' | 'criadoPorId'>, p: ProjetoMin, uid?: string, ehAdmin = false): boolean =>
-  ehAdmin || (Boolean(uid) && (ehDonoProjeto(p, uid) || g.responsavelId === uid || g.criadoPorId === uid))
+/** Edita o grupo (título, acesso, link): ADM do projeto/sistema, ou colaborador liberado que vê o grupo. */
+export const podeEditarGrupo = (g: GrupoMin, p: ProjetoPermissoes, uid?: string, ehAdmin = false): boolean =>
+  podeVerGrupo(g, p, uid, ehAdmin) && podeNoProjeto(p, 'gruposEditar', uid, ehAdmin)
 
-/** Cria grupos novos: admin, dono e pesquisadores vinculados. */
-export const podeCriarGrupo = (p: ProjetoMin, uid?: string, ehAdmin = false): boolean => ehEquipeProjeto(p, uid, ehAdmin)
+export const podeExcluirGrupo = (g: GrupoMin, p: ProjetoPermissoes, uid?: string, ehAdmin = false): boolean =>
+  podeVerGrupo(g, p, uid, ehAdmin) && podeNoProjeto(p, 'gruposExcluir', uid, ehAdmin)
+
+/** Cria grupos novos: ADM do projeto/sistema, ou colaborador liberado. */
+export const podeCriarGrupo = (p: ProjetoPermissoes, uid?: string, ehAdmin = false): boolean => podeNoProjeto(p, 'gruposCriar', uid, ehAdmin)
 
 /** Quem pode ser responsável por uma tarefa do grupo (num grupo restrito: só quem tem acesso a ele). */
 export function equipeDoGrupo(g: GrupoMin, p: Pick<Projeto, 'pesquisadores'>): { id: string; nome: string }[] {
