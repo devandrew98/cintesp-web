@@ -6,6 +6,7 @@ import { SectionCard } from '@/components/ui/SectionCard'
 import { AssinaturaForm } from '@/components/assinatura/AssinaturaForm'
 import { AssinaturaPreview } from '@/components/assinatura/AssinaturaPreview'
 import { AssinaturaCodigo } from '@/components/assinatura/AssinaturaCodigo'
+import { AssinaturaSislab } from '@/components/assinatura/AssinaturaSislab'
 import { usePermissoes } from '@/hooks/usePermissoes'
 import { mensagemErro } from '@/lib/utils'
 import {
@@ -20,8 +21,13 @@ import {
   type DadosAssinatura,
 } from '@/lib/assinaturaEmail'
 
+const MODELOS = [
+  { id: 'cintesp', label: 'CINTESP.Br' },
+  { id: 'sislab', label: 'SisLAB' },
+] as const
+
 /**
- * "Assinatura de E-mail" — gera a assinatura padrão do CINTESP.Br a partir
+ * "Assinatura de E-mail" — gera a assinatura padrão do CINTESP.Br (ou da SisLAB) a partir
  * de um formulário. Tudo roda no navegador (sem backend/banco): o HTML é
  * montado na hora com tabelas + estilo inline, pronto pra colar no Gmail ou
  * Outlook, com ou sem formatação. A logo vai sempre embutida (base64) —
@@ -29,6 +35,7 @@ import {
  */
 export function AssinaturaEmailPage() {
   const { perfil } = usePermissoes()
+  const [modelo, setModelo] = useState<(typeof MODELOS)[number]['id']>('cintesp')
 
   const [dados, setDados] = useState<DadosAssinatura>(valoresPadraoAssinatura)
 
@@ -182,10 +189,26 @@ export function AssinaturaEmailPage() {
     <div>
       <PageHeader
         title="Assinatura de E-mail"
-        subtitle="Gere sua assinatura padrão do CINTESP.Br — pronta para colar no Gmail ou Outlook."
+        subtitle="Gere sua assinatura padrão do CINTESP.Br ou da SisLAB — pronta para colar no Gmail ou Outlook."
       />
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[420px_1fr]">
+      <div className="mb-4 inline-flex rounded-xl border border-slate-200 p-1 dark:border-slate-700" role="group" aria-label="Modelo de assinatura">
+        {MODELOS.map((m) => (
+          <button
+            key={m.id}
+            type="button"
+            aria-pressed={modelo === m.id}
+            onClick={() => setModelo(m.id)}
+            className={`rounded-lg px-4 py-1.5 text-sm font-medium ${modelo === m.id ? 'bg-brand-600 text-white' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'}`}
+          >
+            {m.label}
+          </button>
+        ))}
+      </div>
+
+      {modelo === 'sislab' && <AssinaturaSislab />}
+
+      <div className={modelo === 'cintesp' ? 'grid grid-cols-1 gap-6 lg:grid-cols-[420px_1fr]' : 'hidden'}>
         <SectionCard
           title={
             <span className="flex items-center gap-2">
@@ -220,7 +243,7 @@ export function AssinaturaEmailPage() {
           )}
         </SectionCard>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <SectionCard title="Pré-visualização" bodyClassName="p-5">
             <AssinaturaPreview html={html} />
           </SectionCard>
